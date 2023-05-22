@@ -3,7 +3,7 @@ import { Inter } from 'next/font/google'
 import { Nunito } from 'next/font/google'
 import Navbar from './components/navbar/Navbar'
 import ClientOnly from './components/ClientOnly'
-import RegisterModal from './components/Modals/RegisterModal'
+import RegisterModal from './components/modals/RegisterModal'
 import ToasterProvider from './providers/ToasterProvider'
 
 const inter = Inter({ subsets: ['latin'] })
