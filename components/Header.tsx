@@ -49,8 +49,11 @@ const handleLogout = () => {
         <div className='flex justify-between items-center gap-x-4'>
           <>
             <div>
-              <Button>
+              <Button className="bg-transparent text-neutral-300 font-medium">
                 Sign up
+              </Button>
+              <Button className="bg-white px-6 py-2">
+                Log in
               </Button>
             </div>
           </>
