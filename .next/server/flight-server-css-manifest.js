@@ -1,15 +1,1 @@
-self.__RSC_CSS_MANIFEST={
-  "cssImports": {
-    "/project/19_spotify-clone/app/layout.tsx": [
-      "/project/19_spotify-clone/node_modules/next/font/google/target.css?{\"path\":\"app/layout.tsx\",\"import\":\"Inter\",\"arguments\":[{\"subsets\":[\"latin\"]}],\"variableName\":\"inter\"}",
-      "/project/19_spotify-clone/node_modules/next/font/google/target.css?{\"path\":\"app/layout.tsx\",\"import\":\"Nunito\",\"arguments\":[{\"subsets\":[\"latin\"]}],\"variableName\":\"font\"}",
-      "/project/19_spotify-clone/app/globals.css"
-    ]
-  },
-  "cssModules": {
-    "/project/19_spotify-clone/app/page": [
-      "/project/19_spotify-clone/app/globals.css",
-      "/project/19_spotify-clone/node_modules/next/font/google/target.css?{\"path\":\"app/layout.tsx\",\"import\":\"Nunito\",\"arguments\":[{\"subsets\":[\"latin\"]}],\"variableName\":\"font\"}"
-    ]
-  }
-}
+self.__RSC_CSS_MANIFEST="{\n  \"cssImports\": {\n    \"/project/home/icpceduu/workspace/app/layout.tsx\": [\n      \"/project/home/icpceduu/workspace/node_modules/next/font/google/target.css?{\\\"path\\\":\\\"app/layout.tsx\\\",\\\"import\\\":\\\"Figtree\\\",\\\"arguments\\\":[{\\\"subsets\\\":[\\\"latin\\\"]}],\\\"variableName\\\":\\\"figtree\\\"}\",\n      \"/project/home/icpceduu/workspace/app/globals.css\"\n    ]\n  },\n  \"cssModules\": {\n    \"/project/home/icpceduu/workspace/app/page\": [\n      \"/project/home/icpceduu/workspace/app/globals.css\",\n      \"/project/home/icpceduu/workspace/node_modules/next/font/google/target.css?{\\\"path\\\":\\\"app/layout.tsx\\\",\\\"import\\\":\\\"Figtree\\\",\\\"arguments\\\":[{\\\"subsets\\\":[\\\"latin\\\"]}],\\\"variableName\\\":\\\"figtree\\\"}\"\n    ]\n  }\n}"
