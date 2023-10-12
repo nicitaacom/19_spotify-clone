@@ -1,0 +1,21 @@
+# {
+#   "trailingComma": "none",
+#   "printWidth": 120,
+#   "semi": false,
+#   "tabWidth": 2,
+#   "singleQuote": false,
+#   "bracketSameLine": true,
+#   "bracketSpacing": false,
+#   "singleAttributePerLine": false,
+#   "arrowParens": "avoid",
+#   "endOfLine": "crlf"
+# }
+
+printWidth: 120 #https://i.imgur.com/4R3sG7H.png
+semi: false #https://i.imgur.com/cIQYB4m.png
+tabWidth: 2 #https://i.imgur.com/JNZQMad.png
+singleQuote: false #https://i.imgur.com/KCRIRIQ.png
+bracketSameLine: true #https://i.imgur.com/xiNXxVQ.png
+bracketSpacing: true #https://i.imgur.com/KQDFSvO.png
+singleAttributePerLine: false #https://i.imgur.com/mWlisKK.png
+arrowParens: "avoid" #https://i.imgur.com/uqJZTWo.png
