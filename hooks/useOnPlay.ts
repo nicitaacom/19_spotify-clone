@@ -1,4 +1,5 @@
 import { Song } from "@/types"
+
 import usePlayer from "./usePlayer"
 import useAtuhModal from "./useAuthModal"
 import { useUser } from "@/hooks/useUser"
@@ -13,7 +14,7 @@ const useOnPlay = (songs: Song[]) => {
     if (!user) {
       return authModal.onOpen()
     }
-
+    console.log(16, "we are here")
     player.setId(id)
     player.setIds(songs.map(song => song.id))
   }

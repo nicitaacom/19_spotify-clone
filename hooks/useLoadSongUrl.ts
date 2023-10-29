@@ -8,7 +8,8 @@ const useLoadSongUrl = (song: Song) => {
     return null
   }
 
-  const { data } = supabaseClient.storage.from("songs").getPublicUrl(song.song_path)
+  const { data: songData } = supabaseClient.storage.from("songs").getPublicUrl(song.song_path)
+  return songData.publicUrl
 }
 
 export default useLoadSongUrl
