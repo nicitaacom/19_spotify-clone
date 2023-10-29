@@ -1,8 +1,8 @@
 'use client'
 import { useEffect, useState } from "react"
 
-import AuthModal from "../components/AuthModal"
-import UploadModal from "../components/UploadModal"
+import AuthModal from "../../components/AuthModal"
+import UploadModal from "../../components/UploadModal"
 
 export default function ModalProvider () {
 
