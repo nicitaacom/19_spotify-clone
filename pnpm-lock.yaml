@@ -11,6 +11,9 @@ dependencies:
   '@radix-ui/react-slider':
     specifier: ^1.1.2
     version: 1.1.2(@types/react-dom@18.2.5)(@types/react@18.2.12)(react-dom@18.2.0)(react@18.2.0)
+  '@stripe/stripe-js':
+    specifier: ^2.1.10
+    version: 2.1.10
   '@supabase/auth-helpers-nextjs':
     specifier: ^0.8.3
     version: 0.8.3(@supabase/supabase-js@2.38.4)
@@ -23,6 +26,9 @@ dependencies:
   '@supabase/auth-ui-shared':
     specifier: ^0.1.8
     version: 0.1.8(@supabase/supabase-js@2.38.4)
+  '@supabase/supabase-js':
+    specifier: ^2.38.4
+    version: 2.38.4
   '@types/node':
     specifier: 20.3.1
     version: 20.3.1
@@ -708,6 +714,10 @@ packages:
 
   /@stitches/core@1.2.8:
     resolution: {integrity: sha512-Gfkvwk9o9kE9r9XNBmJRfV8zONvXThnm1tcuojL04Uy5uRyqg93DC83lDebl0rocZCfKSjUv+fWYtMQmEDJldg==}
+    dev: false
+
+  /@stripe/stripe-js@2.1.10:
+    resolution: {integrity: sha512-h79zhwvxAJVAvtVjtMoz++DtwI7GdcEItmTC0P2gciZoFUeAO6XX9DL+UXm9uADiEaUvTKqrExYwtBTlMYAaPA==}
     dev: false
 
   /@supabase/auth-helpers-nextjs@0.8.3(@supabase/supabase-js@2.38.4):
