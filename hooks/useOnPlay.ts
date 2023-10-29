@@ -1,24 +1,32 @@
-import { Song } from "@/types"
-import usePlayer from "./usePlayer"
-import useAtuhModal from "./useAuthModal"
-import { useUser } from "@/hooks/useUser"
+import { Song } from "@/types";
+
+import usePlayer from "./usePlayer";
+import useAuthModal from "./useAuthModal";
+import { useUser } from "./useUser";
+import useSubscribeModal from "./useSubscribeModal";
+import SubscribeModal from "@/components/SubscribeModal";
 
 const useOnPlay = (songs: Song[]) => {
-  const player = usePlayer()
 
-  const authModal = useAtuhModal()
-  const { user } = useUser()
+  const subscribeModal = useSubscribeModal()
+  const player = usePlayer();
+  const authModal = useAuthModal();
+  const { subscription, user } = useUser();
 
   const onPlay = (id: string) => {
     if (!user) {
-      return authModal.onOpen()
+      return authModal.onOpen();
     }
 
-    player.setId(id)
-    player.setIds(songs.map(song => song.id))
+    if (!subscription) {
+      return subscribeModal.onOpen()
+    }
+
+    player.setId(id);
+    player.setIds(songs.map((song) => song.id));
   }
 
-  return onPlay
-}
+  return onPlay;
+};
 
-export default useOnPlay
+export default useOnPlay;

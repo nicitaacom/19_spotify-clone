@@ -1,17 +1,20 @@
-import { useSupabaseClient } from "@supabase/auth-helpers-react"
+import { useSupabaseClient } from "@supabase/auth-helpers-react";
 
-import { Song } from "@/types"
+import { Song } from "@/types";
 
-const uploadImage = (song:Song) => {
-  const supabaseClient = useSupabaseClient()
-
+const useLoadImage = (song: Song) => {
+  const supabaseClient = useSupabaseClient();
+  
   if (!song) {
-    return null
+    return null;
   }
 
-  const {data:imageData} = supabaseClient.storage.from('images').getPublicUrl(song.image_path)
+  const { data: imageData } = supabaseClient
+    .storage
+    .from('images')
+    .getPublicUrl(song.image_path);
 
-  return imageData.publicUrl
-}
+  return imageData.publicUrl;
+};
 
-export default uploadImage
+export default useLoadImage;
