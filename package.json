@@ -11,7 +11,7 @@
   "dependencies": {
     "@radix-ui/react-dialog": "^1.0.5",
     "@radix-ui/react-slider": "^1.1.2",
-    "@stripe/stripe-js": "^2.1.10",
+    "@stripe/stripe-js": "^1.53.0",
     "@supabase/auth-helpers-nextjs": "^0.8.3",
     "@supabase/auth-helpers-react": "^0.4.2",
     "@supabase/auth-ui-react": "^0.4.6",
@@ -33,7 +33,7 @@
     "react-hot-toast": "^2.4.1",
     "react-icons": "^4.9.0",
     "react-spinners": "^0.13.8",
-    "stripe": "^14.2.0",
+    "stripe": "^12.7.0",
     "tailwind-merge": "^1.13.1",
     "tailwindcss": "3.3.2",
     "typescript": "5.1.3",

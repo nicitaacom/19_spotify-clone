@@ -12,8 +12,8 @@ dependencies:
     specifier: ^1.1.2
     version: 1.1.2(@types/react-dom@18.2.5)(@types/react@18.2.12)(react-dom@18.2.0)(react@18.2.0)
   '@stripe/stripe-js':
-    specifier: ^2.1.10
-    version: 2.1.10
+    specifier: ^1.53.0
+    version: 1.54.2
   '@supabase/auth-helpers-nextjs':
     specifier: ^0.8.3
     version: 0.8.3(@supabase/supabase-js@2.38.4)
@@ -78,8 +78,8 @@ dependencies:
     specifier: ^0.13.8
     version: 0.13.8(react-dom@18.2.0)(react@18.2.0)
   stripe:
-    specifier: ^14.2.0
-    version: 14.2.0
+    specifier: ^12.7.0
+    version: 12.18.0
   tailwind-merge:
     specifier: ^1.13.1
     version: 1.14.0
@@ -716,8 +716,8 @@ packages:
     resolution: {integrity: sha512-Gfkvwk9o9kE9r9XNBmJRfV8zONvXThnm1tcuojL04Uy5uRyqg93DC83lDebl0rocZCfKSjUv+fWYtMQmEDJldg==}
     dev: false
 
-  /@stripe/stripe-js@2.1.10:
-    resolution: {integrity: sha512-h79zhwvxAJVAvtVjtMoz++DtwI7GdcEItmTC0P2gciZoFUeAO6XX9DL+UXm9uADiEaUvTKqrExYwtBTlMYAaPA==}
+  /@stripe/stripe-js@1.54.2:
+    resolution: {integrity: sha512-R1PwtDvUfs99cAjfuQ/WpwJ3c92+DAMy9xGApjqlWQMj0FKQabUAys2swfTRNzuYAYJh7NqK2dzcYVNkKLEKUg==}
     dev: false
 
   /@supabase/auth-helpers-nextjs@0.8.3(@supabase/supabase-js@2.38.4):
@@ -3247,8 +3247,8 @@ packages:
     engines: {node: '>=8'}
     dev: false
 
-  /stripe@14.2.0:
-    resolution: {integrity: sha512-lMjDOyJbt+NVSDvkTathSP7uEV35l7oU8UrhBJrYD8lUi43BWujq8E9QHd3o9D2KPBR1Cze5DCw5s1btnLfdMA==}
+  /stripe@12.18.0:
+    resolution: {integrity: sha512-cYjgBM2SY/dTm8Lr6eMyyONaHTZHA/QjHxFUIW5WH8FevSRIGAVtXEmBkUXF1fsqe7QvvRgQSGSJZmjDacegGg==}
     engines: {node: '>=12.*'}
     dependencies:
       '@types/node': 20.3.1
