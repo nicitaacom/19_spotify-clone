@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react"
 import { AiOutlineHeart, AiFillHeart } from "react-icons/ai"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "react-hot-toast"
 import { useSessionContext } from "@supabase/auth-helpers-react"
 
 import { useUser } from "@/hooks/useUser"
-import useAuthModal from "@/hooks/useAuthModal"
+import { handleAuthAction } from "@/app/utils/handleAuthAction"
 
 interface LikeButtonProps {
   songId: string
@@ -15,9 +15,10 @@ interface LikeButtonProps {
 
 const LikeButton: React.FC<LikeButtonProps> = ({ songId }) => {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { supabaseClient } = useSessionContext()
-  const authModal = useAuthModal()
   const { user } = useUser()
+  const isIframe = searchParams.get("is_iframe") === "true"
 
   const [isLiked, setIsLiked] = useState<boolean>(false)
 
@@ -46,7 +47,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId }) => {
 
   const handleLike = async () => {
     if (!user) {
-      return authModal.onOpen()
+      return handleAuthAction({ isIframe })
     }
 
     if (isLiked) {

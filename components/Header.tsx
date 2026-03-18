@@ -1,6 +1,6 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { twMerge } from "tailwind-merge"
 import { useSupabaseClient } from "@supabase/auth-helpers-react"
 import { RxCaretLeft, RxCaretRight } from "react-icons/rx"
@@ -10,9 +10,9 @@ import { FaUserAlt } from "react-icons/fa"
 import toast from "react-hot-toast"
 
 import Button from "./Button"
-import useAuthModal from "@/hooks/useAuthModal"
 import { useUser } from "@/hooks/useUser"
 import usePlayer from "@/hooks/usePlayer"
+import { handleAuthAction } from "@/app/utils/handleAuthAction"
 
 interface HeaderProps {
   children: React.ReactNode
@@ -21,12 +21,12 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ children, className }) => {
   const player = usePlayer()
-  const authModal = useAuthModal()
-
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const supabaseClient = useSupabaseClient()
   const { user } = useUser()
+  const isIframe = searchParams.get("is_iframe") === "true"
 
   const handleLogout = async () => {
     const { error } = await supabaseClient.auth.signOut()
@@ -74,12 +74,12 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
           ) : (
             <>
               <div>
-                <Button className="bg-transparent text-neutral-300 font-medium" onClick={authModal.onOpen}>
+                <Button className="bg-transparent text-neutral-300 font-medium" onClick={() => handleAuthAction({ isIframe })}>
                   Sign up
                 </Button>
               </div>
               <div>
-                <Button className="bg-white px-6 py-2" onClick={authModal.onOpen}>
+                <Button className="bg-white px-6 py-2" onClick={() => handleAuthAction({ isIframe })}>
                   Log in
                 </Button>
               </div>

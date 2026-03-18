@@ -1,13 +1,14 @@
+import { useSearchParams } from "next/navigation"
 import { TbPlaylist } from "react-icons/tb"
 import { AiOutlinePlus } from "react-icons/ai"
 
-import useAuthModal from "@/hooks/useAuthModal"
 import { useUser } from "@/hooks/useUser"
 import useUploadModal from "@/hooks/useUploadModal"
 import { Song } from "@/types"
 import MediaItem from "./MediaItem"
 import useOnPlay from "@/hooks/useOnPlay"
 import useSubscribeModal from "@/hooks/useSubscribeModal"
+import { handleAuthAction } from "@/app/utils/handleAuthAction"
 
 interface LibraryProps {
   songs: Song[]
@@ -15,15 +16,16 @@ interface LibraryProps {
 
 const Library = ({ songs }: LibraryProps) => {
   const subscribeModal = useSubscribeModal()
-  const authModal = useAuthModal()
   const uploadModal = useUploadModal()
   const { user, subscription } = useUser()
+  const searchParams = useSearchParams()
+  const isIframe = searchParams.get("is_iframe") === "true"
 
   const onPlay = useOnPlay(songs)
 
   const onClick = () => {
     if (!user) {
-      return authModal.onOpen()
+      return handleAuthAction({ isIframe })
     }
     if (!subscription) {
       return subscribeModal.onOpen()
