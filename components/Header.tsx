@@ -12,7 +12,7 @@ import toast from "react-hot-toast"
 import Button from "./Button"
 import { useUser } from "@/hooks/useUser"
 import usePlayer from "@/hooks/usePlayer"
-import { handleAuthAction } from "@/app/utils/handleAuthAction"
+import { getProductionAuthUrl, handleAuthAction } from "@/app/utils/handleAuthAction"
 import { isIframeAuth } from "@/app/utils/isIframeAuth"
 
 interface HeaderProps {
@@ -28,6 +28,7 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
   const supabaseClient = useSupabaseClient()
   const { user } = useUser()
   const isIframe = isIframeAuth(searchParams)
+  const authUrl = getProductionAuthUrl()
 
   const handleLogout = async () => {
     const { error } = await supabaseClient.auth.signOut()
@@ -75,14 +76,34 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
           ) : (
             <>
               <div>
-                <Button className="bg-transparent text-neutral-300 font-medium" onClick={() => handleAuthAction({ isIframe })}>
-                  Sign up
-                </Button>
+                {isIframe && authUrl ? (
+                  <a
+                    className="w-full rounded-full bg-green-500 border border-transparent px-3 py-3 disabled:cursor-not-allowed disabled:opacity-50 text-black font-bold hover:opacity-75 transition bg-transparent text-neutral-300 font-medium"
+                    href={authUrl}
+                    target="_blank"
+                    rel="noreferrer">
+                    Sign up
+                  </a>
+                ) : (
+                  <Button className="bg-transparent text-neutral-300 font-medium" onClick={() => handleAuthAction({ isIframe })}>
+                    Sign up
+                  </Button>
+                )}
               </div>
               <div>
-                <Button className="bg-white px-6 py-2" onClick={() => handleAuthAction({ isIframe })}>
-                  Log in
-                </Button>
+                {isIframe && authUrl ? (
+                  <a
+                    className="w-full rounded-full bg-green-500 border border-transparent px-3 py-3 disabled:cursor-not-allowed disabled:opacity-50 text-black font-bold hover:opacity-75 transition bg-white px-6 py-2"
+                    href={authUrl}
+                    target="_blank"
+                    rel="noreferrer">
+                    Log in
+                  </a>
+                ) : (
+                  <Button className="bg-white px-6 py-2" onClick={() => handleAuthAction({ isIframe })}>
+                    Log in
+                  </Button>
+                )}
               </div>
             </>
           )}

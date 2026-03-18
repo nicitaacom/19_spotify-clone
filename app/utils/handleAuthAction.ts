@@ -7,7 +7,7 @@ type HandleAuthActionParams = {
   isIframe: boolean
 }
 
-const getProductionAuthUrl = () => {
+export const getProductionAuthUrl = () => {
   const baseUrl = process.env.NEXT_PUBLIC_PRODUCTION_URL
 
   if (!baseUrl) {
