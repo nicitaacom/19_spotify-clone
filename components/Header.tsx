@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { twMerge } from "tailwind-merge"
 import { useSupabaseClient } from "@supabase/auth-helpers-react"
@@ -76,13 +77,13 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
             <>
               <div>
                 {isIframe && authUrl ? (
-                  <a
+                  <Link
                     className="w-full rounded-full bg-green-500 border border-transparent px-3 py-3 disabled:cursor-not-allowed disabled:opacity-50 text-black font-bold hover:opacity-75 transition bg-transparent text-neutral-300 font-medium"
                     href={authUrl}
                     target="_blank"
                     rel="noreferrer">
                     Sign up
-                  </a>
+                  </Link>
                 ) : (
                   <Button className="bg-transparent text-neutral-300 font-medium" onClick={() => handleAuthAction({ isIframe })}>
                     Sign up
@@ -91,13 +92,13 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
               </div>
               <div>
                 {isIframe && authUrl ? (
-                  <a
+                  <Link
                     className="w-full rounded-full bg-green-500 border border-transparent px-3 py-3 disabled:cursor-not-allowed disabled:opacity-50 text-black font-bold hover:opacity-75 transition bg-white px-6 py-2"
                     href={authUrl}
                     target="_blank"
                     rel="noreferrer">
                     Log in
-                  </a>
+                  </Link>
                 ) : (
                   <Button className="bg-white px-6 py-2" onClick={() => handleAuthAction({ isIframe })}>
                     Log in
