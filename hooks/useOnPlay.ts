@@ -1,18 +1,16 @@
-import { useSearchParams } from "next/navigation"
 import { Song } from "@/types"
 
 import usePlayer from "./usePlayer"
+import useIsIframeAuth from "./useIsIframeAuth"
 import { useUser } from "./useUser"
 import useSubscribeModal from "./useSubscribeModal"
 import { handleAuthAction } from "@/app/utils/handleAuthAction"
-import { isIframeAuth } from "@/app/utils/isIframeAuth"
 
 const useOnPlay = (songs: Song[]) => {
   const subscribeModal = useSubscribeModal()
   const player = usePlayer()
   const { subscription, user } = useUser()
-  const searchParams = useSearchParams()
-  const isIframe = isIframeAuth(searchParams)
+  const isIframe = useIsIframeAuth()
 
   const onPlay = (id: string) => {
     if (!user) {

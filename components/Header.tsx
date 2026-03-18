@@ -1,6 +1,6 @@
 "use client"
 
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { twMerge } from "tailwind-merge"
 import { useSupabaseClient } from "@supabase/auth-helpers-react"
 import { RxCaretLeft, RxCaretRight } from "react-icons/rx"
@@ -13,7 +13,7 @@ import Button from "./Button"
 import { useUser } from "@/hooks/useUser"
 import usePlayer from "@/hooks/usePlayer"
 import { getProductionAuthUrl, handleAuthAction } from "@/app/utils/handleAuthAction"
-import { isIframeAuth } from "@/app/utils/isIframeAuth"
+import useIsIframeAuth from "@/hooks/useIsIframeAuth"
 
 interface HeaderProps {
   children: React.ReactNode
@@ -23,11 +23,10 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ children, className }) => {
   const player = usePlayer()
   const router = useRouter()
-  const searchParams = useSearchParams()
 
   const supabaseClient = useSupabaseClient()
   const { user } = useUser()
-  const isIframe = isIframeAuth(searchParams)
+  const isIframe = useIsIframeAuth()
   const authUrl = getProductionAuthUrl()
 
   const handleLogout = async () => {

@@ -8,7 +8,8 @@ type HandleAuthActionParams = {
 }
 
 export const getProductionAuthUrl = () => {
-  const baseUrl = process.env.NEXT_PUBLIC_PRODUCTION_URL
+  const baseUrl =
+    process.env.NEXT_PUBLIC_PRODUCTION_URL ?? (typeof window !== "undefined" ? window.location.origin : null)
 
   if (!baseUrl) {
     return null
