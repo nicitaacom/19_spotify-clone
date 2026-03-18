@@ -1,6 +1,7 @@
 "use client"
 
 import useAuthModal from "@/hooks/useAuthModal"
+import { isIframeAuthFromSearch } from "@/app/utils/isIframeAuth"
 
 type HandleAuthActionParams = {
   isIframe: boolean
@@ -26,7 +27,9 @@ export const handleAuthAction = ({ isIframe }: HandleAuthActionParams) => {
     return
   }
 
-  if (isIframe) {
+  const shouldOpenExternalAuth = isIframe || isIframeAuthFromSearch(window.location.search)
+
+  if (shouldOpenExternalAuth) {
     const authUrl = getProductionAuthUrl()
 
     if (authUrl) {
