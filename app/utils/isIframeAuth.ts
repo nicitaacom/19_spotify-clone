@@ -7,7 +7,10 @@ type SearchParamsLike = {
 const normalizeQueryValue = (value: string) => decodeURIComponent(value).trim().toLowerCase()
 
 export const isIframeAuth = (searchParams: SearchParamsLike) => {
-  for (const [rawKey, rawValue] of searchParams.entries()) {
+  const entries = Array.from(searchParams.entries())
+
+  for (let index = 0; index < entries.length; index += 1) {
+    const [rawKey, rawValue] = entries[index]
     const key = normalizeQueryValue(rawKey)
 
     if (key !== "is_iframe") {
