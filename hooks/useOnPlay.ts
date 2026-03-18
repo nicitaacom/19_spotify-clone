@@ -5,13 +5,14 @@ import usePlayer from "./usePlayer"
 import { useUser } from "./useUser"
 import useSubscribeModal from "./useSubscribeModal"
 import { handleAuthAction } from "@/app/utils/handleAuthAction"
+import { isIframeAuth } from "@/app/utils/isIframeAuth"
 
 const useOnPlay = (songs: Song[]) => {
   const subscribeModal = useSubscribeModal()
   const player = usePlayer()
   const { subscription, user } = useUser()
   const searchParams = useSearchParams()
-  const isIframe = searchParams.get("is_iframe") === "true"
+  const isIframe = isIframeAuth(searchParams)
 
   const onPlay = (id: string) => {
     if (!user) {

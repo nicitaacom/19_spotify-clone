@@ -9,6 +9,7 @@ import MediaItem from "./MediaItem"
 import useOnPlay from "@/hooks/useOnPlay"
 import useSubscribeModal from "@/hooks/useSubscribeModal"
 import { handleAuthAction } from "@/app/utils/handleAuthAction"
+import { isIframeAuth } from "@/app/utils/isIframeAuth"
 
 interface LibraryProps {
   songs: Song[]
@@ -19,7 +20,7 @@ const Library = ({ songs }: LibraryProps) => {
   const uploadModal = useUploadModal()
   const { user, subscription } = useUser()
   const searchParams = useSearchParams()
-  const isIframe = searchParams.get("is_iframe") === "true"
+  const isIframe = isIframeAuth(searchParams)
 
   const onPlay = useOnPlay(songs)
 

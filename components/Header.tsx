@@ -13,6 +13,7 @@ import Button from "./Button"
 import { useUser } from "@/hooks/useUser"
 import usePlayer from "@/hooks/usePlayer"
 import { handleAuthAction } from "@/app/utils/handleAuthAction"
+import { isIframeAuth } from "@/app/utils/isIframeAuth"
 
 interface HeaderProps {
   children: React.ReactNode
@@ -26,7 +27,7 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
 
   const supabaseClient = useSupabaseClient()
   const { user } = useUser()
-  const isIframe = searchParams.get("is_iframe") === "true"
+  const isIframe = isIframeAuth(searchParams)
 
   const handleLogout = async () => {
     const { error } = await supabaseClient.auth.signOut()

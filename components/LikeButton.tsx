@@ -8,6 +8,7 @@ import { useSessionContext } from "@supabase/auth-helpers-react"
 
 import { useUser } from "@/hooks/useUser"
 import { handleAuthAction } from "@/app/utils/handleAuthAction"
+import { isIframeAuth } from "@/app/utils/isIframeAuth"
 
 interface LikeButtonProps {
   songId: string
@@ -18,7 +19,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId }) => {
   const searchParams = useSearchParams()
   const { supabaseClient } = useSessionContext()
   const { user } = useUser()
-  const isIframe = searchParams.get("is_iframe") === "true"
+  const isIframe = isIframeAuth(searchParams)
 
   const [isLiked, setIsLiked] = useState<boolean>(false)
 
