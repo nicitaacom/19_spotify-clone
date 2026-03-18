@@ -75,7 +75,7 @@ const copyBillingDetailsToCustomer = async (uuid: string, payment_method: Stripe
   //@ts-ignore
   await stripe.customers.update(customer, { name, phone, address })
   const { error } = await supabaseAdmin
-    .from("users")
+    .from("users_19_spotify")
     .update({
       billing_address: { ...address },
       payment_method: { ...payment_method[payment_method.type] },
