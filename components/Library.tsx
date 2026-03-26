@@ -7,7 +7,6 @@ import useUploadModal from "@/hooks/useUploadModal"
 import { Song } from "@/types"
 import MediaItem from "./MediaItem"
 import useOnPlay from "@/hooks/useOnPlay"
-import useSubscribeModal from "@/hooks/useSubscribeModal"
 import { handleAuthAction } from "@/app/utils/handleAuthAction"
 
 interface LibraryProps {
@@ -15,9 +14,8 @@ interface LibraryProps {
 }
 
 const Library = ({ songs }: LibraryProps) => {
-  const subscribeModal = useSubscribeModal()
   const uploadModal = useUploadModal()
-  const { user, subscription } = useUser()
+  const { user } = useUser()
   const isIframe = useIsIframeAuth()
 
   const onPlay = useOnPlay(songs)
@@ -26,9 +24,7 @@ const Library = ({ songs }: LibraryProps) => {
     if (!user) {
       return handleAuthAction({ isIframe })
     }
-    if (!subscription) {
-      return subscribeModal.onOpen()
-    }
+
     return uploadModal.onOpen()
   }
 
@@ -45,7 +41,10 @@ const Library = ({ songs }: LibraryProps) => {
           size={20}
         />
       </div>
-      <div className="flex flex-col gap-y-2 mt-4 px-3">
+      <div className="mx-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200">
+        Music upload is available for everyone - try now!
+      </div>
+      <div className="mt-3 flex flex-col gap-y-2 px-3">
         {songs.map(song => (
           <MediaItem onClick={(id: string) => onPlay(id)} key={song.id} data={song} />
         ))}

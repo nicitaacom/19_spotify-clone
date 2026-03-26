@@ -13,7 +13,7 @@ import toast from "react-hot-toast"
 import Button from "./Button"
 import { useUser } from "@/hooks/useUser"
 import usePlayer from "@/hooks/usePlayer"
-import { getProductionAuthUrl, handleAuthAction } from "@/app/utils/handleAuthAction"
+import { getProductionAuthUrl, handleAuthAction, shouldUseExternalAuth } from "@/app/utils/handleAuthAction"
 import useIsIframeAuth from "@/hooks/useIsIframeAuth"
 
 interface HeaderProps {
@@ -29,6 +29,7 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
   const { user } = useUser()
   const isIframe = useIsIframeAuth()
   const authUrl = getProductionAuthUrl()
+  const shouldOpenExternalAuth = shouldUseExternalAuth({ isIframe })
 
   const handleLogout = async () => {
     const { error } = await supabaseClient.auth.signOut()
@@ -76,7 +77,7 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
           ) : (
             <>
               <div>
-                {isIframe && authUrl ? (
+                {shouldOpenExternalAuth && authUrl ? (
                   <Link
                     className="w-full rounded-full bg-green-500 border border-transparent px-3 py-3 disabled:cursor-not-allowed disabled:opacity-50 text-black font-bold hover:opacity-75 transition bg-transparent text-neutral-300 font-medium"
                     href={authUrl}
@@ -91,7 +92,7 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
                 )}
               </div>
               <div>
-                {isIframe && authUrl ? (
+                {shouldOpenExternalAuth && authUrl ? (
                   <Link
                     className="w-full rounded-full bg-green-500 border border-transparent px-3 py-3 disabled:cursor-not-allowed disabled:opacity-50 text-black font-bold hover:opacity-75 transition bg-white px-6 py-2"
                     href={authUrl}

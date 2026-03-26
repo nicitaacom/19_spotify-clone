@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation"
 
 import useUploadModal from "@/hooks/useUploadModal"
 import { useUser } from "@/hooks/useUser"
+import { getSafeStoragePath } from "@/libs/helpers"
 
 import Modal from "./Modal"
 import Input from "./Input"
@@ -51,11 +52,23 @@ const UploadModal = () => {
       }
 
       const uniqueID = uniqid()
+      const songPath = getSafeStoragePath({
+        prefix: "song",
+        value: values.title,
+        uniqueId: uniqueID,
+        fileName: songFile.name,
+      })
+      const imagePath = getSafeStoragePath({
+        prefix: "image",
+        value: values.title,
+        uniqueId: uniqueID,
+        fileName: imageFile.name,
+      })
 
       // Upload song
       const { data: songData, error: songError } = await supabaseClient.storage
         .from("songs")
-        .upload(`song-${values.title}-${uniqueID}`, songFile, {
+        .upload(songPath, songFile, {
           cacheControl: "3600",
           upsert: false,
         })
@@ -68,7 +81,7 @@ const UploadModal = () => {
       // Upload image
       const { data: imageData, error: imageError } = await supabaseClient.storage
         .from("images")
-        .upload(`image-${values.title}-${uniqueID}`, imageFile, {
+        .upload(imagePath, imageFile, {
           cacheControl: "3600",
           upsert: false,
         })

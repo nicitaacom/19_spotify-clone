@@ -40,10 +40,20 @@ export interface Customer {
 
 export interface UserDetails {
   id: string
-  first_name: string
-  last_name: string
+  created_at?: string
+  email: string
+  email_verified_at?: string | null
   full_name?: string
+  encrypted_password?: string | null
+  is_otp_enabled?: boolean
   avatar_url?: string
+  otp_encrypted_secret?: string | null
+  phone?: string | null
+  phone_verified_at?: string | null
+  providers?: string[]
+  roles?: string[]
+  username: string
+  verification_email_sent_at?: string | null
   billing_address?: Stripe.Address
   payment_method?: Stripe.PaymentMethod[Stripe.PaymentMethod.Type]
 }

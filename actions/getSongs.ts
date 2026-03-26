@@ -4,8 +4,9 @@ import { cookies } from "next/headers"
 import { Song } from "@/types"
 
 const getSongs = async (): Promise<Song[]> => {
+  const cookieStore = await cookies()
   const supabase = createServerComponentClient({
-    cookies: cookies,
+    cookies: () => cookieStore,
   })
 
   const { data, error } = await supabase.from("songs").select("*").order("created_at", { ascending: false })

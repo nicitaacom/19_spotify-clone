@@ -1,13 +1,19 @@
-//This function may be user on client side and server side
-export const getURL = () => {
-  // if you change port - change it here as well
-  let url =
-    process.env.NODE_ENV === "development"
-      ? "http://localhost:3000"
-      : process.env.NEXT_PRODUCTION_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_VERCEL_URL
+// This function may be used on client side and server side.
+export const getURL = (path = "") => {
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NODE_ENV === "development"
+        ? "http://localhost:3000"
+        : process.env.NEXT_PUBLIC_PRODUCTION_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_VERCEL_URL ?? ""
 
-  url = url?.includes("http") ? url : `https://${url}`
-  url = url.charAt(url.length - 1) === "/" ? url : `${url}/`
+  if (!origin) {
+    return ""
+  }
 
-  return url
+  const normalizedOrigin = origin.includes("http") ? origin : `https://${origin}`
+  const normalizedPath = path.startsWith("/") ? path.slice(1) : path
+  const baseUrl = normalizedOrigin.charAt(normalizedOrigin.length - 1) === "/" ? normalizedOrigin : `${normalizedOrigin}/`
+
+  return normalizedPath ? `${baseUrl}${normalizedPath}` : baseUrl
 }

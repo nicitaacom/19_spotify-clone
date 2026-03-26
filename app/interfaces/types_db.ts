@@ -243,6 +243,74 @@ export type Database = {
           },
         ]
       }
+      users_19_spotify: {
+        Row: {
+          avatar_url: string | null
+          billing_address: Json | null
+          created_at: string
+          email: string
+          email_verified_at: string | null
+          encrypted_password: string | null
+          full_name: string | null
+          id: string
+          is_otp_enabled: boolean
+          otp_encrypted_secret: string | null
+          payment_method: Json | null
+          phone: string | null
+          phone_verified_at: string | null
+          providers: string[]
+          roles: string[]
+          username: string
+          verification_email_sent_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          billing_address?: Json | null
+          created_at?: string
+          email: string
+          email_verified_at?: string | null
+          encrypted_password?: string | null
+          full_name?: string | null
+          id: string
+          is_otp_enabled?: boolean
+          otp_encrypted_secret?: string | null
+          payment_method?: Json | null
+          phone?: string | null
+          phone_verified_at?: string | null
+          providers?: string[]
+          roles?: string[]
+          username: string
+          verification_email_sent_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          billing_address?: Json | null
+          created_at?: string
+          email?: string
+          email_verified_at?: string | null
+          encrypted_password?: string | null
+          full_name?: string | null
+          id?: string
+          is_otp_enabled?: boolean
+          otp_encrypted_secret?: string | null
+          payment_method?: Json | null
+          phone?: string | null
+          phone_verified_at?: string | null
+          providers?: string[]
+          roles?: string[]
+          username?: string
+          verification_email_sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       users: {
         Row: {
           avatar_url: string | null

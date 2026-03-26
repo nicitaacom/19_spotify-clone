@@ -7,6 +7,20 @@ type HandleAuthActionParams = {
   isIframe: boolean
 }
 
+export const shouldUseExternalAuth = ({ isIframe }: HandleAuthActionParams) => {
+  if (typeof window === "undefined") {
+    return false
+  }
+
+  const shouldUseIframeAuth = isIframe || isIframeAuthFromSearch(window.location.search)
+
+  try {
+    return shouldUseIframeAuth && window.self !== window.top
+  } catch {
+    return shouldUseIframeAuth
+  }
+}
+
 export const getProductionAuthUrl = () => {
   const baseUrl =
     process.env.NEXT_PUBLIC_PRODUCTION_URL ?? (typeof window !== "undefined" ? window.location.origin : null)
@@ -28,7 +42,7 @@ export const handleAuthAction = ({ isIframe }: HandleAuthActionParams) => {
     return
   }
 
-  const shouldOpenExternalAuth = isIframe || isIframeAuthFromSearch(window.location.search)
+  const shouldOpenExternalAuth = shouldUseExternalAuth({ isIframe })
 
   if (shouldOpenExternalAuth) {
     const authUrl = getProductionAuthUrl()

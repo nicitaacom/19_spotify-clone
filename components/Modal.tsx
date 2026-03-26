@@ -1,4 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog"
+import { twMerge } from "tailwind-merge"
 import { IoMdClose } from "react-icons/io"
 
 interface ModalProps {
@@ -7,22 +8,42 @@ interface ModalProps {
   title: string
   description: string
   children: React.ReactNode
+  contentClassName?: string
+  descriptionClassName?: string
+  overlayClassName?: string
+  titleClassName?: string
+  hideHeader?: boolean
 }
 
-const Modal: React.FC<ModalProps> = ({ isOpen, onChange, title, description, children }) => {
+const Modal: React.FC<ModalProps> = ({
+  isOpen,
+  onChange,
+  title,
+  description,
+  children,
+  contentClassName,
+  descriptionClassName,
+  overlayClassName,
+  titleClassName,
+  hideHeader = false,
+}) => {
   return (
     <Dialog.Root open={isOpen} defaultOpen={isOpen} onOpenChange={onChange}>
       <Dialog.Portal>
         <Dialog.Overlay
-          className="
+          className={twMerge(
+            `
             bg-neutral-900/90 
             backdrop-blur-sm 
             fixed 
             inset-0
-          "
+          `,
+            overlayClassName,
+          )}
         />
         <Dialog.Content
-          className="
+          className={twMerge(
+            `
             fixed 
             drop-shadow-md 
             border 
@@ -42,25 +63,39 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onChange, title, description, chi
             bg-neutral-800 
             p-[25px] 
             focus:outline-none
-          ">
+          `,
+            contentClassName,
+          )}>
           <Dialog.Title
-            className="
+            className={twMerge(
+              hideHeader
+                ? "sr-only"
+                : `
               text-xl 
               text-center 
               font-bold 
               mb-4
-            ">
+            `,
+              titleClassName,
+            )}>
             {title}
           </Dialog.Title>
-          <Dialog.Description
-            className="
+          {description ? (
+            <Dialog.Description
+              className={twMerge(
+                hideHeader
+                  ? "sr-only"
+                  : `
               mb-5 
               text-sm 
               leading-normal 
               text-center
-            ">
-            {description}
-          </Dialog.Description>
+            `,
+                descriptionClassName,
+              )}>
+              {description}
+            </Dialog.Description>
+          ) : null}
           <div>{children}</div>
           <Dialog.Close asChild>
             <button
