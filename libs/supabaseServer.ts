@@ -8,9 +8,15 @@ import {
 import { cookies } from "next/headers"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
-import type { GenericSchema } from "@supabase/supabase-js/dist/module/lib/types"
 
 type NextCookieStore = Awaited<ReturnType<typeof cookies>>
+
+interface SupabaseServerClientOptions {
+  supabaseUrl?: string
+  supabaseKey?: string
+  options?: SupabaseClientOptionsWithoutAuth<any>
+  cookieOptions?: CookieOptionsWithName
+}
 
 class NextServerComponentAuthStorageAdapter extends CookieAuthStorageAdapter {
   constructor(
@@ -53,31 +59,22 @@ class NextRouteHandlerAuthStorageAdapter extends CookieAuthStorageAdapter {
   }
 }
 
-const buildSupabaseClient = <
-  Database,
-  SchemaName extends string & keyof Database,
-  Schema extends GenericSchema,
->(
+const buildSupabaseClient = (
   storage: CookieAuthStorageAdapter,
   {
     supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL,
     supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     options,
     cookieOptions,
-  }: {
-    supabaseUrl?: string
-    supabaseKey?: string
-    options?: SupabaseClientOptionsWithoutAuth<SchemaName>
-    cookieOptions?: CookieOptionsWithName
-  } = {},
-): SupabaseClient<Database, SchemaName, Schema> => {
+  }: SupabaseServerClientOptions = {},
+): SupabaseClient => {
   if (!supabaseUrl || !supabaseKey) {
     throw new Error(
       "either NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY env variables or supabaseUrl and supabaseKey are required!",
     )
   }
 
-  return createSupabaseClient<Database, SchemaName, Schema>(supabaseUrl, supabaseKey, {
+  return (createSupabaseClient as any)(supabaseUrl, supabaseKey, {
     ...options,
     global: {
       ...options?.global,
@@ -90,73 +87,27 @@ const buildSupabaseClient = <
       storageKey: cookieOptions?.name,
       storage,
     },
-  })
+  }) as SupabaseClient
 }
 
-export async function createServerComponentClient<
-  Database = any,
-  SchemaName extends string & keyof Database = "public" extends keyof Database
-    ? "public"
-    : string & keyof Database,
-  Schema extends GenericSchema = Database[SchemaName] extends GenericSchema
-    ? Database[SchemaName]
-    : any,
->(
-  {
-    supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL,
-    supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    options,
-    cookieOptions,
-  }: {
-    supabaseUrl?: string
-    supabaseKey?: string
-    options?: SupabaseClientOptionsWithoutAuth<SchemaName>
-    cookieOptions?: CookieOptionsWithName
-  } = {},
-): Promise<SupabaseClient<Database, SchemaName, Schema>> {
+export async function createServerComponentClient<Database = any>(
+  options: SupabaseServerClientOptions = {},
+): Promise<SupabaseClient> {
   const cookieStore = await cookies()
 
-  return buildSupabaseClient<Database, SchemaName, Schema>(
-    new NextServerComponentAuthStorageAdapter(cookieStore, cookieOptions),
-    {
-      supabaseUrl,
-      supabaseKey,
-      options,
-      cookieOptions,
-    },
+  return buildSupabaseClient(
+    new NextServerComponentAuthStorageAdapter(cookieStore, options.cookieOptions),
+    options,
   )
 }
 
-export async function createRouteHandlerClient<
-  Database = any,
-  SchemaName extends string & keyof Database = "public" extends keyof Database
-    ? "public"
-    : string & keyof Database,
-  Schema extends GenericSchema = Database[SchemaName] extends GenericSchema
-    ? Database[SchemaName]
-    : any,
->(
-  {
-    supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL,
-    supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    options,
-    cookieOptions,
-  }: {
-    supabaseUrl?: string
-    supabaseKey?: string
-    options?: SupabaseClientOptionsWithoutAuth<SchemaName>
-    cookieOptions?: CookieOptionsWithName
-  } = {},
-): Promise<SupabaseClient<Database, SchemaName, Schema>> {
+export async function createRouteHandlerClient<Database = any>(
+  options: SupabaseServerClientOptions = {},
+): Promise<SupabaseClient> {
   const cookieStore = await cookies()
 
-  return buildSupabaseClient<Database, SchemaName, Schema>(
-    new NextRouteHandlerAuthStorageAdapter(cookieStore, cookieOptions),
-    {
-      supabaseUrl,
-      supabaseKey,
-      options,
-      cookieOptions,
-    },
+  return buildSupabaseClient(
+    new NextRouteHandlerAuthStorageAdapter(cookieStore, options.cookieOptions),
+    options,
   )
 }
