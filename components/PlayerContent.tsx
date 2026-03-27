@@ -25,9 +25,12 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
   const activeId = usePlayer(state => state.activeId)
   const songs = usePlayer(state => state.songs)
   const isLoading = usePlayer(state => state.isLoading)
+  const playbackCommand = usePlayer(state => state.playbackCommand)
+  const playbackCommandId = usePlayer(state => state.playbackCommandId)
   const setId = usePlayer(state => state.setId)
   const setActiveSong = usePlayer(state => state.setActiveSong)
   const setIsLoading = usePlayer(state => state.setIsLoading)
+  const setIsPlayingInStore = usePlayer(state => state.setIsPlaying)
   const [volume, setVolume] = useState(1)
   const [isPlaying, setIsPlaying] = useState(false)
 
@@ -78,15 +81,26 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     volume: volume,
     onplay: () => {
       setIsPlaying(true)
+      setIsPlayingInStore(true)
       setIsLoading(false)
     },
     onend: () => {
       setIsPlaying(false)
+      setIsPlayingInStore(false)
       onPlayNext()
     },
-    onpause: () => setIsPlaying(false),
-    onloaderror: () => setIsLoading(false),
-    onplayerror: () => setIsLoading(false),
+    onpause: () => {
+      setIsPlaying(false)
+      setIsPlayingInStore(false)
+    },
+    onloaderror: () => {
+      setIsPlayingInStore(false)
+      setIsLoading(false)
+    },
+    onplayerror: () => {
+      setIsPlayingInStore(false)
+      setIsLoading(false)
+    },
     format: ["mp3"],
   })
 
@@ -101,9 +115,25 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     sound?.play()
 
     return () => {
+      setIsPlayingInStore(false)
       sound?.unload()
     }
-  }, [setIsLoading, sound])
+  }, [setIsLoading, setIsPlayingInStore, sound])
+
+  useEffect(() => {
+    if (activeId !== song.id || isLoading || playbackCommandId === 0) {
+      return
+    }
+
+    if (playbackCommand === "pause" && isPlaying) {
+      pause()
+      return
+    }
+
+    if (playbackCommand === "play" && !isPlaying) {
+      play()
+    }
+  }, [activeId, isLoading, isPlaying, pause, play, playbackCommand, playbackCommandId, song.id])
 
   const handlePlay = () => {
     if (isLoading) {

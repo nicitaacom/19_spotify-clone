@@ -13,6 +13,7 @@ const PageContent: React.FC<PageContentProps> = ({ songs }) => {
   const onPlay = useOnPlay(songs)
   const activeId = usePlayer(state => state.activeId)
   const isPlayerLoading = usePlayer(state => state.isLoading)
+  const isPlayerPlaying = usePlayer(state => state.isPlaying)
 
   if (songs.length === 0) {
     return <div className="mt-4 text-neutral-400">No songs available.</div>
@@ -37,6 +38,7 @@ const PageContent: React.FC<PageContentProps> = ({ songs }) => {
           key={item.id}
           data={item}
           isLoading={isPlayerLoading && activeId === item.id}
+          isPlaying={isPlayerPlaying && activeId === item.id}
         />
       ))}
     </div>

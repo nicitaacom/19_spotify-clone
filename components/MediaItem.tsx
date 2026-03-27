@@ -25,9 +25,14 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick }) => {
         player.setActiveSong(data)
       }
 
+      if (!player.isLoading) {
+        player.requestPlaybackCommand(player.isPlaying ? "pause" : "play")
+      }
+
       return
     }
 
+    player.setIsPlaying(false)
     player.setActiveSong(data)
     player.setIsLoading(true)
     return player.setId(data.id)

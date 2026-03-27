@@ -25,9 +25,14 @@ const useOnPlay = (songs: Song[]) => {
         player.setActiveSong(selectedSong)
       }
 
+      if (!player.isLoading) {
+        player.requestPlaybackCommand(player.isPlaying ? "pause" : "play")
+      }
+
       return
     }
 
+    player.setIsPlaying(false)
     player.setId(id)
     player.setActiveSong(selectedSong)
     player.setIsLoading(true)

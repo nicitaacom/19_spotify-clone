@@ -1,4 +1,5 @@
 import { MouseEvent } from "react"
+import { BsPauseFill } from "react-icons/bs"
 import { FaPlay } from "react-icons/fa"
 import { twMerge } from "tailwind-merge"
 
@@ -7,19 +8,23 @@ interface PlayButtonProps {
   iconClassName?: string
   size?: number
   ariaLabel?: string
+  isPlaying?: boolean
   onClick?: (event: MouseEvent<HTMLButtonElement>) => void
 }
 
-const PlayButton: React.FC<PlayButtonProps> = ({ className, iconClassName, size = 14, ariaLabel = "Play song", onClick }) => {
+const PlayButton: React.FC<PlayButtonProps> = ({ className, iconClassName, size = 14, ariaLabel, isPlaying = false, onClick }) => {
   const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
     onClick?.(event)
   }
 
+  const Icon = isPlaying ? BsPauseFill : FaPlay
+  const resolvedAriaLabel = ariaLabel ?? (isPlaying ? "Pause song" : "Play song")
+
   return (
     <button
       type="button"
-      aria-label={ariaLabel}
+      aria-label={resolvedAriaLabel}
       onClick={handleClick}
       className={twMerge(
         `
@@ -38,7 +43,7 @@ const PlayButton: React.FC<PlayButtonProps> = ({ className, iconClassName, size 
         `,
         className,
       )}>
-      <FaPlay className={twMerge("translate-x-[1px]", iconClassName)} size={size} />
+      <Icon className={twMerge(!isPlaying && "translate-x-[1px]", iconClassName)} size={size} />
     </button>
   )
 }

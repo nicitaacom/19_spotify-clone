@@ -18,10 +18,11 @@ interface SongItemProps {
   onAddToPlaylist?: (song: Song) => void
   onLike?: (songId: string, isLiked: boolean) => void
   isLoading?: boolean
+  isPlaying?: boolean
   className?: string
 }
 
-const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLike, isLoading = false, className }) => {
+const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLike, isLoading = false, isPlaying = false, className }) => {
   const imagePath = useLoadImage(data)
   const handlePlay = () => onPlay?.(data.id)
 
@@ -111,6 +112,7 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
           ) : (
             <PlayButton
               onClick={handlePlay}
+              isPlaying={isPlaying}
               className="pointer-events-auto h-14 w-14 scale-90 border border-black/10 p-0 shadow-2xl transition duration-300 group-hover:scale-100"
             />
           )}

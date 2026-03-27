@@ -21,6 +21,7 @@ const LikedContent: React.FC<LikedContentProps> = ({ songs }) => {
   const { isLoading, user } = useUser()
   const activeId = usePlayer(state => state.activeId)
   const isPlayerLoading = usePlayer(state => state.isLoading)
+  const isPlayerPlaying = usePlayer(state => state.isPlaying)
 
   const onPlay = useOnPlay(songs)
 
@@ -73,7 +74,13 @@ const LikedContent: React.FC<LikedContentProps> = ({ songs }) => {
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {songs.map(song => (
-          <SongItem key={song.id} data={song} onPlay={onPlay} isLoading={isPlayerLoading && activeId === song.id} />
+          <SongItem
+            key={song.id}
+            data={song}
+            onPlay={onPlay}
+            isLoading={isPlayerLoading && activeId === song.id}
+            isPlaying={isPlayerPlaying && activeId === song.id}
+          />
         ))}
       </div>
     </div>
