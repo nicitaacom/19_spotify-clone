@@ -1,17 +1,21 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import type { Howl } from "howler"
 
 import { Song } from "@/types"
 
 import useLoadSongUrl from "./useLoadSongUrl"
 import usePlayer from "./usePlayer"
 
+interface PlaybackSoundLike {
+  duration: () => number
+  seek: () => number | number[]
+}
+
 interface UsePreloadNextTrackParams {
   currentSong: Song
   isPlaying: boolean
-  sound: Howl | null
+  sound: PlaybackSoundLike | null
 }
 
 const PRELOAD_THRESHOLD = 0.8
@@ -25,7 +29,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
   const setPreloadedSongId = usePlayer(state => state.setPreloadedSongId)
   const setProgress = usePlayer(state => state.setProgress)
 
-  const preloadHowlRef = useRef<Howl | null>(null)
+  const preloadAudioRef = useRef<HTMLAudioElement | null>(null)
   const preloadTargetIdRef = useRef<string | undefined>(undefined)
 
   const currentIndex = ids.findIndex(id => id === activeId)
@@ -34,8 +38,15 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
   const nextSongUrl = useLoadSongUrl(nextSong)
 
   const unloadPreloadedTrack = () => {
-    preloadHowlRef.current?.unload()
-    preloadHowlRef.current = null
+    const preloadedAudio = preloadAudioRef.current
+
+    if (preloadedAudio) {
+      preloadedAudio.pause()
+      preloadedAudio.removeAttribute("src")
+      preloadedAudio.load()
+    }
+
+    preloadAudioRef.current = null
     preloadTargetIdRef.current = undefined
   }
 
@@ -51,9 +62,12 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
       return
     }
 
+    if (preloadTargetIdRef.current && preloadTargetIdRef.current !== nextSongId) {
+      unloadPreloadedTrack()
+    }
+
     if (preloadedSongId && preloadedSongId !== nextSongId) {
       setPreloadedSongId(undefined)
-      unloadPreloadedTrack()
     }
   }, [nextSongId, preloadedSongId, setPreloadedSongId])
 
@@ -93,32 +107,19 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
       return
     }
 
-    if (preloadTargetIdRef.current === nextSongId && preloadHowlRef.current) {
+    if (preloadTargetIdRef.current === nextSongId && preloadAudioRef.current) {
       return
     }
 
-    let isCancelled = false
+    unloadPreloadedTrack()
 
-    import("howler").then(({ Howl: ImportedHowl }) => {
-      if (isCancelled) {
-        return
-      }
+    const preloadedAudio = new Audio()
+    preloadedAudio.preload = "auto"
+    preloadedAudio.src = nextSongUrl
+    preloadedAudio.load()
 
-      unloadPreloadedTrack()
-
-      preloadHowlRef.current = new ImportedHowl({
-        src: [nextSongUrl],
-        preload: true,
-        mute: true,
-        volume: 0,
-        format: ["mp3"],
-      })
-      preloadTargetIdRef.current = nextSongId
-    })
-
-    return () => {
-      isCancelled = true
-    }
+    preloadAudioRef.current = preloadedAudio
+    preloadTargetIdRef.current = nextSongId
   }, [nextSongId, nextSongUrl, preloadedSongId])
 
   useEffect(
