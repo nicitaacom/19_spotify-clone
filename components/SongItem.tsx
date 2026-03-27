@@ -43,7 +43,13 @@ const SongItem: React.FC<SongItemProps> = ({ data, onClick }) => {
           rounded-md 
           overflow-hidden
         ">
-        <Image className="object-cover" src={imagePath || "/images/music-placeholder.png"} fill alt="Image" />
+        <Image
+          className="object-cover"
+          src={imagePath || "/images/music-placeholder.png"}
+          fill
+          sizes="(min-width: 1536px) 12.5vw, (min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+          alt="Image"
+        />
       </div>
       <div className="flex flex-col items-start w-full pt-4 gap-y-1">
         <p className="font-semibold truncate w-full">{data.title}</p>

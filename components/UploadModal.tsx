@@ -1,7 +1,7 @@
 "use client"
 
 import uniqid from "uniqid"
-import React, { useState } from "react"
+import React, { useRef, useState } from "react"
 import { useSupabaseClient } from "@supabase/auth-helpers-react"
 import { FieldValues, SubmitHandler, useForm } from "react-hook-form"
 import { toast } from "react-hot-toast"
@@ -10,10 +10,13 @@ import { useRouter } from "next/navigation"
 import useUploadModal from "@/hooks/useUploadModal"
 import { useUser } from "@/hooks/useUser"
 import { getSafeStoragePath } from "@/libs/helpers"
+import { useVerifyHuman } from "@/hooks/useVerifyHuman"
+import { verifyTurnstileTokenFn } from "@/app/utils/verifyTurnstileToken"
 
 import Modal from "./Modal"
 import Input from "./Input"
 import Button from "./Button"
+import TurnstileChallenge from "./TurnstileChallenge"
 
 const UploadModal = () => {
   const [isLoading, setIsLoading] = useState(false)
@@ -22,6 +25,10 @@ const UploadModal = () => {
   const supabaseClient = useSupabaseClient()
   const { user } = useUser()
   const router = useRouter()
+  const turnstileRef = useRef<HTMLDivElement>(null)
+  const { isVerified, token, resetTurnstileFn } = useVerifyHuman(turnstileRef, { isEnabled: uploadModal.isOpen })
+  const isHumanGateEnabled = Boolean(process.env.NEXT_PUBLIC_CLOUDFLARE_SITE_KEY)
+  const isCreateBlocked = isLoading || (isHumanGateEnabled && !isVerified)
 
   const { register, handleSubmit, reset } = useForm<FieldValues>({
     defaultValues: {
@@ -35,6 +42,7 @@ const UploadModal = () => {
   const onChange = (open: boolean) => {
     if (!open) {
       reset()
+      resetTurnstileFn()
       uploadModal.onClose()
     }
   }
@@ -51,6 +59,20 @@ const UploadModal = () => {
         return
       }
 
+      if (isHumanGateEnabled) {
+        if (!isVerified || !token) {
+          toast.error("Complete the Cloudflare challenge before creating a song.")
+          return
+        }
+
+        const verifyTurnstileResp = await verifyTurnstileTokenFn(token)
+        if (typeof verifyTurnstileResp === "string") {
+          resetTurnstileFn()
+          toast.error(verifyTurnstileResp)
+          return
+        }
+      }
+
       const uniqueID = uniqid()
       const songPath = getSafeStoragePath({
         prefix: "song",
@@ -65,20 +87,16 @@ const UploadModal = () => {
         fileName: imageFile.name,
       })
 
-      // Upload song
-      const { data: songData, error: songError } = await supabaseClient.storage
-        .from("songs")
-        .upload(songPath, songFile, {
-          cacheControl: "3600",
-          upsert: false,
-        })
+      const { data: songData, error: songError } = await supabaseClient.storage.from("songs").upload(songPath, songFile, {
+        cacheControl: "3600",
+        upsert: false,
+      })
 
       if (songError) {
         setIsLoading(false)
         return toast.error("Failed song upload")
       }
 
-      // Upload image
       const { data: imageData, error: imageError } = await supabaseClient.storage
         .from("images")
         .upload(imagePath, imageFile, {
@@ -91,7 +109,6 @@ const UploadModal = () => {
         return toast.error("Failed image upload")
       }
 
-      // Create record
       const { error: supabaseError } = await supabaseClient.from("songs").insert({
         user_id: user.id,
         title: values.title,
@@ -108,6 +125,7 @@ const UploadModal = () => {
       setIsLoading(false)
       toast.success("Song created!")
       reset()
+      resetTurnstileFn()
       uploadModal.onClose()
     } catch (error) {
       toast.error("Something went wrong")
@@ -119,6 +137,7 @@ const UploadModal = () => {
   return (
     <Modal title="Add a song" description="Upload an mp3 file" isOpen={uploadModal.isOpen} onChange={onChange}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-y-4">
+        <TurnstileChallenge isVerified={isVerified} turnstileRef={turnstileRef} />
         <Input id="title" disabled={isLoading} {...register("title", { required: true })} placeholder="Song title" />
         <Input id="author" disabled={isLoading} {...register("author", { required: true })} placeholder="Song author" />
         <div>
@@ -143,7 +162,7 @@ const UploadModal = () => {
             {...register("image", { required: true })}
           />
         </div>
-        <Button disabled={isLoading} type="submit">
+        <Button disabled={isCreateBlocked} type="submit">
           Create
         </Button>
       </form>

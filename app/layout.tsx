@@ -1,5 +1,7 @@
 import "./globals.css"
 
+import Script from "next/script"
+
 import Sidebar from "../components/Sidebar"
 import SupabaseProvider from "./providers/SupabaseProvider"
 import UserProvider from "./providers/UserProvider"
@@ -23,6 +25,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en">
       <body>
+        {process.env.NEXT_PUBLIC_CLOUDFLARE_SITE_KEY ? (
+          <Script
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+            strategy="afterInteractive"
+          />
+        ) : null}
         <ToasterProvider />
         <SupabaseProvider>
           <UserProvider>

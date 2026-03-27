@@ -44,7 +44,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick }) => {
           min-w-[48px] 
           overflow-hidden
         ">
-        <Image fill src={imageUrl || "/images/liked.png"} alt="MediaItem" className="object-cover" />
+        <Image fill sizes="48px" src={imageUrl || "/images/liked.png"} alt="MediaItem" className="object-cover" />
       </div>
       <div className="flex flex-col gap-y-1 overflow-hidden">
         <p className="text-white truncate">{data.title}</p>

@@ -25,7 +25,7 @@ const ListItem: React.FC<ListItemProps> = ({ image, name, href }) => {
     bg-neutral-100/10 hover:bg-neutral-100/20 transition pr-4"
       onClick={onClick}>
       <div className="relative min-w-[64px] min-h-[64px]">
-        <Image className="object-cover" fill src={image} alt="Image" />
+        <Image className="object-cover" fill sizes="64px" src={image} alt="Image" />
       </div>
       <p className="font-medium truncate py-5">{name}</p>
       <div

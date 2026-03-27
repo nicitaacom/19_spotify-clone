@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useCallback, useEffect, useRef, useState } from "react"
 import { useSessionContext, useSupabaseClient } from "@supabase/auth-helpers-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
@@ -9,16 +9,19 @@ import { HiOutlineArrowRight } from "react-icons/hi2"
 import { MdOutlineErrorOutline } from "react-icons/md"
 
 import useAuthModal from "@/hooks/useAuthModal"
+import { useVerifyHuman } from "@/hooks/useVerifyHuman"
+import { verifyTurnstileTokenFn } from "@/app/utils/verifyTurnstileToken"
 
 import Modal from "./Modal"
 import Button from "./Button"
 import Input from "./Input"
+import TurnstileChallenge from "./TurnstileChallenge"
 import { getURL } from "@/app/utils/getURL"
 import { OrganicCanvasBackground } from "./auth/OrganicCanvasBackground"
 import { AuthVisualPanel } from "./auth/AuthVisualPanel"
 import { validateAuthEmail, validateAuthPassword } from "@/app/utils/authValidation"
 
-type AuthMode = "login" | "register"
+type AuthMode = "login" | "recover" | "register"
 type AuthStatus = "error" | "info" | "success"
 
 const statusStyles: Record<AuthStatus, string> = {
@@ -40,18 +43,30 @@ const AuthModal = () => {
   const [emailInputValue, setEmailInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [passwordInputValue, setPasswordInputValue] = useState("")
+  const turnstileRef = useRef<HTMLDivElement>(null)
+  const { isVerified, token, resetTurnstileFn } = useVerifyHuman(turnstileRef, { isEnabled: isOpen })
+  const isHumanGateEnabled = Boolean(process.env.NEXT_PUBLIC_CLOUDFLARE_SITE_KEY)
+  const isActionBlocked = isLoading || (isHumanGateEnabled && !isVerified)
+
+  const resetAuthStateFn = useCallback(() => {
+    setAuthMode("login")
+    setAuthMessage("")
+    setAuthStatus("error")
+    setEmailInputValue("")
+    setIsLoading(false)
+    setPasswordInputValue("")
+    resetTurnstileFn()
+  }, [resetTurnstileFn])
 
   useEffect(() => {
-    if (session) {
-      setAuthMode("login")
-      setAuthMessage("")
-      setIsLoading(false)
-      setEmailInputValue("")
-      setPasswordInputValue("")
-      router.refresh()
-      onClose()
+    if (!session) {
+      return
     }
-  }, [session, router, onClose])
+
+    resetAuthStateFn()
+    router.refresh()
+    onClose()
+  }, [onClose, resetAuthStateFn, router, session])
 
   useEffect(() => {
     const authError = searchParams.get("auth_error")
@@ -71,14 +86,28 @@ const AuthModal = () => {
 
   const onChange = (open: boolean) => {
     if (!open) {
-      setAuthMode("login")
-      setAuthMessage("")
-      setAuthStatus("error")
-      setEmailInputValue("")
-      setIsLoading(false)
-      setPasswordInputValue("")
+      resetAuthStateFn()
       onClose()
     }
+  }
+
+  const ensureHumanVerifiedFn = async () => {
+    if (!isHumanGateEnabled) {
+      return true
+    }
+
+    if (!isVerified || !token) {
+      return "Complete the Cloudflare challenge before continuing."
+    }
+
+    const verifyTurnstileResp = await verifyTurnstileTokenFn(token)
+
+    if (typeof verifyTurnstileResp === "string") {
+      resetTurnstileFn()
+      return verifyTurnstileResp
+    }
+
+    return true
   }
 
   const syncCurrentUserFn = async (provider: string) => {
@@ -102,6 +131,15 @@ const AuthModal = () => {
     try {
       setAuthMessage("")
       setAuthStatus("error")
+
+      const ensureHumanResp = await ensureHumanVerifiedFn()
+      if (typeof ensureHumanResp === "string") {
+        setAuthStatus("error")
+        setAuthMessage(ensureHumanResp)
+        toast.error(ensureHumanResp)
+        return
+      }
+
       setIsLoading(true)
 
       const { error } = await supabaseClient.auth.signInWithOAuth({
@@ -135,16 +173,45 @@ const AuthModal = () => {
       return
     }
 
-    const passwordValidation = validateAuthPassword(passwordInputValue, authMode)
-    if (typeof passwordValidation === "string") {
-      setAuthStatus("error")
-      setAuthMessage(passwordValidation)
-      return
+    if (authMode !== "recover") {
+      const passwordValidation = validateAuthPassword(passwordInputValue, authMode)
+      if (typeof passwordValidation === "string") {
+        setAuthStatus("error")
+        setAuthMessage(passwordValidation)
+        return
+      }
     }
 
     try {
       setAuthMessage("")
+
+      const ensureHumanResp = await ensureHumanVerifiedFn()
+      if (typeof ensureHumanResp === "string") {
+        setAuthStatus("error")
+        setAuthMessage(ensureHumanResp)
+        return
+      }
+
       setIsLoading(true)
+
+      if (authMode === "recover") {
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(emailInputValue.trim(), {
+          redirectTo: getURL(),
+        })
+
+        if (error) {
+          setAuthStatus("error")
+          setAuthMessage(error.message)
+          return
+        }
+
+        setAuthStatus("success")
+        setAuthMessage("Recovery email sent. Use the email link from Supabase to continue resetting your password.")
+        setAuthMode("login")
+        setPasswordInputValue("")
+        resetTurnstileFn()
+        return
+      }
 
       if (authMode === "login") {
         const { error } = await supabaseClient.auth.signInWithPassword({
@@ -162,10 +229,12 @@ const AuthModal = () => {
         if (typeof syncUserResp === "string") {
           setAuthStatus("error")
           setAuthMessage(syncUserResp)
+          resetTurnstileFn()
           return
         }
 
         router.refresh()
+        resetTurnstileFn()
         onClose()
         return
       }
@@ -192,10 +261,12 @@ const AuthModal = () => {
         if (typeof syncUserResp === "string") {
           setAuthStatus("error")
           setAuthMessage(syncUserResp)
+          resetTurnstileFn()
           return
         }
 
         router.refresh()
+        resetTurnstileFn()
         onClose()
         return
       }
@@ -204,6 +275,7 @@ const AuthModal = () => {
       setAuthMessage("Check your email to confirm your account, then come back and log in.")
       setAuthMode("login")
       setPasswordInputValue("")
+      resetTurnstileFn()
     } catch (error) {
       setAuthStatus("error")
       setAuthMessage(error instanceof Error ? error.message : "Unable to continue with credentials.")
@@ -211,6 +283,15 @@ const AuthModal = () => {
       setIsLoading(false)
     }
   }
+
+  const authTitle =
+    authMode === "login" ? "Log in to your account" : authMode === "register" ? "Create your account" : "Recover your password"
+  const submitLabel =
+    authMode === "login"
+      ? "Continue with credentials"
+      : authMode === "register"
+        ? "Register with credentials"
+        : "Send recovery email"
 
   return (
     <Modal
@@ -231,9 +312,7 @@ const AuthModal = () => {
                   Spotify Clone Auth
                 </div>
                 <div>
-                  <h1 className="text-3xl font-semibold leading-tight text-white">
-                    {authMode === "login" ? "Log in to your account" : "Create your account"}
-                  </h1>
+                  <h1 className="text-3xl font-semibold leading-tight text-white">{authTitle}</h1>
                   <p className="mt-2 text-sm leading-6 text-white/70">
                     This modal now follows the same auth direction as your `ai-chatbot-saas`: credentials for everyone,
                     GitHub as an extra option, and app-level user row sync for `users_19_spotify`.
@@ -269,6 +348,8 @@ const AuthModal = () => {
                 </div>
               )}
 
+              <TurnstileChallenge isVerified={isVerified} turnstileRef={turnstileRef} />
+
               <div className="space-y-3">
                 <form className="space-y-3" onSubmit={handleCredentialsSubmit}>
                   <Input
@@ -279,46 +360,72 @@ const AuthModal = () => {
                     type="email"
                     value={emailInputValue}
                   />
-                  <Input
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35"
-                    disabled={isLoading}
-                    onChange={event => setPasswordInputValue(event.target.value)}
-                    placeholder={authMode === "login" ? "Password" : "Password (min 15 chars)"}
-                    type="password"
-                    value={passwordInputValue}
-                  />
+
+                  {authMode === "recover" ? (
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-xs leading-5 text-white/60">
+                      We’ll send a Supabase recovery email to this address after the Cloudflare check is completed.
+                    </div>
+                  ) : (
+                    <Input
+                      className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder:text-white/35"
+                      disabled={isLoading}
+                      onChange={event => setPasswordInputValue(event.target.value)}
+                      placeholder={authMode === "login" ? "Password" : "Password (min 15 chars)"}
+                      type="password"
+                      value={passwordInputValue}
+                    />
+                  )}
 
                   <Button
                     className="rounded-2xl border border-emerald-400/15 bg-emerald-500 px-4 py-3 text-sm font-semibold text-black"
-                    disabled={isLoading}
+                    disabled={isActionBlocked}
                     type="submit">
                     <span className="flex items-center justify-center gap-2">
-                      <span>{isLoading ? "Please wait..." : authMode === "login" ? "Continue with credentials" : "Register with credentials"}</span>
+                      <span>{isLoading ? "Please wait..." : submitLabel}</span>
                       <HiOutlineArrowRight size={16} />
                     </span>
                   </Button>
                 </form>
 
-                <div className="flex items-center gap-3 py-1">
-                  <div className="h-px flex-1 bg-white/10" />
-                  <span className="text-xs uppercase tracking-[0.2em] text-white/35">or</span>
-                  <div className="h-px flex-1 bg-white/10" />
+                <div className="flex items-center justify-between gap-3 px-1 text-xs text-white/50">
+                  <button
+                    className="transition hover:text-white"
+                    onClick={() => {
+                      setAuthMessage("")
+                      setAuthStatus("info")
+                      setPasswordInputValue("")
+                      setAuthMode(authMode === "recover" ? "login" : "recover")
+                    }}
+                    type="button">
+                    {authMode === "recover" ? "Back to login" : "Recover password"}
+                  </button>
+                  {isHumanGateEnabled && !isVerified ? <span>Cloudflare check required</span> : null}
                 </div>
 
-                <Button
-                  className="rounded-2xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-black"
-                  disabled={isLoading}
-                  onClick={continueWithGithubFn}>
-                  <span className="flex items-center justify-center gap-3">
-                    <FaGithub size={18} />
-                    <span>{isLoading ? "Redirecting to GitHub..." : "Continue with GitHub"}</span>
-                  </span>
-                </Button>
+                {authMode !== "recover" ? (
+                  <>
+                    <div className="flex items-center gap-3 py-1">
+                      <div className="h-px flex-1 bg-white/10" />
+                      <span className="text-xs uppercase tracking-[0.2em] text-white/35">or</span>
+                      <div className="h-px flex-1 bg-white/10" />
+                    </div>
 
-                <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-xs leading-5 text-white/60">
-                  Credentials login uses Supabase email/password under this app’s existing session system, then syncs the
-                  same `users_19_spotify` row shape used by GitHub auth.
-                </div>
+                    <Button
+                      className="rounded-2xl border border-white/10 bg-white px-4 py-3 text-sm font-semibold text-black"
+                      disabled={isActionBlocked}
+                      onClick={continueWithGithubFn}>
+                      <span className="flex items-center justify-center gap-3">
+                        <FaGithub size={18} />
+                        <span>{isLoading ? "Redirecting to GitHub..." : "Continue with GitHub"}</span>
+                      </span>
+                    </Button>
+
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-xs leading-5 text-white/60">
+                      Credentials login uses Supabase email/password under this app’s existing session system, then syncs
+                      the same `users_19_spotify` row shape used by GitHub auth.
+                    </div>
+                  </>
+                ) : null}
               </div>
             </div>
           </div>

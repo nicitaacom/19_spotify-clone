@@ -13,6 +13,26 @@ declare global {
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: string
       STRIPE_SECRET_KEY: string
       STRIPE_WEBHOOK_SECRET: string
+
+      NEXT_PUBLIC_CLOUDFLARE_SITE_KEY: string
+      TURNSTILE_SECRET_KEY: string
+    }
+  }
+
+  interface Window {
+    turnstile?: {
+      render: (
+        container: HTMLElement,
+        options: {
+          sitekey: string
+          callback: (token: string) => void
+          theme?: "auto" | "dark" | "light"
+          "error-callback"?: () => void
+          "expired-callback"?: () => void
+        },
+      ) => string
+      reset: (widgetId?: string) => void
+      remove: (widgetId: string) => void
     }
   }
 }

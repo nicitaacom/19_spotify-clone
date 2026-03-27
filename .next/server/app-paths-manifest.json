@@ -6,6 +6,7 @@
   "/api/auth/sync-user/route": "app/api/auth/sync-user/route.js",
   "/api/create-checkout-session/route": "app/api/create-checkout-session/route.js",
   "/api/create-portal-link/route": "app/api/create-portal-link/route.js",
+  "/api/turnstile/verify/route": "app/api/turnstile/verify/route.js",
   "/api/webhooks/route": "app/api/webhooks/route.js",
   "/auth/callback/oauth/route": "app/auth/callback/oauth/route.js",
   "/liked/page": "app/liked/page.js",
