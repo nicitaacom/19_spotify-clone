@@ -21,6 +21,139 @@ How to implement this pattern elsewhere:
 ```sql
 
 -- =====================================================
+-- 📦 TABLE: playlists
+-- =====================================================
+CREATE TABLE public.playlists (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    user_id UUID NOT NULL,
+    slug TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NULL,
+    visibility public.playlist_visibility NOT NULL DEFAULT 'public',
+    CONSTRAINT playlists_pkey PRIMARY KEY (id),
+    CONSTRAINT playlists_slug_key UNIQUE (slug),
+    CONSTRAINT playlists_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users (id) ON UPDATE CASCADE ON DELETE CASCADE
+) TABLESPACE pg_default;
+
+-- 🔐 RLS POLICIES FOR playlists
+ALTER TABLE public.playlists ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlists' AND policyname = 'Allow public and unlisted playlist reads') THEN
+        CREATE POLICY "Allow public and unlisted playlist reads"
+        ON public.playlists FOR SELECT
+        USING (visibility IN ('public', 'unlisted') OR auth.uid() = user_id);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlists' AND policyname = 'Allow users to insert their own playlists') THEN
+        CREATE POLICY "Allow users to insert their own playlists"
+        ON public.playlists FOR INSERT
+        WITH CHECK (auth.uid() = user_id);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlists' AND policyname = 'Allow users to update their own playlists') THEN
+        CREATE POLICY "Allow users to update their own playlists"
+        ON public.playlists FOR UPDATE
+        USING (auth.uid() = user_id)
+        WITH CHECK (auth.uid() = user_id);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlists' AND policyname = 'Allow users to delete their own playlists') THEN
+        CREATE POLICY "Allow users to delete their own playlists"
+        ON public.playlists FOR DELETE
+        USING (auth.uid() = user_id);
+    END IF;
+END $$;
+
+
+
+
+-- =====================================================
+-- 📦 TABLE: playlist_songs
+-- =====================================================
+CREATE TABLE public.playlist_songs (
+    playlist_id UUID NOT NULL,
+    song_id BIGINT NOT NULL,
+    position INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    CONSTRAINT playlist_songs_pkey PRIMARY KEY (playlist_id, song_id),
+    CONSTRAINT playlist_songs_playlist_id_fkey FOREIGN KEY (playlist_id) REFERENCES public.playlists (id) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT playlist_songs_song_id_fkey FOREIGN KEY (song_id) REFERENCES public.songs (id) ON UPDATE CASCADE ON DELETE CASCADE
+) TABLESPACE pg_default;
+
+-- 🔐 RLS POLICIES FOR playlist_songs
+ALTER TABLE public.playlist_songs ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlist_songs' AND policyname = 'Allow readable playlist song rows') THEN
+        CREATE POLICY "Allow readable playlist song rows"
+        ON public.playlist_songs FOR SELECT
+        USING (
+            EXISTS (
+                SELECT 1
+                FROM public.playlists
+                WHERE playlists.id = playlist_songs.playlist_id
+                  AND (playlists.visibility IN ('public', 'unlisted') OR playlists.user_id = auth.uid())
+            )
+        );
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlist_songs' AND policyname = 'Allow owners to insert playlist songs') THEN
+        CREATE POLICY "Allow owners to insert playlist songs"
+        ON public.playlist_songs FOR INSERT
+        WITH CHECK (
+            EXISTS (
+                SELECT 1
+                FROM public.playlists
+                WHERE playlists.id = playlist_songs.playlist_id
+                  AND playlists.user_id = auth.uid()
+            )
+        );
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlist_songs' AND policyname = 'Allow owners to update playlist songs') THEN
+        CREATE POLICY "Allow owners to update playlist songs"
+        ON public.playlist_songs FOR UPDATE
+        USING (
+            EXISTS (
+                SELECT 1
+                FROM public.playlists
+                WHERE playlists.id = playlist_songs.playlist_id
+                  AND playlists.user_id = auth.uid()
+            )
+        )
+        WITH CHECK (
+            EXISTS (
+                SELECT 1
+                FROM public.playlists
+                WHERE playlists.id = playlist_songs.playlist_id
+                  AND playlists.user_id = auth.uid()
+            )
+        );
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlist_songs' AND policyname = 'Allow owners to delete playlist songs') THEN
+        CREATE POLICY "Allow owners to delete playlist songs"
+        ON public.playlist_songs FOR DELETE
+        USING (
+            EXISTS (
+                SELECT 1
+                FROM public.playlists
+                WHERE playlists.id = playlist_songs.playlist_id
+                  AND playlists.user_id = auth.uid()
+            )
+        );
+    END IF;
+END $$;
+
+
+
+
+-- =====================================================
 -- 🎯 CREATE CUSTOM ENUM TYPES (MUST EXIST BEFORE TABLES)
 -- =====================================================
 DO $$ 
@@ -40,6 +173,13 @@ END $$;
 DO $$ 
 BEGIN
     CREATE TYPE public.subscription_status AS ENUM ('trialing', 'active', 'canceled', 'incomplete', 'incomplete_expired', 'past_due', 'unpaid');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+    CREATE TYPE public.playlist_visibility AS ENUM ('public', 'unlisted', 'private');
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;

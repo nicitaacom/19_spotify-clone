@@ -41,7 +41,7 @@ const Player = () => {
         px-4
       ">
       {song && songUrl ? (
-        <PlayerContent key={songUrl} song={song} songUrl={songUrl} />
+        <PlayerContent song={song} songUrl={songUrl} />
       ) : (
         <div className="flex h-full items-center gap-x-4 text-white">
           <div className="flex h-12 w-12 items-center justify-center rounded-md bg-neutral-800">

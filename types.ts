@@ -9,6 +9,56 @@ export interface Song {
   image_path: string
 }
 
+export type PlaylistVisibility = "public" | "unlisted" | "private"
+
+export interface Playlist {
+  id: string
+  created_at: string
+  updated_at: string
+  user_id: string
+  slug: string
+  title: string
+  description: string | null
+  visibility: PlaylistVisibility
+}
+
+export interface PlaylistSong {
+  playlist_id: string
+  song_id: Song["id"]
+  position: number
+  created_at: string
+}
+
+export interface PlaylistAuthor {
+  id: string
+  avatar_url?: string | null
+  full_name?: string | null
+  username: string
+}
+
+export interface PlaylistSongWithSong extends PlaylistSong {
+  song: Song
+}
+
+export interface PlaylistSummary extends Playlist {
+  author: PlaylistAuthor
+  cover_image_path?: string | null
+  song_count: number
+}
+
+export interface PlaylistDetail extends Playlist {
+  author: PlaylistAuthor
+  cover_image_path?: string | null
+  songs: PlaylistSongWithSong[]
+}
+
+export interface PlaylistOption {
+  id: string
+  title: string
+  updated_at: string
+  visibility: PlaylistVisibility
+}
+
 export interface Product {
   id: string
   active?: boolean

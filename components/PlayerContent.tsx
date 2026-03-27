@@ -8,7 +8,9 @@ import { AiFillStepBackward, AiFillStepForward, AiOutlineLoading3Quarters } from
 
 import { Song } from "@/types"
 import usePlayer from "@/hooks/usePlayer"
+import usePreloadNextTrack from "@/hooks/usePreloadNextTrack"
 
+import AddToPlaylistButton from "./AddToPlaylistButton"
 import LikeButton from "./LikeButton"
 import MediaItem from "./MediaItem"
 import Slider from "./Slider"
@@ -88,6 +90,12 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     format: ["mp3"],
   })
 
+  usePreloadNextTrack({
+    currentSong: song,
+    isPlaying,
+    sound,
+  })
+
   useEffect(() => {
     setIsLoading(true)
     sound?.play()
@@ -122,6 +130,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
       <div className="flex w-full justify-start">
         <div className="flex items-center gap-x-4">
           <MediaItem data={song} />
+          <AddToPlaylistButton song={song} />
           <LikeButton songId={song.id} />
         </div>
       </div>

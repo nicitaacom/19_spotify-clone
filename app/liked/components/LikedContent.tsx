@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 
 import { Song } from "@/types"
 import { useUser } from "@/hooks/useUser"
+import AddToPlaylistButton from "@/components/AddToPlaylistButton"
 import MediaItem from "@/components/MediaItem"
 import LikeButton from "@/components/LikeButton"
 import useOnPlay from "@/hooks/useOnPlay"
@@ -46,6 +47,7 @@ const LikedContent: React.FC<LikedContentProps> = ({ songs }) => {
           <div className="flex-1">
             <MediaItem onClick={id => onPlay(id)} data={song} />
           </div>
+          <AddToPlaylistButton song={song} />
           <LikeButton songId={song.id} />
         </div>
       ))}

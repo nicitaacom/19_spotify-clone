@@ -82,6 +82,24 @@ export const slugifyFilePart = (value: string) => {
   return slug || "file"
 }
 
+export const getPlaylistSlug = (value: string) => slugifyFilePart(value)
+
+export const getSupabasePublicUrl = (bucket: string, path?: string | null) => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+
+  if (!supabaseUrl || !path) {
+    return null
+  }
+
+  const normalizedBaseUrl = supabaseUrl.endsWith("/") ? supabaseUrl.slice(0, -1) : supabaseUrl
+  const encodedPath = path
+    .split("/")
+    .map(part => encodeURIComponent(part))
+    .join("/")
+
+  return `${normalizedBaseUrl}/storage/v1/object/public/${bucket}/${encodedPath}`
+}
+
 export const getSafeStoragePath = ({ prefix, value, uniqueId, fileName }: { prefix: string; value: string; uniqueId: string; fileName?: string }) => {
   const extension = fileName?.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "")
   const safeValue = slugifyFilePart(value)

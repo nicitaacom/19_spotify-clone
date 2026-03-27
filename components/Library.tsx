@@ -5,6 +5,7 @@ import { useUser } from "@/hooks/useUser"
 import useIsIframeAuth from "@/hooks/useIsIframeAuth"
 import useUploadModal from "@/hooks/useUploadModal"
 import { Song } from "@/types"
+import AddToPlaylistButton from "./AddToPlaylistButton"
 import MediaItem from "./MediaItem"
 import useOnPlay from "@/hooks/useOnPlay"
 import { handleAuthAction } from "@/app/utils/handleAuthAction"
@@ -46,7 +47,12 @@ const Library = ({ songs }: LibraryProps) => {
       </div>
       <div className="mt-3 flex flex-col gap-y-2 px-3">
         {songs.map(song => (
-          <MediaItem onClick={(id: string) => onPlay(id)} key={song.id} data={song} />
+          <div key={song.id} className="flex items-center gap-x-3">
+            <div className="flex-1">
+              <MediaItem onClick={(id: string) => onPlay(id)} data={song} />
+            </div>
+            <AddToPlaylistButton song={song} />
+          </div>
         ))}
       </div>
     </div>

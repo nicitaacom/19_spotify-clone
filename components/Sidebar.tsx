@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation"
 import { useMemo } from "react"
 import { HiHome } from "react-icons/hi"
 import { BiSearch } from "react-icons/bi"
+import { TbPlaylist } from "react-icons/tb"
 import { twMerge } from "tailwind-merge"
 
 import Box from "./Box"
@@ -26,18 +27,24 @@ const Sidebar: React.FC<SidebarProps> = ({ children, songs }) => {
       {
         icon: HiHome,
         label: "Home",
-        active: pathname !== "/search",
+        active: pathname === "/",
         href: "/",
       },
       {
         icon: BiSearch,
         label: "Search",
-        active: pathname === "/search",
+        active: pathname.startsWith("/search"),
         href: "/search",
+      },
+      {
+        icon: TbPlaylist,
+        label: "Playlists",
+        active: pathname.startsWith("/playlists"),
+        href: "/playlists",
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
     ],
-    [],
+    [pathname],
   )
 
   return (

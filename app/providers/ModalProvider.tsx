@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react"
 
 import AuthModal from "../../components/AuthModal"
+import AddToPlaylistModal from "../../components/AddToPlaylistModal"
+import CreatePlaylistModal from "../../components/CreatePlaylistModal"
 import UploadModal from "../../components/UploadModal"
 
 export default function ModalProvider() {
@@ -18,6 +20,8 @@ export default function ModalProvider() {
   return (
     <>
       <AuthModal />
+      <CreatePlaylistModal />
+      <AddToPlaylistModal />
       <UploadModal />
     </>
   )

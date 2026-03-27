@@ -59,6 +59,83 @@ export type Database = {
           },
         ]
       }
+      playlist_songs: {
+        Row: {
+          created_at: string
+          playlist_id: string
+          position: number
+          song_id: number
+        }
+        Insert: {
+          created_at?: string
+          playlist_id: string
+          position: number
+          song_id: number
+        }
+        Update: {
+          created_at?: string
+          playlist_id?: string
+          position?: number
+          song_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlist_songs_playlist_id_fkey"
+            columns: ["playlist_id"]
+            isOneToOne: false
+            referencedRelation: "playlists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playlist_songs_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playlists: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          slug: string
+          title: string
+          updated_at: string
+          user_id: string
+          visibility: Database["public"]["Enums"]["playlist_visibility"]
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          slug: string
+          title: string
+          updated_at?: string
+          user_id: string
+          visibility?: Database["public"]["Enums"]["playlist_visibility"]
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          slug?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          visibility?: Database["public"]["Enums"]["playlist_visibility"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlists_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prices: {
         Row: {
           active: boolean | null
@@ -351,6 +428,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      playlist_visibility: "public" | "unlisted" | "private"
       pricing_plan_interval: "day" | "week" | "month" | "year"
       pricing_type: "one_time" | "recurring"
       subscription_status:

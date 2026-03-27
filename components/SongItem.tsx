@@ -5,6 +5,7 @@ import Image from "next/image"
 import useLoadImage from "@/hooks/useLoadImage"
 import { Song } from "@/types"
 
+import AddToPlaylistButton from "./AddToPlaylistButton"
 import PlayButton from "./PlayButton"
 
 interface SongItemProps {
@@ -63,6 +64,17 @@ const SongItem: React.FC<SongItemProps> = ({ data, onClick }) => {
           ">
           By {data.author}
         </p>
+      </div>
+      <div
+        className="
+          absolute 
+          top-4
+          right-4
+        ">
+        <AddToPlaylistButton
+          song={data}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-neutral-200 opacity-0 transition group-hover:opacity-100 hover:bg-black hover:text-white"
+        />
       </div>
       <div
         className="
