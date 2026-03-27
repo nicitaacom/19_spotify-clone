@@ -20,6 +20,8 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick }) => {
       return onClick(data.id)
     }
 
+    player.setActiveSong(data)
+    player.setIsLoading(true)
     return player.setId(data.id)
   }
 

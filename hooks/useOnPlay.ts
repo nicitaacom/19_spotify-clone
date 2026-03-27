@@ -15,8 +15,13 @@ const useOnPlay = (songs: Song[]) => {
       return handleAuthAction({ isIframe })
     }
 
+    const selectedSong = songs.find(song => song.id === id)
+
+    player.setSongs(songs)
     player.setId(id)
     player.setIds(songs.map(song => song.id))
+    player.setActiveSong(selectedSong)
+    player.setIsLoading(true)
   }
 
   return onPlay

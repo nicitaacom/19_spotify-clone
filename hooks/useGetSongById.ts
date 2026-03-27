@@ -11,6 +11,8 @@ const useSongById = (id?: string) => {
 
   useEffect(() => {
     if (!id) {
+      setSong(undefined)
+      setIsLoading(false)
       return
     }
 

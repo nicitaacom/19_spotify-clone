@@ -1,5 +1,8 @@
 "use client"
 
+import { useEffect } from "react"
+import { AiOutlineLoading3Quarters } from "react-icons/ai"
+
 import usePlayer from "@/hooks/usePlayer"
 import useLoadSongUrl from "@/hooks/useLoadSongUrl"
 import useGetSongById from "@/hooks/useGetSongById"
@@ -7,12 +10,22 @@ import useGetSongById from "@/hooks/useGetSongById"
 import PlayerContent from "./PlayerContent"
 
 const Player = () => {
-  const player = usePlayer()
-  const { song } = useGetSongById(player.activeId)
+  const activeId = usePlayer(state => state.activeId)
+  const currentStoreSong = usePlayer(state => state.activeSong)
+  const setActiveSong = usePlayer(state => state.setActiveSong)
+  const activeSong = currentStoreSong?.id === activeId ? currentStoreSong : undefined
+  const { song: fetchedSong } = useGetSongById(activeSong ? undefined : activeId)
+  const song = activeSong ?? fetchedSong
 
-  const songUrl = useLoadSongUrl(song!)
+  useEffect(() => {
+    if (fetchedSong && fetchedSong.id === activeId) {
+      setActiveSong(fetchedSong)
+    }
+  }, [activeId, fetchedSong, setActiveSong])
 
-  if (!song || !songUrl || !player.activeId) {
+  const songUrl = useLoadSongUrl(song)
+
+  if (!activeId) {
     return null
   }
 
@@ -27,7 +40,19 @@ const Player = () => {
         h-[80px] 
         px-4
       ">
-      <PlayerContent key={songUrl} song={song} songUrl={songUrl} />
+      {song && songUrl ? (
+        <PlayerContent key={songUrl} song={song} songUrl={songUrl} />
+      ) : (
+        <div className="flex h-full items-center gap-x-4 text-white">
+          <div className="flex h-12 w-12 items-center justify-center rounded-md bg-neutral-800">
+            <AiOutlineLoading3Quarters className="animate-spin text-neutral-300" size={22} />
+          </div>
+          <div className="flex flex-col">
+            <p className="text-sm font-medium">Preparing your track...</p>
+            <p className="text-xs text-neutral-400">Loading audio for playback.</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -4,7 +4,7 @@ import useSound from "use-sound"
 import { useEffect, useState } from "react"
 import { BsPauseFill, BsPlayFill } from "react-icons/bs"
 import { HiSpeakerWave, HiSpeakerXMark } from "react-icons/hi2"
-import { AiFillStepBackward, AiFillStepForward } from "react-icons/ai"
+import { AiFillStepBackward, AiFillStepForward, AiOutlineLoading3Quarters } from "react-icons/ai"
 
 import { Song } from "@/types"
 import usePlayer from "@/hooks/usePlayer"
@@ -19,63 +19,89 @@ interface PlayerContentProps {
 }
 
 const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
-  const player = usePlayer()
+  const ids = usePlayer(state => state.ids)
+  const activeId = usePlayer(state => state.activeId)
+  const songs = usePlayer(state => state.songs)
+  const isLoading = usePlayer(state => state.isLoading)
+  const setId = usePlayer(state => state.setId)
+  const setActiveSong = usePlayer(state => state.setActiveSong)
+  const setIsLoading = usePlayer(state => state.setIsLoading)
   const [volume, setVolume] = useState(1)
   const [isPlaying, setIsPlaying] = useState(false)
 
-  const Icon = isPlaying ? BsPauseFill : BsPlayFill
+  const Icon = isLoading ? AiOutlineLoading3Quarters : isPlaying ? BsPauseFill : BsPlayFill
   const VolumeIcon = volume === 0 ? HiSpeakerXMark : HiSpeakerWave
 
   const onPlayNext = () => {
-    if (player.ids.length === 0) {
+    if (ids.length === 0) {
       return
     }
 
-    const currentIndex = player.ids.findIndex(id => id === player.activeId)
-    const nextSong = player.ids[currentIndex + 1]
+    const currentIndex = ids.findIndex(id => id === activeId)
+    const nextSong = ids[currentIndex + 1]
 
     if (!nextSong) {
-      return player.setId(player.ids[0])
+      const firstSong = songs[0]
+      setActiveSong(firstSong)
+      setIsLoading(true)
+      return setId(ids[0])
     }
 
-    player.setId(nextSong)
+    setActiveSong(songs.find(queueSong => queueSong.id === nextSong))
+    setIsLoading(true)
+    setId(nextSong)
   }
 
   const onPlayPrevious = () => {
-    if (player.ids.length === 0) {
+    if (ids.length === 0) {
       return
     }
 
-    const currentIndex = player.ids.findIndex(id => id === player.activeId)
-    const previousSong = player.ids[currentIndex - 1]
+    const currentIndex = ids.findIndex(id => id === activeId)
+    const previousSong = ids[currentIndex - 1]
 
     if (!previousSong) {
-      return player.setId(player.ids[player.ids.length - 1])
+      const lastSong = songs[songs.length - 1]
+      setActiveSong(lastSong)
+      setIsLoading(true)
+      return setId(ids[ids.length - 1])
     }
 
-    player.setId(previousSong)
+    setActiveSong(songs.find(queueSong => queueSong.id === previousSong))
+    setIsLoading(true)
+    setId(previousSong)
   }
 
   const [play, { pause, sound }] = useSound(songUrl, {
     volume: volume,
-    onplay: () => setIsPlaying(true),
+    onplay: () => {
+      setIsPlaying(true)
+      setIsLoading(false)
+    },
     onend: () => {
       setIsPlaying(false)
       onPlayNext()
     },
     onpause: () => setIsPlaying(false),
+    onloaderror: () => setIsLoading(false),
+    onplayerror: () => setIsLoading(false),
     format: ["mp3"],
   })
 
   useEffect(() => {
+    setIsLoading(true)
     sound?.play()
 
     return () => {
       sound?.unload()
     }
-  }, [sound])
+  }, [setIsLoading, sound])
 
   const handlePlay = () => {
+    if (isLoading) {
+      return
+    }
+
     if (!isPlaying) {
       play()
     } else {
@@ -122,7 +148,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
               p-1 
               cursor-pointer
             ">
-          <Icon size={30} className="text-black" />
+          <Icon size={30} className={isLoading ? "animate-spin text-black" : "text-black"} />
         </div>
       </div>
 
@@ -160,7 +186,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
               p-1 
               cursor-pointer
             ">
-          <Icon size={30} className="text-black" />
+          <Icon size={30} className={isLoading ? "animate-spin text-black" : "text-black"} />
         </div>
         <AiFillStepForward
           onClick={onPlayNext}
