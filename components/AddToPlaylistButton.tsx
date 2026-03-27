@@ -8,15 +8,23 @@ import { useUser } from "@/hooks/useUser"
 import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
 import useIsIframeAuth from "@/hooks/useIsIframeAuth"
 import { handleAuthAction } from "@/app/utils/handleAuthAction"
+import { twMerge } from "tailwind-merge"
 
 interface AddToPlaylistButtonProps {
   song: Song
   className?: string
   iconClassName?: string
   size?: number
+  onClick?: (song: Song) => void
 }
 
-const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ song, className, iconClassName, size = 22 }) => {
+const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({
+  song,
+  className,
+  iconClassName,
+  size = 22,
+  onClick,
+}) => {
   const { user } = useUser()
   const isIframe = useIsIframeAuth()
   const addToPlaylistModal = useAddToPlaylistModal()
@@ -29,6 +37,7 @@ const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ song, classNa
     }
 
     addToPlaylistModal.onOpen(song)
+    onClick?.(song)
   }
 
   return (
@@ -37,7 +46,7 @@ const AddToPlaylistButton: React.FC<AddToPlaylistButtonProps> = ({ song, classNa
       aria-label={`Add ${song.title} to playlist`}
       className={className ?? "cursor-pointer text-neutral-300 transition hover:text-white hover:opacity-75"}
       onClick={handleClick}>
-      <TbPlaylistAdd className={iconClassName} size={size} />
+      <TbPlaylistAdd className={twMerge("text-inherit", iconClassName)} size={size} />
     </button>
   )
 }

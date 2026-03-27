@@ -18,8 +18,17 @@ const useOnPlay = (songs: Song[]) => {
     const selectedSong = songs.find(song => song.id === id)
 
     player.setSongs(songs)
-    player.setId(id)
     player.setIds(songs.map(song => song.id))
+
+    if (player.activeId === id) {
+      if (!player.activeSong && selectedSong) {
+        player.setActiveSong(selectedSong)
+      }
+
+      return
+    }
+
+    player.setId(id)
     player.setActiveSong(selectedSong)
     player.setIsLoading(true)
   }

@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { MouseEvent, useEffect, useState } from "react"
 import { AiOutlineHeart, AiFillHeart } from "react-icons/ai"
 import { useRouter } from "next/navigation"
 import { toast } from "react-hot-toast"
 import { useSessionContext } from "@supabase/auth-helpers-react"
+import { twMerge } from "tailwind-merge"
 
 import { useUser } from "@/hooks/useUser"
 import useIsIframeAuth from "@/hooks/useIsIframeAuth"
@@ -12,18 +13,25 @@ import { handleAuthAction } from "@/app/utils/handleAuthAction"
 
 interface LikeButtonProps {
   songId: string
+  className?: string
+  iconClassName?: string
+  size?: number
+  onToggle?: (isLiked: boolean) => void
 }
 
-const LikeButton: React.FC<LikeButtonProps> = ({ songId }) => {
+const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassName, size = 25, onToggle }) => {
   const router = useRouter()
   const { supabaseClient } = useSessionContext()
   const { user } = useUser()
   const isIframe = useIsIframeAuth()
 
+  const [isHovered, setIsHovered] = useState(false)
+
   const [isLiked, setIsLiked] = useState<boolean>(false)
 
   useEffect(() => {
     if (!user?.id) {
+      setIsLiked(false)
       return
     }
 
@@ -45,7 +53,9 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId }) => {
 
   const Icon = isLiked ? AiFillHeart : AiOutlineHeart
 
-  const handleLike = async () => {
+  const handleLike = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+
     if (!user) {
       return handleAuthAction({ isIframe })
     }
@@ -57,6 +67,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId }) => {
         toast.error(error.message)
       } else {
         setIsLiked(false)
+        onToggle?.(false)
       }
     } else {
       const { error } = await supabaseClient.from("liked_songs").insert({
@@ -68,6 +79,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId }) => {
         toast.error(error.message)
       } else {
         setIsLiked(true)
+        onToggle?.(true)
         toast.success("Success")
       }
     }
@@ -77,13 +89,13 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId }) => {
 
   return (
     <button
-      className="
-        cursor-pointer 
-        hover:opacity-75 
-        transition
-      "
+      type="button"
+      aria-label={isLiked ? "Unlike song" : "Like song"}
+      className={twMerge(`cursor-pointer transition hover:opacity-100`, className)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       onClick={handleLike}>
-      <Icon color={isLiked ? "#22c55e" : "white"} size={25} />
+      <Icon className={iconClassName} color={isHovered ? "#ef4444" : isLiked ? "#22c55e" : "white"} size={size} />
     </button>
   )
 }

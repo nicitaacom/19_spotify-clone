@@ -9,16 +9,23 @@ export default async function Liked() {
   const songs = await getLikedSongs()
 
   return (
-    <div className="bg-neutral-900 rounded-full w-full h-full overflow-hidden overflow-y-auto">
-      <Header>
-        <div className="mt-20">
-          <div className="flex flex-col md:flex-row items-center gap-x-5">
-            <div className="relative w-32 h-32 lg:w-44 lg:h-44">
-              <Image className="object-cover" src="/images/liked.png" alt="Playlist" />
+    <div className="h-full w-full overflow-hidden overflow-y-auto rounded-lg bg-neutral-900">
+      <Header className="bg-gradient-to-b from-cyan-800 via-emerald-900 to-neutral-900">
+        <div className="mt-10">
+          <div className="flex flex-col items-center gap-6 md:flex-row md:items-end">
+            <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-indigo-500 via-sky-400 to-emerald-300 shadow-[0_24px_80px_-36px_rgba(56,189,248,0.55)] lg:h-44 lg:w-44">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.35),transparent_45%)]" />
+              <Image className="object-cover p-7" fill sizes="176px" src="/images/liked.png" alt="Liked songs playlist" />
             </div>
-            <div className="flex flex-col gap-y-2 mt-4 md:mt-0">
-              <p className="hidden md:block font-semibold text-sm">Playlist</p>
-              <h1 className="text-white text-4xl sm:text-5xl lg:text-7xl font-bold">Liked songs</h1>
+            <div className="flex flex-col gap-y-3 text-center md:text-left">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-cyan-100">Playlist</p>
+              <h1 className="text-4xl font-bold text-white sm:text-5xl lg:text-7xl">Liked songs</h1>
+              <p className="max-w-2xl text-sm text-neutral-200 sm:text-base">
+                Your personal stash of favorites, refreshed with cleaner actions and a more polished collection view.
+              </p>
+              <p className="text-sm text-neutral-300">
+                {songs.length} saved {songs.length === 1 ? "track" : "tracks"}
+              </p>
             </div>
           </div>
         </div>

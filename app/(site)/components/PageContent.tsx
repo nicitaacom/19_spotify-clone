@@ -2,6 +2,7 @@
 
 import { Song } from "@/types"
 import useOnPlay from "@/hooks/useOnPlay"
+import usePlayer from "@/hooks/usePlayer"
 import SongItem from "@/components/SongItem"
 
 interface PageContentProps {
@@ -10,6 +11,8 @@ interface PageContentProps {
 
 const PageContent: React.FC<PageContentProps> = ({ songs }) => {
   const onPlay = useOnPlay(songs)
+  const activeId = usePlayer(state => state.activeId)
+  const isPlayerLoading = usePlayer(state => state.isLoading)
 
   if (songs.length === 0) {
     return <div className="mt-4 text-neutral-400">No songs available.</div>
@@ -29,7 +32,12 @@ const PageContent: React.FC<PageContentProps> = ({ songs }) => {
         mt-4
       ">
       {songs.map(item => (
-        <SongItem onClick={(id: string) => onPlay(id)} key={item.id} data={item} />
+        <SongItem
+          onPlay={(id: string) => onPlay(id)}
+          key={item.id}
+          data={item}
+          isLoading={isPlayerLoading && activeId === item.id}
+        />
       ))}
     </div>
   )
