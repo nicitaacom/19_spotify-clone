@@ -1,13 +1,8 @@
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
+import { createServerComponentClient } from "@/libs/supabaseServer"
 import { ProductWithPrice } from "@/types"
 
 const getActiveProductsWithPrices = async (): Promise<ProductWithPrice[]> => {
-  const cookieStore = await cookies()
-  const supabase = createServerComponentClient({
-    cookies: () => cookieStore,
-  })
+  const supabase = await createServerComponentClient()
 
   const { data, error } = await supabase
     .from("products")

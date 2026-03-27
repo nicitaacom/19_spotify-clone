@@ -1,14 +1,12 @@
-import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
 
 import { Database } from "@/types_db"
 import { upsertSpotifyUserFn } from "@/app/auth/callback/functions/upsertSpotifyUserFn"
+import { createRouteHandlerClient } from "@/libs/supabaseServer"
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient<Database>({ cookies: () => cookieStore })
+    const supabase = await createRouteHandlerClient<Database>()
     const { provider = "credentials" } = ((await request.json().catch(() => ({}))) as { provider?: string }) ?? {}
     const {
       data: { user },

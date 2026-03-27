@@ -1,5 +1,4 @@
 import "./globals.css"
-import { Figtree } from "next/font/google"
 
 import Sidebar from "../components/Sidebar"
 import SupabaseProvider from "./providers/SupabaseProvider"
@@ -9,8 +8,6 @@ import ToasterProvider from "./providers/ToastProvider"
 import getSongsByUserId from "@/actions/getSongsByUserId"
 import Player from "@/components/Player"
 import getActiveProductsWithPrices from "@/actions/getActiveProductsWithPrices"
-
-const figtree = Figtree({ subsets: ["latin"] })
 
 export const metadata = {
   title: "Spotify clone",
@@ -25,7 +22,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en">
-      <body className={figtree.className}>
+      <body>
         <ToasterProvider />
         <SupabaseProvider>
           <UserProvider>

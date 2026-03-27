@@ -1,12 +1,9 @@
 import { Song } from "@/types"
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
+
+import { createServerComponentClient } from "@/libs/supabaseServer"
 
 const getSongsById = async (): Promise<Song[]> => {
-  const cookieStore = await cookies()
-  const supabase = createServerComponentClient({
-    cookies: () => cookieStore,
-  })
+  const supabase = await createServerComponentClient()
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
 
   if (sessionError) {
