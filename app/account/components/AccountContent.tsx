@@ -5,12 +5,10 @@ import { useRouter } from "next/navigation"
 
 import { useUser } from "@/hooks/useUser"
 import Button from "@/components/Button"
-import useSubscribeModal from "@/hooks/useSubscribeModal"
 import { postData } from "@/libs/helpers"
 
 const AccountContent = () => {
   const router = useRouter()
-  const subscribeModal = useSubscribeModal()
   const { isLoading, subscription, user } = useUser()
 
   const [loading, setLoading] = useState(false)
@@ -36,18 +34,20 @@ const AccountContent = () => {
 
   return (
     <div className="mb-7 px-6">
+      <div className="flex flex-col gap-y-2">
+        <p>Signed in as {user?.email ?? "your account"}.</p>
+        <p className="text-sm text-neutral-400">Music playback is available for every logged-in user.</p>
+      </div>
+
       {!subscription && (
-        <div className="flex flex-col gap-y-4">
-          <p>No active plan.</p>
-          <Button onClick={subscribeModal.onOpen} className="w-[300px]">
-            Subscribe
-          </Button>
+        <div className="mt-6 flex flex-col gap-y-4">
+          <p>No subscription is required to listen.</p>
         </div>
       )}
       {subscription && (
-        <div className="flex flex-col gap-y-4">
+        <div className="mt-6 flex flex-col gap-y-4">
           <p>
-            You are currently on the
+            You also have an active
             <b> {subscription?.prices?.products?.name} </b>
             plan.
           </p>
