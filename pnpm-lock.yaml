@@ -23,6 +23,9 @@ importers:
       '@supabase/auth-helpers-react':
         specifier: ^0.4.2
         version: 0.4.2(@supabase/supabase-js@2.99.2)
+      '@supabase/auth-helpers-shared':
+        specifier: ^0.6.3
+        version: 0.6.3(@supabase/supabase-js@2.99.2)
       '@supabase/auth-ui-react':
         specifier: ^0.4.6
         version: 0.4.7(@supabase/supabase-js@2.99.2)
