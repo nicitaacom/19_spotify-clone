@@ -13,6 +13,8 @@ interface PlayerStore {
   preloadedSongId?: string
   playbackCommand?: "play" | "pause"
   playbackCommandId: number
+  seek?: number
+  seekId: number
   setId: (id: string) => void
   setActiveSong: (song?: Song) => void
   setIsLoading: (isLoading: boolean) => void
@@ -22,6 +24,7 @@ interface PlayerStore {
   setSongs: (songs: Song[]) => void
   setIds: (ids: string[]) => void
   requestPlaybackCommand: (command: "play" | "pause") => void
+  requestSeek: (seek: number) => void
   reset: () => void
 }
 
@@ -36,6 +39,8 @@ const usePlayer = create<PlayerStore>(set => ({
   preloadedSongId: undefined,
   playbackCommand: undefined,
   playbackCommandId: 0,
+  seek: undefined,
+  seekId: 0,
   setId: (id: string) => set({ activeId: id }),
   setActiveSong: (song?: Song) => set({ activeSong: song }),
   setIsLoading: (isLoading: boolean) => set({ isLoading }),
@@ -49,6 +54,11 @@ const usePlayer = create<PlayerStore>(set => ({
       playbackCommand,
       playbackCommandId: state.playbackCommandId + 1,
     })),
+  requestSeek: (seek: number) =>
+    set(state => ({
+      seek,
+      seekId: state.seekId + 1,
+    })),
   reset: () =>
     set({
       songs: [],
@@ -61,6 +71,8 @@ const usePlayer = create<PlayerStore>(set => ({
       preloadedSongId: undefined,
       playbackCommand: undefined,
       playbackCommandId: 0,
+      seek: undefined,
+      seekId: 0,
     }),
 }))
 

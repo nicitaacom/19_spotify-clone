@@ -259,31 +259,58 @@ Component
 | `isLoading`    | one button/action | disable a single button                      |
 | `currentState` | status badge      | `"fetching"` / `"updating"` / `"up to date"` |
 
-## Zustand store pattern
+### Zustand store pattern
 
-Use Zustand for UI and app state.
+Use Zustand for UI and app state with `subscribeWithSelector` and `devtools`.
 
 ```ts
 import { create } from "zustand"
+import { devtools, subscribeWithSelector } from "zustand/middleware"
 
-type Store = {
-  value: string
-  setValue: (value: string) => void
+interface UserStore {
+  user: User | null
+  setUser: (user: User | null) => void
+  clearUser: () => void
+  logoutUser: () => void
 }
 
-export const useStore = create<Store>(set => ({
-  value: "",
-  setValue: value => set({ value }),
-}))
+type SetState = (fn: (prevState: UserStore) => UserStore) => void
+
+const userStore = (set: SetState): UserStore => ({
+  user: null,
+  setUser: user => set(state => ({ ...state, user })),
+  clearUser: () => set(state => ({ ...state, user: null })),
+  logoutUser: () => {
+    // logout logic
+    set(state => ({ ...state, user: null }))
+  },
+})
+
+const useUserStore = create(subscribeWithSelector(devtools(userStore)))
+
+setTimeout(() => {
+  useUserStore.subscribe(
+    state => state.user?.id || null,
+    async () => {
+      // initialization logic
+    },
+    { fireImmediately: true },
+  )
+}, 0)
+
+export default useUserStore
 ```
 
 ### Store rules
 
 - Keep action names full and clear.
-- Destructure store functions in hooks and components.
-- Prefer direct state updates.
-- Avoid callback-style setters that behave like `useState`.
-- Keep server sync logic outside the store unless the store is specifically for UI state.
+- Always use object destructuring for store properties and actions: `const { value, setValue } = useStore()`.
+- Avoid individual selector-style hooks like `const value = useStore(state => state.value)`.
+- Use `subscribeWithSelector` and `devtools` for all stores.
+- Define a `SetState` type and a separate store function before creating the hook.
+- Initialize complex cross-store logic using `setTimeout(() => store.subscribe(...), 0)`.
+- Prefer direct state updates with `set(state => ({ ...state, key: value }))`.
+
 
 ### Store action style
 

@@ -10,6 +10,8 @@ import { Song } from "@/types"
 import usePlayer from "@/hooks/usePlayer"
 import usePreloadNextTrack from "@/hooks/usePreloadNextTrack"
 
+import useVolumeStore from "@/hooks/useVolumeStore"
+
 import AddToPlaylistButton from "./AddToPlaylistButton"
 import LikeButton from "./LikeButton"
 import MediaItem from "./MediaItem"
@@ -21,17 +23,22 @@ interface PlayerContentProps {
 }
 
 const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
-  const ids = usePlayer(state => state.ids)
-  const activeId = usePlayer(state => state.activeId)
-  const songs = usePlayer(state => state.songs)
-  const isLoading = usePlayer(state => state.isLoading)
-  const playbackCommand = usePlayer(state => state.playbackCommand)
-  const playbackCommandId = usePlayer(state => state.playbackCommandId)
-  const setId = usePlayer(state => state.setId)
-  const setActiveSong = usePlayer(state => state.setActiveSong)
-  const setIsLoading = usePlayer(state => state.setIsLoading)
-  const setIsPlayingInStore = usePlayer(state => state.setIsPlaying)
-  const [volume, setVolume] = useState(1)
+  const {
+    ids,
+    activeId,
+    songs,
+    isLoading,
+    playbackCommand,
+    playbackCommandId,
+    seek: seekValue,
+    seekId,
+    setId,
+    setActiveSong,
+    setIsLoading,
+    setIsPlaying: setIsPlayingInStore,
+  } = usePlayer()
+
+  const { volume, setVolume } = useVolumeStore()
   const [isPlaying, setIsPlaying] = useState(false)
 
   const Icon = isLoading ? AiOutlineLoading3Quarters : isPlaying ? BsPauseFill : BsPlayFill
@@ -135,6 +142,17 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     }
   }, [activeId, isLoading, isPlaying, pause, play, playbackCommand, playbackCommandId, song.id])
 
+  useEffect(() => {
+    if (activeId !== song.id || !sound || seekId === 0 || seekValue === undefined) {
+      return
+    }
+
+    const duration = sound.duration()
+    if (duration) {
+      sound.seek(seekValue * duration)
+    }
+  }, [activeId, seekId, seekValue, sound, song.id])
+
   const handlePlay = () => {
     if (isLoading) {
       return
@@ -156,8 +174,9 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 h-full">
-      <div className="flex w-full justify-start">
+    <div className="flex h-full w-full">
+      {/* Left side: Song info */}
+      <div className="flex w-[30%] justify-start">
         <div className="flex items-center gap-x-4">
           <MediaItem data={song} />
           <AddToPlaylistButton song={song} />
@@ -165,12 +184,12 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
         </div>
       </div>
 
+      {/* Mobile Play Button */}
       <div
         className="
             flex 
             md:hidden 
-            col-auto 
-            w-full 
+            flex-1
             justify-end 
             items-center
           ">
@@ -191,6 +210,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
         </div>
       </div>
 
+      {/* Center: Controls */}
       <div
         className="
             hidden
@@ -198,8 +218,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
             md:flex 
             justify-center 
             items-center 
-            w-full 
-            max-w-[722px] 
+            flex-1
             gap-x-6
           ">
         <AiFillStepBackward
@@ -239,7 +258,8 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
         />
       </div>
 
-      <div className="hidden md:flex w-full justify-end pr-2">
+      {/* Right side: Volume */}
+      <div className="hidden md:flex w-[30%] justify-end">
         <div className="flex items-center gap-x-2 w-[120px]">
           <VolumeIcon onClick={toggleMute} className="cursor-pointer" size={34} />
           <Slider value={volume} onChange={value => setVolume(value)} />

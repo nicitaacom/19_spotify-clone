@@ -11,9 +11,7 @@ interface PageContentProps {
 
 const PageContent: React.FC<PageContentProps> = ({ songs }) => {
   const onPlay = useOnPlay(songs)
-  const activeId = usePlayer(state => state.activeId)
-  const isPlayerLoading = usePlayer(state => state.isLoading)
-  const isPlayerPlaying = usePlayer(state => state.isPlaying)
+  const { activeId, isLoading: isPlayerLoading, isPlaying: isPlayerPlaying } = usePlayer()
 
   if (songs.length === 0) {
     return <div className="mt-4 text-neutral-400">No songs available.</div>

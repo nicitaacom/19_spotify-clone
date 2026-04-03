@@ -106,24 +106,25 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
         {/* 5. Centered play button — pointer-events-none on overlay so buttons underneath stay clickable */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition duration-300 group-hover:opacity-100">
           {isLoading ? (
-            <div className="pointer-events-auto flex h-14 w-14 scale-100 items-center justify-center rounded-full border border-black/10 bg-white text-black shadow-2xl">
-              <AiOutlineLoading3Quarters size={22} className="animate-spin" />
+            <div className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white text-black shadow-2xl">
+              <AiOutlineLoading3Quarters size={18} className="animate-spin" />
             </div>
           ) : (
             <PlayButton
               onClick={handlePlay}
               isPlaying={isPlaying}
-              className="pointer-events-auto h-14 w-14 scale-90 border border-black/10 p-0 shadow-2xl transition duration-300 group-hover:scale-100"
+              size={18}
+              className="pointer-events-auto h-10 w-10 border border-black/10 p-0 shadow-2xl transition duration-300 group-hover:scale-110"
             />
           )}
         </div>
       </div>
 
       {/* 6. Info row */}
-      <div className="flex items-center gap-3 px-4 py-3.5">
+      <div className="flex items-center gap-3 px-3 py-3">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold leading-tight text-white">{data.title}</p>
-          <p className="mt-0.5 truncate text-xs text-neutral-500">By {data.author}</p>
+          <p className="mt-1 truncate text-xs text-neutral-400">By {data.author}</p>
         </div>
       </div>
     </div>

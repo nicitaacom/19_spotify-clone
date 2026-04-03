@@ -11,12 +11,16 @@ export const useVerifyHuman = (
   { isEnabled = true }: UseVerifyHumanOptions = {},
 ) => {
   const widgetIdRef = useRef<string | null>(null)
-  const [isVerified, setIsVerified] = useState(false)
-  const [token, setToken] = useState("")
+  const isDev = process.env.NODE_ENV !== "production"
+  const siteKey = process.env.NEXT_PUBLIC_CLOUDFLARE_SITE_KEY
+
+  const [isVerified, setIsVerified] = useState(isDev)
+  const [token, setToken] = useState(isDev ? "dev-token" : "")
 
   const clearVerificationFn = useCallback(() => {
-    setIsVerified(false)
-    setToken("")
+    const isDev = process.env.NODE_ENV !== "production"
+    setIsVerified(isDev)
+    setToken(isDev ? "dev-token" : "")
   }, [])
 
   const resetTurnstileFn = useCallback(() => {
@@ -28,10 +32,10 @@ export const useVerifyHuman = (
   }, [clearVerificationFn])
 
   useEffect(() => {
-    const siteKey = process.env.NEXT_PUBLIC_CLOUDFLARE_SITE_KEY
-
-    if (!isEnabled || !siteKey) {
-      clearVerificationFn()
+    if (isDev || !isEnabled || !siteKey) {
+      if (!isDev) {
+        clearVerificationFn()
+      }
 
       if (widgetIdRef.current && window.turnstile) {
         window.turnstile.remove(widgetIdRef.current)
@@ -93,11 +97,12 @@ export const useVerifyHuman = (
 
       clearVerificationFn()
     }
-  }, [clearVerificationFn, isEnabled, turnstileRef])
+  }, [clearVerificationFn, isDev, isEnabled, siteKey, turnstileRef])
 
   return {
     isVerified,
     token,
     resetTurnstileFn,
+    shouldRenderChallenge: isEnabled && !!siteKey && !isDev,
   }
 }

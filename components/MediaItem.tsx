@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import { twMerge } from "tailwind-merge"
 
 import useLoadImage from "@/hooks/useLoadImage"
 import { Song } from "@/types"
@@ -42,6 +43,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick }) => {
     <div
       onClick={handleClick}
       className="
+        relative
         flex 
         items-center 
         gap-x-3 
@@ -50,6 +52,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick }) => {
         w-full 
         p-2 
         rounded-md
+        overflow-hidden
       ">
       <div
         className="
@@ -62,7 +65,9 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick }) => {
         <Image fill sizes="48px" src={imageUrl || "/images/liked.png"} alt="MediaItem" className="object-cover" />
       </div>
       <div className="flex flex-col gap-y-1 overflow-hidden">
-        <p className="text-white truncate">{data.title}</p>
+        <p className={twMerge(`text-white truncate`, player.activeId === data.id && "text-emerald-500")}>
+          {data.title}
+        </p>
         <p className="text-neutral-400 text-sm truncate">By {data.author}</p>
       </div>
     </div>

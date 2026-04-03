@@ -22,12 +22,14 @@ const PRELOAD_THRESHOLD = 0.8
 const PROGRESS_POLL_INTERVAL_MS = 400
 
 const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTrackParams) => {
-  const ids = usePlayer(state => state.ids)
-  const songs = usePlayer(state => state.songs)
-  const activeId = usePlayer(state => state.activeId)
-  const preloadedSongId = usePlayer(state => state.preloadedSongId)
-  const setPreloadedSongId = usePlayer(state => state.setPreloadedSongId)
-  const setProgress = usePlayer(state => state.setProgress)
+  const {
+    ids,
+    songs,
+    activeId,
+    preloadedSongId,
+    setPreloadedSongId,
+    setProgress,
+  } = usePlayer()
 
   const preloadAudioRef = useRef<HTMLAudioElement | null>(null)
   const preloadTargetIdRef = useRef<string | undefined>(undefined)

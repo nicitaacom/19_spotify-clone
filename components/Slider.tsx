@@ -46,6 +46,20 @@ const Slider: React.FC<SlideProps> = ({ value = 1, onChange }) => {
           "
         />
       </RadixSlider.Track>
+      <RadixSlider.Thumb
+        className="
+          block 
+          w-3 
+          h-3 
+          bg-white 
+          shadow-md 
+          rounded-full 
+          hover:scale-110 
+          focus:outline-none 
+          transition
+        "
+        aria-label="Volume"
+      />
     </RadixSlider.Root>
   )
 }

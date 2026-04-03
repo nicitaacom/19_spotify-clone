@@ -44,7 +44,9 @@ const AuthModal = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [passwordInputValue, setPasswordInputValue] = useState("")
   const turnstileRef = useRef<HTMLDivElement>(null)
-  const { isVerified, token, resetTurnstileFn } = useVerifyHuman(turnstileRef, { isEnabled: isOpen })
+  const { isVerified, token, resetTurnstileFn, shouldRenderChallenge } = useVerifyHuman(turnstileRef, {
+    isEnabled: isOpen,
+  })
   const isHumanGateEnabled = Boolean(process.env.NEXT_PUBLIC_CLOUDFLARE_SITE_KEY)
   const isActionBlocked = isLoading || (isHumanGateEnabled && !isVerified)
 
@@ -92,7 +94,8 @@ const AuthModal = () => {
   }
 
   const ensureHumanVerifiedFn = async () => {
-    if (!isHumanGateEnabled) {
+    const isDev = process.env.NODE_ENV !== "production"
+    if (!isHumanGateEnabled || isDev) {
       return true
     }
 
@@ -348,7 +351,7 @@ const AuthModal = () => {
                 </div>
               )}
 
-              <TurnstileChallenge isVerified={isVerified} turnstileRef={turnstileRef} />
+              {shouldRenderChallenge && <TurnstileChallenge isVerified={isVerified} turnstileRef={turnstileRef} />}
 
               <div className="space-y-3">
                 <form className="space-y-3" onSubmit={handleCredentialsSubmit}>
