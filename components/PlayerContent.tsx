@@ -2,7 +2,7 @@
 
 import useSound from "use-sound"
 import { useEffect, useState } from "react"
-import { BsPauseFill, BsPlayFill } from "react-icons/bs"
+import { BsPauseFill, BsPlayFill, BsRepeat, BsRepeat1 } from "react-icons/bs"
 import { HiSpeakerWave, HiSpeakerXMark } from "react-icons/hi2"
 import { AiFillStepBackward, AiFillStepForward, AiOutlineLoading3Quarters } from "react-icons/ai"
 
@@ -32,10 +32,12 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     playbackCommandId,
     seek: seekValue,
     seekId,
+    repeatMode,
     setId,
     setActiveSong,
     setIsLoading,
     setIsPlaying: setIsPlayingInStore,
+    setRepeatMode,
   } = usePlayer()
 
   const { volume, setVolume } = useVolumeStore()
@@ -43,6 +45,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
 
   const Icon = isLoading ? AiOutlineLoading3Quarters : isPlaying ? BsPauseFill : BsPlayFill
   const VolumeIcon = volume === 0 ? HiSpeakerXMark : HiSpeakerWave
+  const RepeatIcon = repeatMode === "one" ? BsRepeat1 : BsRepeat
 
   const onPlayNext = () => {
     if (ids.length === 0) {
@@ -53,15 +56,28 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     const nextSong = ids[currentIndex + 1]
 
     if (!nextSong) {
-      const firstSong = songs[0]
-      setActiveSong(firstSong)
-      setIsLoading(true)
-      return setId(ids[0])
+      if (repeatMode === "all") {
+        const firstSong = songs[0]
+        setActiveSong(firstSong)
+        setIsLoading(true)
+        return setId(ids[0])
+      }
+      return
     }
 
     setActiveSong(songs.find(queueSong => queueSong.id === nextSong))
     setIsLoading(true)
     setId(nextSong)
+  }
+
+  const cycleRepeatMode = () => {
+    if (repeatMode === "off") {
+      setRepeatMode("all")
+    } else if (repeatMode === "all") {
+      setRepeatMode("one")
+    } else {
+      setRepeatMode("off")
+    }
   }
 
   const onPlayPrevious = () => {
@@ -84,7 +100,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     setId(previousSong)
   }
 
-  const [play, { pause, sound }] = useSound(songUrl, {
+  const [play, { pause, sound, seek }] = useSound(songUrl, {
     volume: volume,
     onplay: () => {
       setIsPlaying(true)
@@ -94,7 +110,12 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     onend: () => {
       setIsPlaying(false)
       setIsPlayingInStore(false)
-      onPlayNext()
+      if (repeatMode === "one") {
+        seek?.(0)
+        play()
+      } else {
+        onPlayNext()
+      }
     },
     onpause: () => {
       setIsPlaying(false)
@@ -255,6 +276,15 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
               hover:text-white 
               transition
             "
+        />
+        <RepeatIcon
+          onClick={cycleRepeatMode}
+          size={22}
+          className={`
+              cursor-pointer 
+              transition
+              ${repeatMode === "off" ? "text-neutral-400 hover:text-white" : "text-white"}
+            `}
         />
       </div>
 
