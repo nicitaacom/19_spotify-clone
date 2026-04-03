@@ -16,6 +16,8 @@ const Player = () => {
     setActiveSong,
     progress,
     requestSeek,
+    togglePlayback,
+    stopPlayback,
   } = usePlayer()
 
   const activeSong = currentStoreSong?.id === activeId ? currentStoreSong : undefined
@@ -27,6 +29,36 @@ const Player = () => {
       setActiveSong(fetchedSong)
     }
   }, [activeId, fetchedSong, setActiveSong])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return
+      }
+
+      if (e.code === "F8") {
+        e.preventDefault()
+        stopPlayback()
+        return
+      }
+
+      if (e.code === "Space") {
+        e.preventDefault()
+        togglePlayback()
+        return
+      }
+
+      if (e.code === "Escape") {
+        e.preventDefault()
+        requestSeek(0)
+        return
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [requestSeek, togglePlayback, stopPlayback])
 
   const songUrl = useLoadSongUrl(song)
 
