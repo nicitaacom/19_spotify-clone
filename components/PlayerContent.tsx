@@ -100,7 +100,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     setId(previousSong)
   }
 
-  const [play, { pause, sound, seek }] = useSound(songUrl, {
+  const [play, { pause, sound }] = useSound(songUrl, {
     volume: volume,
     onplay: () => {
       setIsPlaying(true)
@@ -111,7 +111,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
       setIsPlaying(false)
       setIsPlayingInStore(false)
       if (repeatMode === "one") {
-        seek?.(0)
+        sound.seek(0)
         play()
       } else {
         onPlayNext()
