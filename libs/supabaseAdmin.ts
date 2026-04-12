@@ -22,7 +22,7 @@ const upsertProductRecord = async (product: Stripe.Product) => {
     metadata: product.metadata,
   }
 
-  const { error } = await supabaseAdmin.from("products").upsert([productData])
+  const { error } = await supabaseAdmin.from("19_products").upsert([productData])
   if (error) throw error
   console.log(`Product inserted/updated: ${product.id}`)
 }
@@ -42,13 +42,13 @@ const upsertPriceRecord = async (price: Stripe.Price) => {
     metadata: price.metadata,
   }
 
-  const { error } = await supabaseAdmin.from("prices").upsert([priceData])
+  const { error } = await supabaseAdmin.from("19_prices").upsert([priceData])
   if (error) throw error
   console.log(`Price inserted/updated: ${price.id}`)
 }
 
 const createOrRetrieveCustomer = async ({ email, uuid }: { email: string; uuid: string }) => {
-  const { data, error } = await supabaseAdmin.from("customers").select("stripe_customer_id").eq("id", uuid).single()
+  const { data, error } = await supabaseAdmin.from("19_customers").select("stripe_customer_id").eq("id", uuid).single()
   if (error || !data?.stripe_customer_id) {
     const customerData: { metadata: { supabaseUUID: string }; email?: string } = {
       metadata: {
@@ -58,7 +58,7 @@ const createOrRetrieveCustomer = async ({ email, uuid }: { email: string; uuid: 
     if (email) customerData.email = email
     const customer = await stripe.customers.create(customerData)
     const { error: supabaseError } = await supabaseAdmin
-      .from("customers")
+      .from(\"19_customers\")
       .insert([{ id: uuid, stripe_customer_id: customer.id }])
     if (supabaseError) throw supabaseError
     console.log(`New customer created and inserted for ${uuid}.`)
@@ -87,7 +87,7 @@ const copyBillingDetailsToCustomer = async (uuid: string, payment_method: Stripe
 const manageSubscriptionStatusChange = async (subscriptionId: string, customerId: string, createAction = false) => {
   // Get customer's UUID from mapping table.
   const { data: customerData, error: noCustomerError } = await supabaseAdmin
-    .from("customers")
+    .from(\"19_customers\")
     .select("id")
     .eq("stripe_customer_id", customerId)
     .single()
@@ -120,7 +120,7 @@ const manageSubscriptionStatusChange = async (subscriptionId: string, customerId
     trial_end: subscription.trial_end ? toDateTime(subscription.trial_end).toISOString() : null,
   }
 
-  const { error } = await supabaseAdmin.from("subscriptions").upsert([subscriptionData])
+  const { error } = await supabaseAdmin.from(\"19_subscriptions\").upsert([subscriptionData])
   if (error) throw error
   console.log(`Inserted/updated subscription [${subscription.id}] for user [${uuid}]`)
 

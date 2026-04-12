@@ -21,9 +21,9 @@ How to implement this pattern elsewhere:
 ```sql
 
 -- =====================================================
--- 📦 TABLE: playlists
+-- 📦 TABLE: 19_playlists
 -- =====================================================
-CREATE TABLE public.playlists (
+CREATE TABLE public."19_playlists" (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
@@ -32,38 +32,38 @@ CREATE TABLE public.playlists (
     title TEXT NOT NULL,
     description TEXT NULL,
     visibility public.playlist_visibility NOT NULL DEFAULT 'public',
-    CONSTRAINT playlists_pkey PRIMARY KEY (id),
-    CONSTRAINT playlists_slug_key UNIQUE (slug),
-    CONSTRAINT playlists_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users (id) ON UPDATE CASCADE ON DELETE CASCADE
+    CONSTRAINT "19_playlists_pkey" PRIMARY KEY (id),
+    CONSTRAINT "19_playlists_slug_key" UNIQUE (slug),
+    CONSTRAINT "19_playlists_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users (id) ON UPDATE CASCADE ON DELETE CASCADE
 ) TABLESPACE pg_default;
 
--- 🔐 RLS POLICIES FOR playlists
-ALTER TABLE public.playlists ENABLE ROW LEVEL SECURITY;
+-- 🔐 RLS POLICIES FOR 19_playlists
+ALTER TABLE public."19_playlists" ENABLE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlists' AND policyname = 'Allow public and unlisted playlist reads') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_playlists' AND policyname = 'Allow public and unlisted playlist reads') THEN
         CREATE POLICY "Allow public and unlisted playlist reads"
-        ON public.playlists FOR SELECT
+        ON public."19_playlists" FOR SELECT
         USING (visibility IN ('public', 'unlisted') OR auth.uid() = user_id);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlists' AND policyname = 'Allow users to insert their own playlists') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_playlists' AND policyname = 'Allow users to insert their own playlists') THEN
         CREATE POLICY "Allow users to insert their own playlists"
-        ON public.playlists FOR INSERT
+        ON public."19_playlists" FOR INSERT
         WITH CHECK (auth.uid() = user_id);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlists' AND policyname = 'Allow users to update their own playlists') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_playlists' AND policyname = 'Allow users to update their own playlists') THEN
         CREATE POLICY "Allow users to update their own playlists"
-        ON public.playlists FOR UPDATE
+        ON public."19_playlists" FOR UPDATE
         USING (auth.uid() = user_id)
         WITH CHECK (auth.uid() = user_id);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlists' AND policyname = 'Allow users to delete their own playlists') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_playlists' AND policyname = 'Allow users to delete their own playlists') THEN
         CREATE POLICY "Allow users to delete their own playlists"
-        ON public.playlists FOR DELETE
+        ON public."19_playlists" FOR DELETE
         USING (auth.uid() = user_id);
     END IF;
 END $$;
@@ -72,79 +72,79 @@ END $$;
 
 
 -- =====================================================
--- 📦 TABLE: playlist_songs
+-- 📦 TABLE: 19_playlist_songs
 -- =====================================================
-CREATE TABLE public.playlist_songs (
+CREATE TABLE public."19_playlist_songs" (
     playlist_id UUID NOT NULL,
     song_id BIGINT NOT NULL,
     position INTEGER NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
-    CONSTRAINT playlist_songs_pkey PRIMARY KEY (playlist_id, song_id),
-    CONSTRAINT playlist_songs_playlist_id_fkey FOREIGN KEY (playlist_id) REFERENCES public.playlists (id) ON UPDATE CASCADE ON DELETE CASCADE,
-    CONSTRAINT playlist_songs_song_id_fkey FOREIGN KEY (song_id) REFERENCES public.songs (id) ON UPDATE CASCADE ON DELETE CASCADE
+    CONSTRAINT "19_playlist_songs_pkey" PRIMARY KEY (playlist_id, song_id),
+    CONSTRAINT "19_playlist_songs_playlist_id_fkey" FOREIGN KEY (playlist_id) REFERENCES public."19_playlists" (id) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT "19_playlist_songs_song_id_fkey" FOREIGN KEY (song_id) REFERENCES public."19_songs" (id) ON UPDATE CASCADE ON DELETE CASCADE
 ) TABLESPACE pg_default;
 
--- 🔐 RLS POLICIES FOR playlist_songs
-ALTER TABLE public.playlist_songs ENABLE ROW LEVEL SECURITY;
+-- 🔐 RLS POLICIES FOR 19_playlist_songs
+ALTER TABLE public."19_playlist_songs" ENABLE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlist_songs' AND policyname = 'Allow readable playlist song rows') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_playlist_songs' AND policyname = 'Allow readable playlist song rows') THEN
         CREATE POLICY "Allow readable playlist song rows"
-        ON public.playlist_songs FOR SELECT
+        ON public."19_playlist_songs" FOR SELECT
         USING (
             EXISTS (
                 SELECT 1
-                FROM public.playlists
-                WHERE playlists.id = playlist_songs.playlist_id
-                  AND (playlists.visibility IN ('public', 'unlisted') OR playlists.user_id = auth.uid())
+                FROM public."19_playlists"
+                WHERE "19_playlists".id = "19_playlist_songs".playlist_id
+                  AND ("19_playlists".visibility IN ('public', 'unlisted') OR "19_playlists".user_id = auth.uid())
             )
         );
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlist_songs' AND policyname = 'Allow owners to insert playlist songs') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_playlist_songs' AND policyname = 'Allow owners to insert playlist songs') THEN
         CREATE POLICY "Allow owners to insert playlist songs"
-        ON public.playlist_songs FOR INSERT
+        ON public."19_playlist_songs" FOR INSERT
         WITH CHECK (
             EXISTS (
                 SELECT 1
-                FROM public.playlists
-                WHERE playlists.id = playlist_songs.playlist_id
-                  AND playlists.user_id = auth.uid()
+                FROM public."19_playlists"
+                WHERE "19_playlists".id = "19_playlist_songs".playlist_id
+                  AND "19_playlists".user_id = auth.uid()
             )
         );
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlist_songs' AND policyname = 'Allow owners to update playlist songs') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_playlist_songs' AND policyname = 'Allow owners to update playlist songs') THEN
         CREATE POLICY "Allow owners to update playlist songs"
-        ON public.playlist_songs FOR UPDATE
+        ON public."19_playlist_songs" FOR UPDATE
         USING (
             EXISTS (
                 SELECT 1
-                FROM public.playlists
-                WHERE playlists.id = playlist_songs.playlist_id
-                  AND playlists.user_id = auth.uid()
+                FROM public."19_playlists"
+                WHERE "19_playlists".id = "19_playlist_songs".playlist_id
+                  AND "19_playlists".user_id = auth.uid()
             )
         )
         WITH CHECK (
             EXISTS (
                 SELECT 1
-                FROM public.playlists
-                WHERE playlists.id = playlist_songs.playlist_id
-                  AND playlists.user_id = auth.uid()
+                FROM public."19_playlists"
+                WHERE "19_playlists".id = "19_playlist_songs".playlist_id
+                  AND "19_playlists".user_id = auth.uid()
             )
         );
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'playlist_songs' AND policyname = 'Allow owners to delete playlist songs') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_playlist_songs' AND policyname = 'Allow owners to delete playlist songs') THEN
         CREATE POLICY "Allow owners to delete playlist songs"
-        ON public.playlist_songs FOR DELETE
+        ON public."19_playlist_songs" FOR DELETE
         USING (
             EXISTS (
                 SELECT 1
-                FROM public.playlists
-                WHERE playlists.id = playlist_songs.playlist_id
-                  AND playlists.user_id = auth.uid()
+                FROM public."19_playlists"
+                WHERE "19_playlists".id = "19_playlist_songs".playlist_id
+                  AND "19_playlists".user_id = auth.uid()
             )
         );
     END IF;
@@ -156,21 +156,21 @@ END $$;
 -- =====================================================
 -- 🎯 CREATE CUSTOM ENUM TYPES (MUST EXIST BEFORE TABLES)
 -- =====================================================
-DO $$ 
+DO $$
 BEGIN
     CREATE TYPE public.pricing_type AS ENUM ('one_time', 'recurring');
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
-DO $$ 
+DO $$
 BEGIN
     CREATE TYPE public.pricing_plan_interval AS ENUM ('day', 'week', 'month', 'year');
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
 
-DO $$ 
+DO $$
 BEGIN
     CREATE TYPE public.subscription_status AS ENUM ('trialing', 'active', 'canceled', 'incomplete', 'incomplete_expired', 'past_due', 'unpaid');
 EXCEPTION
@@ -205,12 +205,12 @@ ALTER TABLE public.users_19_spotify ENABLE ROW LEVEL SECURITY;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'users_19_spotify' AND policyname = 'Allow users to select their own row') THEN
-        CREATE POLICY "Allow users to select their own row" 
+        CREATE POLICY "Allow users to select their own row"
         ON public.users_19_spotify FOR SELECT USING (auth.uid() = id);
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'users_19_spotify' AND policyname = 'Allow users to update their own row') THEN
-        CREATE POLICY "Allow users to update their own row" 
+        CREATE POLICY "Allow users to update their own row"
         ON public.users_19_spotify FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
     END IF;
 END $$;
@@ -220,26 +220,26 @@ END $$;
 
 
 -- =====================================================
--- 📦 TABLE: products (STRIPE PRODUCTS)
+-- 📦 TABLE: 19_products (STRIPE PRODUCTS)
 -- =====================================================
-CREATE TABLE public.products (
+CREATE TABLE public.19_products (
     id TEXT NOT NULL,
     active BOOLEAN NULL,
     name TEXT NULL,
     description TEXT NULL,
     image TEXT NULL,
     metadata JSONB NULL,
-    CONSTRAINT products_pkey PRIMARY KEY (id)
+    CONSTRAINT 19_products_pkey PRIMARY KEY (id)
 ) TABLESPACE pg_default;
 
--- 🔐 RLS POLICIES FOR products (PUBLIC READ)
-ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+-- 🔐 RLS POLICIES FOR 19_products (PUBLIC READ)
+ALTER TABLE public.19_products ENABLE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'products' AND policyname = 'Allow public read access') THEN
-        CREATE POLICY "Allow public read access" 
-        ON public.products FOR SELECT USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_products' AND policyname = 'Allow public read access') THEN
+        CREATE POLICY "Allow public read access"
+        ON public.19_products FOR SELECT USING (true);
     END IF;
 END $$;
 
@@ -248,9 +248,9 @@ END $$;
 
 
 -- =====================================================
--- 📦 TABLE: prices (DEPENDS ON products)
+-- 📦 TABLE: 19_prices (DEPENDS ON 19_products)
 -- =====================================================
-CREATE TABLE public.prices (
+CREATE TABLE public."19_prices" (
     id TEXT NOT NULL,
     product_id TEXT NULL,
     active BOOLEAN NULL,
@@ -262,19 +262,19 @@ CREATE TABLE public.prices (
     interval_count INTEGER NULL,
     trial_period_days INTEGER NULL,
     metadata JSONB NULL,
-    CONSTRAINT prices_pkey PRIMARY KEY (id),
-    CONSTRAINT prices_product_id_fkey FOREIGN KEY (product_id) REFERENCES products (id),
-    CONSTRAINT prices_currency_check CHECK (char_length(currency) = 3)
+    CONSTRAINT "19_prices_pkey" PRIMARY KEY (id),
+    CONSTRAINT "19_prices_product_id_fkey" FOREIGN KEY (product_id) REFERENCES "19_products" (id),
+    CONSTRAINT "19_prices_currency_check" CHECK (char_length(currency) = 3)
 ) TABLESPACE pg_default;
 
--- 🔐 RLS POLICIES FOR prices (PUBLIC READ)
-ALTER TABLE public.prices ENABLE ROW LEVEL SECURITY;
+-- 🔐 RLS POLICIES FOR 19_prices (PUBLIC READ)
+ALTER TABLE public."19_prices" ENABLE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'prices' AND policyname = 'Allow public read access') THEN
-        CREATE POLICY "Allow public read access" 
-        ON public.prices FOR SELECT USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_prices' AND policyname = 'Allow public read access') THEN
+        CREATE POLICY "Allow public read access"
+        ON public."19_prices" FOR SELECT USING (true);
     END IF;
 END $$;
 
@@ -283,9 +283,9 @@ END $$;
 
 
 -- =====================================================
--- 📦 TABLE: songs (USER UPLOADED SONGS)
+-- 📦 TABLE: 19_songs (USER UPLOADED SONGS)
 -- =====================================================
-CREATE TABLE public.songs (
+CREATE TABLE public."19_songs" (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     title TEXT NULL,
@@ -293,31 +293,31 @@ CREATE TABLE public.songs (
     author TEXT NULL,
     user_id UUID NOT NULL,  -- 👈 ENFORCES OWNERSHIP
     image_path TEXT NULL,
-    CONSTRAINT songs_pkey PRIMARY KEY (id),
-    CONSTRAINT songs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users (id) ON UPDATE CASCADE ON DELETE CASCADE
+    CONSTRAINT "19_songs_pkey" PRIMARY KEY (id),
+    CONSTRAINT "19_songs_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users (id) ON UPDATE CASCADE ON DELETE CASCADE
 ) TABLESPACE pg_default;
 
--- 🔐 RLS POLICIES FOR songs
-ALTER TABLE public.songs ENABLE ROW LEVEL SECURITY;
+-- 🔐 RLS POLICIES FOR 19_songs
+ALTER TABLE public."19_songs" ENABLE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
     -- PUBLIC READ ACCESS (EVERYONE CAN SEE SONGS)
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'songs' AND policyname = 'Allow public read access') THEN
-        CREATE POLICY "Allow public read access" 
-        ON public.songs FOR SELECT USING (true);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_songs' AND policyname = 'Allow public read access') THEN
+        CREATE POLICY "Allow public read access"
+        ON public."19_songs" FOR SELECT USING (true);
     END IF;
 
     -- AUTHENTICATED USERS CAN INSERT THEIR OWN SONGS
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'songs' AND policyname = 'Allow users to insert their own songs') THEN
-        CREATE POLICY "Allow users to insert their own songs" 
-        ON public.songs FOR INSERT WITH CHECK (auth.uid() = user_id);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_songs' AND policyname = 'Allow users to insert their own songs') THEN
+        CREATE POLICY "Allow users to insert their own songs"
+        ON public."19_songs" FOR INSERT WITH CHECK (auth.uid() = user_id);
     END IF;
 
     -- OPTIONAL: ALLOW USERS TO UPDATE THEIR OWN SONGS
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'songs' AND policyname = 'Allow users to update their own songs') THEN
-        CREATE POLICY "Allow users to update their own songs" 
-        ON public.songs FOR UPDATE USING (auth.uid() = user_id);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_songs' AND policyname = 'Allow users to update their own songs') THEN
+        CREATE POLICY "Allow users to update their own songs"
+        ON public."19_songs" FOR UPDATE USING (auth.uid() = user_id);
     END IF;
 END $$;
 
@@ -326,35 +326,35 @@ END $$;
 
 
 -- =====================================================
--- 📦 TABLE: liked_songs (DEPENDS ON songs AND auth.users)
+-- 📦 TABLE: 19_liked_songs (DEPENDS ON 19_songs AND auth.users)
 -- =====================================================
-CREATE TABLE public.liked_songs (
+CREATE TABLE public."19_liked_songs" (
     user_id UUID NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     song_id BIGINT NOT NULL,
-    CONSTRAINT liked_songs_pkey PRIMARY KEY (user_id, song_id),
-    CONSTRAINT liked_songs_song_id_fkey FOREIGN KEY (song_id) REFERENCES songs (id) ON UPDATE CASCADE ON DELETE CASCADE,
-    CONSTRAINT liked_songs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users (id) ON UPDATE CASCADE ON DELETE CASCADE
+    CONSTRAINT "19_liked_songs_pkey" PRIMARY KEY (user_id, song_id),
+    CONSTRAINT "19_liked_songs_song_id_fkey" FOREIGN KEY (song_id) REFERENCES "19_songs" (id) ON UPDATE CASCADE ON DELETE CASCADE,
+    CONSTRAINT "19_liked_songs_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users (id) ON UPDATE CASCADE ON DELETE CASCADE
 ) TABLESPACE pg_default;
 
--- 🔐 RLS POLICIES FOR liked_songs
-ALTER TABLE public.liked_songs ENABLE ROW LEVEL SECURITY;
+-- 🔐 RLS POLICIES FOR 19_liked_songs
+ALTER TABLE public."19_liked_songs" ENABLE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'liked_songs' AND policyname = 'Allow users to select their own liked songs') THEN
-        CREATE POLICY "Allow users to select their own liked songs" 
-        ON public.liked_songs FOR SELECT USING (auth.uid() = user_id);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_liked_songs' AND policyname = 'Allow users to select their own liked songs') THEN
+        CREATE POLICY "Allow users to select their own liked songs"
+        ON public."19_liked_songs" FOR SELECT USING (auth.uid() = user_id);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'liked_songs' AND policyname = 'Allow users to insert their own liked songs') THEN
-        CREATE POLICY "Allow users to insert their own liked songs" 
-        ON public.liked_songs FOR INSERT WITH CHECK (auth.uid() = user_id);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_liked_songs' AND policyname = 'Allow users to insert their own liked songs') THEN
+        CREATE POLICY "Allow users to insert their own liked songs"
+        ON public."19_liked_songs" FOR INSERT WITH CHECK (auth.uid() = user_id);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'liked_songs' AND policyname = 'Allow users to delete their own liked songs') THEN
-        CREATE POLICY "Allow users to delete their own liked songs" 
-        ON public.liked_songs FOR DELETE USING (auth.uid() = user_id);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_liked_songs' AND policyname = 'Allow users to delete their own liked songs') THEN
+        CREATE POLICY "Allow users to delete their own liked songs"
+        ON public."19_liked_songs" FOR DELETE USING (auth.uid() = user_id);
     END IF;
 END $$;
 
@@ -363,9 +363,9 @@ END $$;
 
 
 -- =====================================================
--- 📦 TABLE: subscriptions (DEPENDS ON auth.users AND prices)
+-- 📦 TABLE: 19_subscriptions (DEPENDS ON auth.users AND 19_prices)
 -- =====================================================
-CREATE TABLE public.subscriptions (
+CREATE TABLE public."19_subscriptions" (
     id TEXT NOT NULL,
     user_id UUID NOT NULL,
     status public.subscription_status NULL,
@@ -381,19 +381,19 @@ CREATE TABLE public.subscriptions (
     canceled_at TIMESTAMP WITH TIME ZONE NULL DEFAULT timezone('utc'::text, now()),
     trial_start TIMESTAMP WITH TIME ZONE NULL DEFAULT timezone('utc'::text, now()),
     trial_end TIMESTAMP WITH TIME ZONE NULL DEFAULT timezone('utc'::text, now()),
-    CONSTRAINT subscriptions_pkey PRIMARY KEY (id),
-    CONSTRAINT subscriptions_price_id_fkey FOREIGN KEY (price_id) REFERENCES prices (id),
-    CONSTRAINT subscriptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users (id)
+    CONSTRAINT "19_subscriptions_pkey" PRIMARY KEY (id),
+    CONSTRAINT "19_subscriptions_price_id_fkey" FOREIGN KEY (price_id) REFERENCES "19_prices" (id),
+    CONSTRAINT "19_subscriptions_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users (id)
 ) TABLESPACE pg_default;
 
--- 🔐 RLS POLICIES FOR subscriptions
-ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+-- 🔐 RLS POLICIES FOR 19_subscriptions
+ALTER TABLE public."19_subscriptions" ENABLE ROW LEVEL SECURITY;
 
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'subscriptions' AND policyname = 'Allow users to select their own subscriptions') THEN
-        CREATE POLICY "Allow users to select their own subscriptions" 
-        ON public.subscriptions FOR SELECT USING (auth.uid() = user_id);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_subscriptions' AND policyname = 'Allow users to select their own subscriptions') THEN
+        CREATE POLICY "Allow users to select their own subscriptions"
+        ON public."19_subscriptions" FOR SELECT USING (auth.uid() = user_id);
     END IF;
 END $$;
 
@@ -402,25 +402,38 @@ END $$;
 
 
 -- =====================================================
--- 📦 TABLE: customers (STRIPE CUSTOMERS, DEPENDS ON auth.users)
+-- 📦 TABLE: 19_customers (STRIPE CUSTOMERS, DEPENDS ON auth.users)
 -- =====================================================
-CREATE TABLE public.customers (
+CREATE TABLE public."19_customers" (
     id UUID NOT NULL,
     stripe_customer_id TEXT NULL,
-    CONSTRAINT customers_pkey PRIMARY KEY (id),
-    CONSTRAINT customers_id_fkey FOREIGN KEY (id) REFERENCES auth.users (id)
+    CONSTRAINT "19_customers_pkey" PRIMARY KEY (id),
+    CONSTRAINT "19_customers_id_fkey" FOREIGN KEY (id) REFERENCES auth.users (id)
 ) TABLESPACE pg_default;
 
--- 🔐 RLS NO NEED TO CREATE RLS FOR THIS!
+-- 🔐 RLS POLICIES FOR 19_customers
+ALTER TABLE public."19_customers" ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_customers' AND policyname = 'Allow users to select their own customer record') THEN
+        CREATE POLICY "Allow users to select their own customer record"
+        ON public."19_customers" FOR SELECT USING (auth.uid() = id);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_customers' AND policyname = 'Allow users to update their own customer record') THEN
+        CREATE POLICY "Allow users to update their own customer record"
+        ON public."19_customers" FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+    END IF;
+END $$;
 
 
 
 
 ```
 
-
-
 # SQL for buckets
+
 ```sql
 
 -- =====================================================

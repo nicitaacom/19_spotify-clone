@@ -3,7 +3,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
   public: {
     Tables: {
-      customers: {
+      "19_customers": {
         Row: {
           id: string
           stripe_customer_id: string | null
@@ -26,7 +26,7 @@ export type Database = {
           },
         ]
       }
-      liked_songs: {
+      "19_liked_songs": {
         Row: {
           created_at: string
           song_id: number
@@ -47,7 +47,7 @@ export type Database = {
             foreignKeyName: "liked_songs_song_id_fkey"
             columns: ["song_id"]
             isOneToOne: false
-            referencedRelation: "songs"
+            referencedRelation: \"19_songs\"
             referencedColumns: ["id"]
           },
           {
@@ -59,7 +59,7 @@ export type Database = {
           },
         ]
       }
-      playlist_songs: {
+      "19_playlist_songs": {
         Row: {
           created_at: string
           playlist_id: string
@@ -83,19 +83,19 @@ export type Database = {
             foreignKeyName: "playlist_songs_playlist_id_fkey"
             columns: ["playlist_id"]
             isOneToOne: false
-            referencedRelation: "playlists"
+            referencedRelation: \"19_playlists\"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "playlist_songs_song_id_fkey"
             columns: ["song_id"]
             isOneToOne: false
-            referencedRelation: "songs"
+            referencedRelation: \"19_songs\"
             referencedColumns: ["id"]
           },
         ]
       }
-      playlists: {
+      "19_playlists": {
         Row: {
           created_at: string
           description: string | null
@@ -136,7 +136,7 @@ export type Database = {
           },
         ]
       }
-      prices: {
+      "19_prices": {
         Row: {
           active: boolean | null
           currency: string | null
@@ -181,12 +181,12 @@ export type Database = {
             foreignKeyName: "prices_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
-            referencedRelation: "products"
+            referencedRelation: "19_products"
             referencedColumns: ["id"]
           },
         ]
       }
-      products: {
+      "19_products": {
         Row: {
           active: boolean | null
           description: string | null
@@ -213,7 +213,7 @@ export type Database = {
         }
         Relationships: []
       }
-      songs: {
+      "19_songs": {
         Row: {
           author: string | null
           created_at: string
@@ -251,7 +251,7 @@ export type Database = {
           },
         ]
       }
-      subscriptions: {
+      "19_subscriptions": {
         Row: {
           cancel_at: string | null
           cancel_at_period_end: boolean | null
@@ -308,7 +308,7 @@ export type Database = {
             foreignKeyName: "subscriptions_price_id_fkey"
             columns: ["price_id"]
             isOneToOne: false
-            referencedRelation: "prices"
+            referencedRelation: \"19_prices\"
             referencedColumns: ["id"]
           },
           {

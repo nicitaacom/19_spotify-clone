@@ -3,7 +3,7 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export interface Database {
   public: {
     Tables: {
-      customers: {
+      "19_customers": {
         Row: {
           id: string
           stripe_customer_id: string | null
@@ -25,7 +25,7 @@ export interface Database {
           },
         ]
       }
-      liked_songs: {
+      "19_liked_songs": {
         Row: {
           created_at: string
           song_id: number
@@ -45,7 +45,7 @@ export interface Database {
           {
             foreignKeyName: "liked_songs_song_id_fkey"
             columns: ["song_id"]
-            referencedRelation: "songs"
+            referencedRelation: \"19_songs\"
             referencedColumns: ["id"]
           },
           {
@@ -56,7 +56,7 @@ export interface Database {
           },
         ]
       }
-      playlist_songs: {
+      "19_playlist_songs": {
         Row: {
           created_at: string
           playlist_id: string
@@ -79,18 +79,18 @@ export interface Database {
           {
             foreignKeyName: "playlist_songs_playlist_id_fkey"
             columns: ["playlist_id"]
-            referencedRelation: "playlists"
+            referencedRelation: "19_playlists"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "playlist_songs_song_id_fkey"
             columns: ["song_id"]
-            referencedRelation: "songs"
+            referencedRelation: \"19_songs\"
             referencedColumns: ["id"]
           },
         ]
       }
-      playlists: {
+      "19_playlists": {
         Row: {
           created_at: string
           description: string | null
@@ -130,7 +130,7 @@ export interface Database {
           },
         ]
       }
-      prices: {
+      "19_prices": {
         Row: {
           active: boolean | null
           currency: string | null
@@ -174,12 +174,12 @@ export interface Database {
           {
             foreignKeyName: "prices_product_id_fkey"
             columns: ["product_id"]
-            referencedRelation: "products"
+            referencedRelation: "19_products"
             referencedColumns: ["id"]
           },
         ]
       }
-      products: {
+      "19_products": {
         Row: {
           active: boolean | null
           description: string | null
@@ -206,7 +206,7 @@ export interface Database {
         }
         Relationships: []
       }
-      songs: {
+      "19_songs": {
         Row: {
           author: string | null
           created_at: string
@@ -243,7 +243,7 @@ export interface Database {
           },
         ]
       }
-      subscriptions: {
+      "19_subscriptions": {
         Row: {
           cancel_at: string | null
           cancel_at_period_end: boolean | null
@@ -299,7 +299,7 @@ export interface Database {
           {
             foreignKeyName: "subscriptions_price_id_fkey"
             columns: ["price_id"]
-            referencedRelation: "prices"
+            referencedRelation: "19_prices"
             referencedColumns: ["id"]
           },
           {

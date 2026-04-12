@@ -5,7 +5,7 @@ const getActiveProductsWithPrices = async (): Promise<ProductWithPrice[]> => {
   const supabase = await createServerComponentClient()
 
   const { data, error } = await supabase
-    .from("products")
+    .from("19_products")
     .select("*, prices(*)")
     .eq("active", true)
     .eq("prices.active", true)

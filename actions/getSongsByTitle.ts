@@ -12,7 +12,7 @@ const getSongsByTitle = async (title: string): Promise<Song[]> => {
   }
 
   const { data, error } = await supabase
-    .from("songs")
+    .from("19_songs")
     .select("*")
     .ilike("title", `%${title}%`)
     .order("created_at", { ascending: false })

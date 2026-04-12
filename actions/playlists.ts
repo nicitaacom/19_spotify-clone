@@ -1,4 +1,11 @@
-import { Playlist, PlaylistAuthor, PlaylistDetail, PlaylistOption, PlaylistSongWithSong, PlaylistSummary } from "@/types"
+import {
+  Playlist,
+  PlaylistAuthor,
+  PlaylistDetail,
+  PlaylistOption,
+  PlaylistSongWithSong,
+  PlaylistSummary,
+} from "@/types"
 
 import { createServerComponentClient } from "@/libs/supabaseServer"
 
@@ -76,7 +83,7 @@ const getPlaylistSongsByPlaylistIds = async (playlistIds: string[]) => {
 
   const supabase = await createServerComponentClient()
   const { data, error } = await supabase
-    .from("playlist_songs")
+    .from("19_playlist_songs")
     .select("playlist_id, song_id, position, created_at, songs(*)")
     .in("playlist_id", playlistIds)
     .order("position", { ascending: true })
@@ -124,7 +131,11 @@ const buildPlaylistSummary = (
 
 export const getPublicPlaylists = async (): Promise<PlaylistSummary[]> => {
   const supabase = await createServerComponentClient()
-  const { data, error } = await supabase.from("playlists").select("*").eq("visibility", "public").order("created_at", { ascending: false })
+  const { data, error } = await supabase
+    .from("19_playlists")
+    .select("*")
+    .eq("visibility", "public")
+    .order("created_at", { ascending: false })
 
   if (error || !data) {
     if (error) {
@@ -136,7 +147,10 @@ export const getPublicPlaylists = async (): Promise<PlaylistSummary[]> => {
 
   const playlistIds = data.map(playlist => String(playlist.id))
   const userIds = Array.from(new Set(data.map(playlist => playlist.user_id)))
-  const [authorsById, playlistSongsById] = await Promise.all([getAuthorsById(userIds), getPlaylistSongsByPlaylistIds(playlistIds)])
+  const [authorsById, playlistSongsById] = await Promise.all([
+    getAuthorsById(userIds),
+    getPlaylistSongsByPlaylistIds(playlistIds),
+  ])
 
   return data.map(playlist => buildPlaylistSummary(playlist, authorsById, playlistSongsById))
 }
@@ -152,7 +166,7 @@ export const getUserPlaylists = async (): Promise<PlaylistSummary[]> => {
   }
 
   const { data, error } = await supabase
-    .from("playlists")
+    .from("19_playlists")
     .select("*")
     .eq("user_id", session.user.id)
     .order("updated_at", { ascending: false })
@@ -183,7 +197,7 @@ export const getUserPlaylistOptions = async (): Promise<PlaylistOption[]> => {
   }
 
   const { data, error } = await supabase
-    .from("playlists")
+    .from("19_playlists")
     .select("id, title, updated_at, visibility")
     .eq("user_id", session.user.id)
     .order("updated_at", { ascending: false })
@@ -206,7 +220,7 @@ export const getUserPlaylistOptions = async (): Promise<PlaylistOption[]> => {
 
 export const getPlaylistBySlug = async (slug: string): Promise<PlaylistDetail | null> => {
   const supabase = await createServerComponentClient()
-  const { data, error } = await supabase.from("playlists").select("*").eq("slug", slug).maybeSingle()
+  const { data, error } = await supabase.from("19_playlists").select("*").eq("slug", slug).maybeSingle()
 
   if (error || !data) {
     if (error) {
