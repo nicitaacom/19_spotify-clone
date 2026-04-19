@@ -290,7 +290,9 @@ const UploadModal = () => {
   return (
     <Modal title="Add a song" description="Upload an mp3 file" isOpen={uploadModal.isOpen} onChange={onChange}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-y-4">
-        {shouldRenderChallenge && <TurnstileChallenge isVerified={isVerified} turnstileRef={turnstileRef} />}
+        {shouldRenderChallenge && (
+          <TurnstileChallenge isVerified={isVerified} onDismiss={() => onChange(false)} turnstileRef={turnstileRef} />
+        )}
         <Input id="title" disabled={isLoading} {...register("title", { required: true })} placeholder="Song title" />
         <Input id="author" disabled={isLoading} {...register("author", { required: true })} placeholder="Song author" />
         <div>

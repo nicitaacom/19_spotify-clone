@@ -351,7 +351,9 @@ const AuthModal = () => {
                 </div>
               )}
 
-              {shouldRenderChallenge && <TurnstileChallenge isVerified={isVerified} turnstileRef={turnstileRef} />}
+              {shouldRenderChallenge && (
+                <TurnstileChallenge isVerified={isVerified} onDismiss={() => onChange(false)} turnstileRef={turnstileRef} />
+              )}
 
               <div className="space-y-3">
                 <form className="space-y-3" onSubmit={handleCredentialsSubmit}>

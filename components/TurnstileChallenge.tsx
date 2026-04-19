@@ -1,37 +1,71 @@
 "use client"
 
-import { RefObject } from "react"
+import { RefObject, useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 
 interface TurnstileChallengeProps {
   turnstileRef: RefObject<HTMLDivElement>
   isVerified: boolean
   className?: string
+  onDismiss?: () => void
 }
 
-const TurnstileChallenge = ({ turnstileRef, isVerified, className }: TurnstileChallengeProps) => {
+const TurnstileChallenge = ({ turnstileRef, isVerified, className, onDismiss }: TurnstileChallengeProps) => {
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+
+    return () => {
+      setIsMounted(false)
+    }
+  }, [])
+
   if (!process.env.NEXT_PUBLIC_CLOUDFLARE_SITE_KEY) {
     return null
   }
 
-  return (
+  if (!isMounted) {
+    return null
+  }
+
+  return createPortal(
     <div className={className}>
-      <div className="space-y-3 rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-        <div className="space-y-1">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/45">Human verification</p>
-          <p className="text-sm leading-6 text-white/70">
-            Complete the Cloudflare challenge before continuing with auth or upload.
-          </p>
-        </div>
+      <div className="fixed inset-0 z-[80] flex items-center justify-center bg-neutral-950/88 px-4 py-6 backdrop-blur-md">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.18),transparent_38%),radial-gradient(circle_at_bottom,rgba(59,130,246,0.14),transparent_32%)]" />
+        <div className="relative w-full max-w-xl space-y-5 rounded-[28px] border border-white/10 bg-neutral-900/95 p-6 shadow-[0_28px_120px_rgba(0,0,0,0.55)] md:p-7">
+          <div className="space-y-2 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200/75">Human verification</p>
+            <h2 className="text-3xl font-semibold text-white">Verify to continue</h2>
+            <p className="text-sm leading-6 text-white/70">
+              Complete the Cloudflare challenge in full screen before continuing with auth or upload.
+            </p>
+          </div>
 
-        <div className="overflow-hidden rounded-xl border border-white/8 bg-black/30 p-3">
-          <div className="min-h-[66px]" ref={turnstileRef} />
-        </div>
+          <div className="space-y-3 rounded-3xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/30 p-3">
+              <div className="min-h-[66px]" ref={turnstileRef} />
+            </div>
 
-        <p className={`text-xs ${isVerified ? "text-emerald-300" : "text-amber-200"}`}>
-          {isVerified ? "Verification complete. You can continue now." : "Complete the challenge to unlock the action button."}
-        </p>
+            <p className={`text-center text-xs ${isVerified ? "text-emerald-300" : "text-amber-200"}`}>
+              {isVerified
+                ? "Verification complete. You can continue now."
+                : "Complete the challenge to unlock the action buttons."}
+            </p>
+          </div>
+
+          <div className="flex justify-center">
+            <button
+              className="rounded-full border border-white/12 px-4 py-2 text-sm text-white/70 transition hover:border-white/25 hover:text-white"
+              onClick={onDismiss}
+              type="button">
+              Close
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
