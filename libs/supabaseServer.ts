@@ -6,7 +6,9 @@ import { cookies } from "next/headers"
 
 import { Database } from "@/app/interfaces/types_db"
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseServerClient = ReturnType<typeof createSupabaseServerComponentClient<any>>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseRouteClient = ReturnType<typeof createSupabaseRouteHandlerClient<any>>
 
 const createCookieContext = async () => {
@@ -18,12 +20,12 @@ const createCookieContext = async () => {
 }
 
 export const createServerComponentClient = async <DatabaseSchema = Database>(): Promise<SupabaseServerClient> => {
-  // <any> avoids "Type instantiation is excessively deep" from auth-helpers-nextjs generics — return type is cast above
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return createSupabaseServerComponentClient<any>(await createCookieContext()) as SupabaseServerClient
 }
 
 export const createRouteHandlerClient = async <DatabaseSchema = Database>(): Promise<SupabaseRouteClient> => {
-  // <any> avoids "Type instantiation is excessively deep" from auth-helpers-nextjs generics — return type is cast above
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return createSupabaseRouteHandlerClient<any>(await createCookieContext()) as SupabaseRouteClient
 }
 

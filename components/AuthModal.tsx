@@ -298,7 +298,7 @@ const AuthModal = () => {
 
   return (
     <Modal
-      contentClassName="h-[calc(100%-32px)] max-h-[calc(100%-32px)] w-[calc(100%-32px)] border-white/10 bg-transparent p-0 md:h-auto md:max-h-[92vh] md:max-w-[960px]"
+      contentClassName="h-[calc(100%-32px)] max-h-[calc(100%-32px)] w-[calc(100%-32px)] border-0 bg-transparent p-0 md:h-auto md:max-h-[92vh] md:max-w-[960px]"
       hideHeader
       isOpen={isOpen}
       onChange={onChange}
@@ -310,17 +310,8 @@ const AuthModal = () => {
 
           <div className="relative flex flex-col justify-center p-5 md:p-8">
             <div className="space-y-6 rounded-[24px] border border-white/10 bg-black/25 p-5 shadow-[0_30px_80px_rgba(0,0,0,0.28)] backdrop-blur-xl md:p-7">
-              <div className="space-y-3">
-                <div className="inline-flex items-center rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-200">
-                  Spotify Clone Auth
-                </div>
-                <div>
-                  <h1 className="text-3xl font-semibold leading-tight text-white">{authTitle}</h1>
-                  <p className="mt-2 text-sm leading-6 text-white/70">
-                    This modal now follows the same auth direction as your `ai-chatbot-saas`: credentials for everyone,
-                    GitHub as an extra option, and app-level user row sync for `users_19_spotify`.
-                  </p>
-                </div>
+              <div>
+                <h1 className="text-2xl font-semibold leading-tight text-white">{authTitle}</h1>
               </div>
 
               <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/8 bg-white/[0.03] p-1">
@@ -368,7 +359,7 @@ const AuthModal = () => {
 
                   {authMode === "recover" ? (
                     <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-xs leading-5 text-white/60">
-                      We’ll send a Supabase recovery email to this address after the Cloudflare check is completed.
+                      We’ll send a recovery email to this address.
                     </div>
                   ) : (
                     <Input
@@ -425,10 +416,6 @@ const AuthModal = () => {
                       </span>
                     </Button>
 
-                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-xs leading-5 text-white/60">
-                      Credentials login uses Supabase email/password under this app’s existing session system, then syncs
-                      the same `users_19_spotify` row shape used by GitHub auth.
-                    </div>
                   </>
                 ) : null}
               </div>

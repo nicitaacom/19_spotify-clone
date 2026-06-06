@@ -44,10 +44,8 @@ const Modal: React.FC<ModalProps> = ({
         <Dialog.Content
           className={twMerge(
             `
-            fixed 
-            drop-shadow-md 
-            border 
-            border-neutral-700 
+            fixed
+            drop-shadow-md
             top-[50%] 
             left-[50%] 
             max-h-full 

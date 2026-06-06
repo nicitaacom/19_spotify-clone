@@ -17,32 +17,32 @@ type Slide = {
 
 const slides: Slide[] = [
   {
-    description: "Users can keep the quick provider path or use classic credentials if they do not want a GitHub dependency.",
-    eyebrow: "Multi Auth",
+    description: "Log in with GitHub or email and password. Your account is always yours across every device.",
+    eyebrow: "Easy Sign In",
     icon: MdOutlineAlternateEmail,
-    points: ["GitHub", "Email + password", "One shared user table"],
-    title: "Give every user a way in",
+    points: ["GitHub OAuth", "Email + password", "Secure sessions"],
+    title: "Your music, your account",
   },
   {
-    description: "Likes stay tied to your user, so the app can treat auth the same way your SaaS project does.",
-    eyebrow: "Persistent Identity",
+    description: "Heart any song and it stays in your library forever — tied to your account, not your browser.",
+    eyebrow: "Saved Tracks",
     icon: HiOutlineHeart,
-    points: ["User metadata saved", "Avatar synced", "Email retained"],
-    title: "Keep your saved tracks attached to a real account",
+    points: ["Like any song", "Instant library sync", "Never lose a playlist"],
+    title: "Keep every song you love",
   },
   {
-    description: "Uploads, subscriptions, and future auth providers can all build on the same app-level user table.",
-    eyebrow: "App-Level User",
+    description: "Upload your own tracks and manage them alongside everything you've discovered on the platform.",
+    eyebrow: "Upload Music",
     icon: MdOutlinePassword,
-    points: ["Providers array", "Credentials ready", "Subscription ready"],
-    title: "A SaaS-style auth foundation for Spotify",
+    points: ["Upload audio files", "Add cover art", "Manage your songs"],
+    title: "Share your own music",
   },
   {
-    description: "Premium billing and future auth flows have cleaner ownership once the user record matches your SaaS structure.",
-    eyebrow: "Ready For Growth",
+    description: "Unlock premium features and support the platform with a simple monthly subscription.",
+    eyebrow: "Go Premium",
     icon: MdOutlineWorkspacePremium,
-    points: ["Stripe compatible", "More providers later", "Server callback flow"],
-    title: "Built for more than a demo login",
+    points: ["No ads", "Higher quality audio", "Early access features"],
+    title: "Upgrade your listening experience",
   },
 ]
 
@@ -66,7 +66,7 @@ export const AuthVisualPanel = () => {
       <div className="relative z-10 space-y-3">
         <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70">
           <HiOutlineSparkles size={13} />
-          Organic Auth Scene
+          Spotify Clone
         </div>
         <AnimatePresence mode="wait">
           <motion.div
@@ -103,11 +103,11 @@ export const AuthVisualPanel = () => {
                 </motion.div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-white">{activeSlide.eyebrow}</p>
-                  <p className="text-xs text-white/55">Imported from your SaaS auth pattern</p>
+                  <p className="text-xs text-white/55">Spotify Clone</p>
                 </div>
               </div>
               <div className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-medium text-emerald-200">
-                GitHub + credentials
+                Free
               </div>
             </div>
 
