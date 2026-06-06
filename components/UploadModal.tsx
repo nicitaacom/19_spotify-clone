@@ -205,7 +205,7 @@ const UploadModal = () => {
         return
       }
 
-      const MAX_SONG_SIZE_MiB = 100
+      const MAX_SONG_SIZE_MiB = 50
       if (songFile.size > MAX_SONG_SIZE_MiB * 1024 * 1024) {
         toast.error(`Song file must be ${MAX_SONG_SIZE_MiB} MiB or smaller.`)
         setIsLoading(false)
