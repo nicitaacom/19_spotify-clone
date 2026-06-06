@@ -92,6 +92,9 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
   const [play, { pause, sound }] = useSound(songUrl, {
     volume,
     format: ["mp3"],
+    // html5: true streams via <audio> instead of decoding the whole file into Web Audio API memory.
+    // Without it, large MP3s (>~10MB) fail with "Decoding audio data failed" in the browser.
+    html5: true,
     onplay: () => {
       setIsPlaying(true)
       isPlayingRef.current = true
