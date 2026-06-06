@@ -168,6 +168,7 @@ const UploadModal = () => {
         }
 
         xhr.open("PUT", data.signedUrl)
+        xhr.setRequestHeader("Content-Type", file.type || "audio/mpeg")
         xhr.send(file)
       } catch (err) {
         resolve({ path: "", error: err })
