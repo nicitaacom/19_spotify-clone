@@ -161,8 +161,21 @@ const UploadModal = () => {
       const imageFile = values.image?.[0]
       const songFile = values.song?.[0]
 
-      if (!imageFile || !songFile || !user) {
-        toast.error("Missing fields")
+      if (!user) {
+        toast.error("You must be logged in to upload.")
+        setIsLoading(false)
+        return
+      }
+
+      if (!songFile) {
+        toast.error("Please select an MP3 file.")
+        setIsLoading(false)
+        return
+      }
+
+      if (!imageFile) {
+        toast.error("Please select a cover image.")
+        setIsLoading(false)
         return
       }
 
@@ -289,7 +302,14 @@ const UploadModal = () => {
 
   return (
     <Modal title="Add a song" description="Upload an mp3 file" isOpen={uploadModal.isOpen} onChange={onChange}>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-y-4">
+      <form
+          onSubmit={handleSubmit(onSubmit, errors => {
+            if (errors.title) toast.error("Song title is required.")
+            else if (errors.author) toast.error("Song author is required.")
+            else if (errors.song) toast.error("Please select an MP3 file.")
+            else if (errors.image) toast.error("Please select a cover image.")
+          })}
+          className="flex flex-col gap-y-4">
         {shouldRenderChallenge && (
           <TurnstileChallenge isVerified={isVerified} onDismiss={() => onChange(false)} turnstileRef={turnstileRef} />
         )}
