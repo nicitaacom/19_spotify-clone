@@ -54,6 +54,7 @@ export interface PlaylistDetail extends Playlist {
 
 export interface PlaylistOption {
   id: string
+  slug: string
   title: string
   updated_at: string
   visibility: PlaylistVisibility

@@ -1,13 +1,16 @@
 "use client"
 
 import uniqid from "uniqid"
-import React, { useRef, useState, useEffect } from "react"
+import React, { useRef, useState, useEffect, useCallback } from "react"
 import { useSupabaseClient, useSessionContext } from "@supabase/auth-helpers-react"
 import { FieldValues, SubmitHandler, useForm } from "react-hook-form"
 import { toast } from "react-hot-toast"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { FiEdit2, FiPlus, FiChevronDown, FiCheck } from "react-icons/fi"
 
 import useUploadModal from "@/hooks/useUploadModal"
+import useCreatePlaylistModal from "@/hooks/useCreatePlaylistModal"
 import { useUser } from "@/hooks/useUser"
 import { getSafeStoragePath } from "@/libs/helpers"
 import { useVerifyHuman } from "@/hooks/useVerifyHuman"
@@ -28,19 +31,31 @@ const UploadModal = () => {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadSpeed, setUploadSpeed] = useState("")
   const [playlists, setPlaylists] = useState<PlaylistOption[]>([])
-  // Determined once per modal open: whether this upload requires human verification
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [selectedPlaylist, setSelectedPlaylist] = useState<PlaylistOption | null>(null)
   const [requiresChallenge, setRequiresChallenge] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!isLoading) return
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-    }
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault() }
     window.addEventListener("beforeunload", handler)
     return () => window.removeEventListener("beforeunload", handler)
   }, [isLoading])
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
+
   const uploadModal = useUploadModal()
+  const createPlaylistModal = useCreatePlaylistModal()
   const { supabaseClient } = useSessionContext()
   const { user, subscription } = useUser()
   const router = useRouter()
@@ -52,16 +67,9 @@ const UploadModal = () => {
   const isCreateBlocked = isLoading || (requiresChallenge && isHumanGateEnabled && !isVerified)
 
   const { register, handleSubmit, reset } = useForm<FieldValues>({
-    defaultValues: {
-      author: "",
-      title: "",
-      song: null,
-      image: null,
-      playlistId: "",
-    },
+    defaultValues: { author: "", title: "", song: null, image: null },
   })
 
-  // When modal opens, decide once whether this session requires the challenge
   useEffect(() => {
     if (uploadModal.isOpen) {
       setRequiresChallenge(Math.random() < TURNSTILE_PROBABILITY)
@@ -70,41 +78,56 @@ const UploadModal = () => {
     }
   }, [uploadModal.isOpen])
 
+  const fetchPlaylists = useCallback(async () => {
+    if (!user) return
+    const { data, error } = await supabaseClient
+      .from("19_playlists")
+      .select("id, slug, title, updated_at, visibility")
+      .eq("user_id", user.id)
+      .order("updated_at", { ascending: false })
+
+    if (error) {
+      toast.error(error.message)
+    } else {
+      const mapped: PlaylistOption[] = (data ?? []).map(p => ({
+        id: String(p.id),
+        slug: p.slug,
+        title: p.title,
+        updated_at: p.updated_at,
+        visibility: p.visibility,
+      }))
+      setPlaylists(mapped)
+      // If we had a selected playlist, keep it in sync (e.g. after rename)
+      setSelectedPlaylist(prev => prev ? (mapped.find(p => p.id === prev.id) ?? null) : null)
+    }
+  }, [supabaseClient, user])
+
   useEffect(() => {
     if (!uploadModal.isOpen || !user) {
       setPlaylists([])
+      setSelectedPlaylist(null)
       return
     }
-
-    const fetchPlaylists = async () => {
-      const { data, error } = await supabaseClient
-        .from("19_playlists")
-        .select("id, title, updated_at, visibility")
-        .eq("user_id", user.id)
-        .order("updated_at", { ascending: false })
-
-      if (error) {
-        toast.error(error.message)
-      } else {
-        setPlaylists(
-          (data ?? []).map(playlist => ({
-            id: String(playlist.id),
-            title: playlist.title,
-            updated_at: playlist.updated_at,
-            visibility: playlist.visibility,
-          })),
-        )
-      }
-    }
-
     fetchPlaylists()
-  }, [uploadModal.isOpen, supabaseClient, user])
+  }, [uploadModal.isOpen, user, fetchPlaylists])
+
+  // Re-fetch playlists when create modal closes (user may have just created one)
+  const createModalWasOpen = useRef(false)
+  useEffect(() => {
+    if (createPlaylistModal.isOpen) {
+      createModalWasOpen.current = true
+    } else if (createModalWasOpen.current) {
+      createModalWasOpen.current = false
+      fetchPlaylists()
+    }
+  }, [createPlaylistModal.isOpen, fetchPlaylists])
 
   const onChange = (open: boolean) => {
     if (!open) {
       reset()
       setUploadProgress(0)
       setUploadSpeed("")
+      setSelectedPlaylist(null)
       resetTurnstileFn()
       uploadModal.onClose()
     }
@@ -114,33 +137,27 @@ const UploadModal = () => {
     return new Promise((resolve, reject) => {
       const audio = new Audio()
       audio.src = URL.createObjectURL(file)
-      audio.onloadedmetadata = () => {
-        URL.revokeObjectURL(audio.src)
-        resolve(audio.duration)
-      }
+      audio.onloadedmetadata = () => { URL.revokeObjectURL(audio.src); resolve(audio.duration) }
       audio.onerror = reject
     })
   }
 
-const uploadFileWithProgress = async (
+  const uploadFileWithProgress = async (
     path: string,
     file: File,
     bucket: string,
   ): Promise<{ path: string; error: any }> => {
     setUploadProgress(0)
     setUploadSpeed("")
-
     const { error } = await supabaseClient.storage.from(bucket).upload(path, file, {
       cacheControl: "3600",
       upsert: false,
       contentType: file.type || "audio/mpeg",
     })
-
     if (error) {
       console.error(`[upload] ${bucket}/${path} →`, error.message)
       return { path: "", error }
     }
-
     setUploadProgress(100)
     return { path, error: null }
   }
@@ -154,142 +171,97 @@ const uploadFileWithProgress = async (
       const imageFile = values.image?.[0]
       const songFile = values.song?.[0]
 
-      if (!user) {
-        toast.error("You must be logged in to upload.")
-        setIsLoading(false)
-        return
-      }
-
-      if (!songFile) {
-        toast.error("Please select an MP3 file.")
-        setIsLoading(false)
-        return
-      }
-
-      if (!imageFile) {
-        toast.error("Please select a cover image.")
-        setIsLoading(false)
-        return
-      }
+      if (!user) { toast.error("You must be logged in to upload."); setIsLoading(false); return }
+      if (!songFile) { toast.error("Please select an MP3 file."); setIsLoading(false); return }
+      if (!imageFile) { toast.error("Please select a cover image."); setIsLoading(false); return }
 
       const MAX_SONG_SIZE_MiB = 50
       if (songFile.size > MAX_SONG_SIZE_MiB * 1024 * 1024) {
-        toast.error(`Song file must be ${MAX_SONG_SIZE_MiB} MiB or smaller.`)
+        toast.error(`File exceeds ${MAX_SONG_SIZE_MiB} MB. Please compress your MP3 first (Google "compress mp3 online").`, { duration: 6000 })
         setIsLoading(false)
         return
       }
 
       try {
         const duration = await getSongDuration(songFile)
-        const hours = duration / 3600
         const isPro = subscription?.status === "active"
         const limit = isPro ? 12 : 3
-
-        if (hours > limit) {
+        if (duration / 3600 > limit) {
           toast.error(`Song is too long. ${isPro ? "Pro" : "Free"} limit is ${limit} hours.`)
           setIsLoading(false)
           return
         }
-      } catch (e) {
+      } catch {
         toast.error("Could not determine song duration")
         setIsLoading(false)
         return
       }
 
       const isDev = process.env.NODE_ENV !== "production"
-
       if (requiresChallenge && isHumanGateEnabled && !isDev) {
         if (!isVerified || !token) {
           toast.error("Complete the verification challenge before uploading.")
           setIsLoading(false)
           return
         }
-
-        const verifyTurnstileResp = await verifyTurnstileTokenFn(token)
-        if (typeof verifyTurnstileResp === "string") {
+        const verifyResp = await verifyTurnstileTokenFn(token)
+        if (typeof verifyResp === "string") {
           resetTurnstileFn()
-          toast.error(verifyTurnstileResp)
+          toast.error(verifyResp)
           setIsLoading(false)
           return
         }
       }
 
       const uniqueID = uniqid()
-      const songPath = getSafeStoragePath({
-        prefix: "song",
-        value: values.title,
-        uniqueId: uniqueID,
-        fileName: songFile.name,
-      })
-      const imagePath = getSafeStoragePath({
-        prefix: "image",
-        value: values.title,
-        uniqueId: uniqueID,
-        fileName: imageFile.name,
-      })
+      const songPath = getSafeStoragePath({ prefix: "song", value: values.title, uniqueId: uniqueID, fileName: songFile.name })
+      const imagePath = getSafeStoragePath({ prefix: "image", value: values.title, uniqueId: uniqueID, fileName: imageFile.name })
 
       const { error: songError } = await uploadFileWithProgress(songPath, songFile, "songs")
-
-      if (songError) {
-        setIsLoading(false)
-        return toast.error(`Failed song upload: ${songError.message ?? songError}`)
-      }
+      if (songError) { setIsLoading(false); return toast.error(`Failed song upload: ${songError.message ?? songError}`) }
 
       const { error: imageError } = await supabaseClient.storage.from("images").upload(imagePath, imageFile, {
         cacheControl: "3600",
         upsert: false,
       })
-
-      if (imageError) {
-        setIsLoading(false)
-        return toast.error("Failed image upload")
-      }
+      if (imageError) { setIsLoading(false); return toast.error("Failed image upload") }
 
       setUploadProgress(100)
 
       const { data: songRecord, error: supabaseError } = await supabaseClient
         .from("19_songs")
-        .insert({
-          user_id: user.id,
-          title: values.title,
-          author: values.author,
-          image_path: imagePath,
-          song_path: songPath,
-        })
+        .insert({ user_id: user.id, title: values.title, author: values.author, image_path: imagePath, song_path: songPath })
         .select("id")
         .single()
 
-      if (supabaseError) {
-        return toast.error(supabaseError.message)
-      }
+      if (supabaseError) { return toast.error(supabaseError.message) }
 
-      if (values.playlistId) {
+      if (selectedPlaylist) {
         const { data: existingPositions } = await supabaseClient
           .from("19_playlist_songs")
           .select("position")
-          .eq("playlist_id", values.playlistId)
+          .eq("playlist_id", selectedPlaylist.id)
           .order("position", { ascending: false })
           .limit(1)
 
         const nextPosition = (existingPositions?.[0]?.position ?? -1) + 1
-
         await supabaseClient.from("19_playlist_songs").insert({
-          playlist_id: values.playlistId,
+          playlist_id: selectedPlaylist.id,
           song_id: songRecord.id,
           position: nextPosition,
         })
       }
 
       router.refresh()
-
       setIsLoading(false)
       toast.success("Song created!")
       reset()
       setUploadProgress(0)
       setUploadSpeed("")
+      setSelectedPlaylist(null)
       resetTurnstileFn()
       uploadModal.onClose()
-    } catch (error) {
+    } catch {
       toast.error("Something went wrong")
     } finally {
       setIsLoading(false)
@@ -310,41 +282,73 @@ const uploadFileWithProgress = async (
         <Input id="author" disabled={isLoading} {...register("author", { required: true })} placeholder="Song author" />
         <div>
           <div className="pb-1">Select a song file</div>
-          <Input
-            placeholder="test"
-            disabled={isLoading}
-            type="file"
-            accept=".mp3"
-            id="song"
-            {...register("song", { required: true })}
-          />
+          <Input placeholder="test" disabled={isLoading} type="file" accept=".mp3" id="song" {...register("song", { required: true })} />
         </div>
         <div>
           <div className="pb-1">Select an image</div>
-          <Input
-            placeholder="test"
-            disabled={isLoading}
-            type="file"
-            accept="image/*"
-            id="image"
-            {...register("image", { required: true })}
-          />
+          <Input placeholder="test" disabled={isLoading} type="file" accept="image/*" id="image" {...register("image", { required: true })} />
         </div>
 
+        {/* Playlist selector */}
         <div>
           <div className="pb-1 text-sm text-neutral-400">Add to Playlist (Optional)</div>
-          <select
-            id="playlistId"
-            disabled={isLoading}
-            {...register("playlistId")}
-            className="flex w-full rounded-md bg-neutral-700 border border-transparent px-3 py-3 text-sm focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 text-white cursor-pointer hover:bg-neutral-600 transition">
-            <option value="">No playlist</option>
-            {playlists.map(playlist => (
-              <option key={playlist.id} value={playlist.id}>
-                {playlist.title}
-              </option>
-            ))}
-          </select>
+          <div ref={dropdownRef} className="relative">
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => setDropdownOpen(o => !o)}
+              className="flex w-full items-center justify-between rounded-md bg-neutral-700 px-3 py-3 text-sm text-white transition hover:bg-neutral-600 disabled:cursor-not-allowed disabled:opacity-50">
+              <span className={selectedPlaylist ? "text-white" : "text-neutral-400"}>
+                {selectedPlaylist ? selectedPlaylist.title : "No playlist"}
+              </span>
+              <FiChevronDown size={16} className={`text-neutral-400 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {dropdownOpen && (
+              <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-white/10 bg-neutral-800 shadow-xl">
+                {/* Create new */}
+                <button
+                  type="button"
+                  onClick={() => { setDropdownOpen(false); createPlaylistModal.onOpen() }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-emerald-400 transition hover:bg-neutral-700">
+                  <FiPlus size={14} />
+                  Create new playlist
+                </button>
+
+                {playlists.length > 0 && <div className="border-t border-white/10" />}
+
+                {/* No playlist option */}
+                <button
+                  type="button"
+                  onClick={() => { setSelectedPlaylist(null); setDropdownOpen(false) }}
+                  className="flex w-full items-center justify-between px-3 py-2.5 text-sm text-neutral-300 transition hover:bg-neutral-700">
+                  No playlist
+                  {!selectedPlaylist && <FiCheck size={14} className="text-emerald-400" />}
+                </button>
+
+                {/* Playlist list */}
+                {playlists.map(playlist => (
+                  <div key={playlist.id} className="flex items-center hover:bg-neutral-700 transition">
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedPlaylist(playlist); setDropdownOpen(false) }}
+                      className="flex flex-1 items-center justify-between px-3 py-2.5 text-sm text-white">
+                      <span className="truncate">{playlist.title}</span>
+                      {selectedPlaylist?.id === playlist.id && <FiCheck size={14} className="ml-2 shrink-0 text-emerald-400" />}
+                    </button>
+                    <Link
+                      href={`/playlists/${playlist.slug}`}
+                      target="_blank"
+                      onClick={() => setDropdownOpen(false)}
+                      className="px-3 py-2.5 text-neutral-400 transition hover:text-white"
+                      title="Edit playlist">
+                      <FiEdit2 size={14} />
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {isLoading && <ProgressBar progress={uploadProgress} speed={uploadSpeed} />}
@@ -353,7 +357,7 @@ const uploadFileWithProgress = async (
           <TurnstileChallenge isVerified={isVerified} turnstileRef={turnstileRef} />
         )}
 
-        <Button disabled={isCreateBlocked} type="submit">
+        <Button disabled={isCreateBlocked} type="submit" className="rounded-md">
           {isLoading ? "Uploading..." : "Create"}
         </Button>
       </form>
