@@ -11,19 +11,12 @@ export const metadata: Metadata = {
 export default async function UTMLayout({ children }: { children: React.ReactNode }) {
   // it is protected route and only ADMIN role has access to this route
   const supabase = await supabaseServer()
-  const { data: role_response, error: anonymous_user } = await supabase
-    .from("users_19_spotify")
-    .select("roles")
-    .single()
+  const { data: role_response, error: anonymous_user } = await supabase.from("19_users").select("roles").single()
 
   // Allow ADMIN to visit this page
   if (!role_response?.roles.includes("ADMIN") || anonymous_user) {
     redirect("/")
   }
 
-  return (
-    <>
-      {children}
-    </>
-  )
+  return <>{children}</>
 }

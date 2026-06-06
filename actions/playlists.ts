@@ -51,7 +51,7 @@ const getAuthorsById = async (userIds: string[]) => {
 
   const supabase = await createServerComponentClient()
   const { data, error } = await supabase
-    .from("users_19_spotify")
+    .from("19_users")
     .select("id, avatar_url, full_name, username")
     .in("id", userIds)
 

@@ -162,7 +162,7 @@ export interface Database {
         }
         Relationships: []
       }
-      users_19_spotify: {
+      19_users: {
         Row: {
           avatar_url: string | null
           billing_address: Json | null

@@ -37,7 +37,7 @@ export const upsertSpotifyUserFn = async (user: User, provider: string) => {
   }
 
   const { data: existingUser, error: selectError } = await supabaseAdmin
-    .from("users_19_spotify")
+    .from("19_users")
     .select("id, providers")
     .eq("id", user.id)
     .maybeSingle()
@@ -50,12 +50,14 @@ export const upsertSpotifyUserFn = async (user: User, provider: string) => {
   const avatarUrl = getAvatarUrl(user)
   const username = getUsername(user)
   const email = getEmail(user, username)
-  const providers = existingUser?.providers?.includes(provider) ? existingUser.providers : [...(existingUser?.providers ?? []), provider]
+  const providers = existingUser?.providers?.includes(provider)
+    ? existingUser.providers
+    : [...(existingUser?.providers ?? []), provider]
   const emailVerifiedAt = authUser.email_confirmed_at ?? null
   const phoneVerifiedAt = authUser.phone_confirmed_at ?? null
 
   if (!existingUser) {
-    const { error: insertError } = await supabaseAdmin.from("users_19_spotify").insert({
+    const { error: insertError } = await supabaseAdmin.from("19_users").insert({
       id: user.id,
       email,
       email_verified_at: emailVerifiedAt,
@@ -72,7 +74,7 @@ export const upsertSpotifyUserFn = async (user: User, provider: string) => {
   }
 
   const { error: updateError } = await supabaseAdmin
-    .from("users_19_spotify")
+    .from("19_users")
     .update({
       avatar_url: avatarUrl,
       email,
