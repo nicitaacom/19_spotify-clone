@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect } from "react"
 import { useSessionContext, useSupabaseClient } from "@supabase/auth-helpers-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
@@ -10,14 +10,11 @@ import { IoMdClose } from "react-icons/io"
 import { MdOutlineErrorOutline } from "react-icons/md"
 
 import useAuthModal from "@/hooks/useAuthModal"
-import { useVerifyHuman } from "@/hooks/useVerifyHuman"
 import { useAuthStore } from "@/hooks/useAuthStore"
-import { verifyTurnstileTokenFn } from "@/app/utils/verifyTurnstileToken"
 import { getURL } from "@/app/utils/getURL"
 
 import Modal from "./Modal"
 import Button from "./Button"
-import TurnstileChallenge from "./TurnstileChallenge"
 import { OrganicCanvasBackground } from "./auth/OrganicCanvasBackground"
 import { AuthVisualPanel } from "./auth/AuthVisualPanel"
 import { AuthModeButton } from "./auth/form/AuthModeButton"
@@ -39,39 +36,28 @@ const AuthModal = () => {
   const searchParams = useSearchParams()
   const { onClose, onOpen, isOpen } = useAuthModal()
   const supabaseClient = useSupabaseClient()
-  const turnstileRef = useRef<HTMLDivElement>(null)
 
   const { authMode, authMessage, authStatus, setAuthMessage, setAuthStatus, setIsLoading, resetAuthState } =
     useAuthStore()
 
-  const { isVerified, token, resetTurnstileFn, shouldRenderChallenge } = useVerifyHuman(turnstileRef, {
-    isEnabled: isOpen,
-  })
-
-  const isHumanGateEnabled = Boolean(process.env.NEXT_PUBLIC_CLOUDFLARE_SITE_KEY)
-  const isActionBlocked = useAuthStore(s => s.isLoading) || (isHumanGateEnabled && !isVerified)
-
-  const fullResetFn = useCallback(() => {
-    resetAuthState()
-    resetTurnstileFn()
-  }, [resetAuthState, resetTurnstileFn])
+  const isActionBlocked = useAuthStore(s => s.isLoading)
 
   const onChange = useCallback(
     (open: boolean) => {
       if (!open) {
-        fullResetFn()
+        resetAuthState()
         onClose()
       }
     },
-    [fullResetFn, onClose],
+    [resetAuthState, onClose],
   )
 
   useEffect(() => {
     if (!session) return
-    fullResetFn()
+    resetAuthState()
     router.refresh()
     onClose()
-  }, [onClose, fullResetFn, router, session])
+  }, [onClose, resetAuthState, router, session])
 
   useEffect(() => {
     const authError = searchParams.get("auth_error")
@@ -84,18 +70,6 @@ const AuthModal = () => {
     onOpen()
     router.replace(nextSearchParams.toString() ? `${pathname}?${nextSearchParams.toString()}` : pathname)
   }, [onOpen, pathname, router, searchParams, setAuthMessage, setAuthStatus])
-
-  const ensureHumanVerifiedFn = async (): Promise<true | string> => {
-    const isDev = process.env.NODE_ENV !== "production"
-    if (!isHumanGateEnabled || isDev) return true
-    if (!isVerified || !token) return "Complete the Cloudflare challenge before continuing."
-    const verifyResp = await verifyTurnstileTokenFn(token)
-    if (typeof verifyResp === "string") {
-      resetTurnstileFn()
-      return verifyResp
-    }
-    return true
-  }
 
   const syncCurrentUserFn = async (provider: string): Promise<true | string> => {
     const response = await fetch("/api/auth/sync-user", {
@@ -114,13 +88,6 @@ const AuthModal = () => {
     try {
       setAuthMessage("")
       setAuthStatus("error")
-      const ensureHumanResp = await ensureHumanVerifiedFn()
-      if (typeof ensureHumanResp === "string") {
-        setAuthStatus("error")
-        setAuthMessage(ensureHumanResp)
-        toast.error(ensureHumanResp)
-        return
-      }
       setIsLoading(true)
       const { error } = await supabaseClient.auth.signInWithOAuth({
         provider,
@@ -140,16 +107,18 @@ const AuthModal = () => {
     }
   }
 
+  const ensureHumanVerifiedFn = async (): Promise<true | string> => true
+
   const formProps: AuthFormProps = {
     isActionBlocked,
     supabaseClient: supabaseClient as unknown as SupabaseClient,
-    isHumanGateEnabled,
-    isVerified,
-    token,
+    isHumanGateEnabled: false,
+    isVerified: true,
+    token: null,
     onClose: () => onChange(false),
     syncCurrentUserFn,
     ensureHumanVerifiedFn,
-    resetTurnstileFn,
+    resetTurnstileFn: () => {},
   }
 
   return (
@@ -194,14 +163,6 @@ const AuthModal = () => {
                 </div>
               )}
 
-              {shouldRenderChallenge && (
-                <TurnstileChallenge
-                  isVerified={isVerified}
-                  onDismiss={() => onChange(false)}
-                  turnstileRef={turnstileRef}
-                />
-              )}
-
               <div className="space-y-3">
                 {authMode === "login" && <LoginForm {...formProps} />}
                 {authMode === "register" && <RegisterForm {...formProps} />}
@@ -236,10 +197,6 @@ const AuthModal = () => {
                     </Button>
                   </>
                 )}
-
-                {isHumanGateEnabled && !isVerified ? (
-                  <p className="text-center text-xs text-white/50">Cloudflare check required</p>
-                ) : null}
               </div>
             </div>
           </div>

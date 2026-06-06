@@ -20,11 +20,16 @@ import Button from "./Button"
 import TurnstileChallenge from "./TurnstileChallenge"
 import ProgressBar from "./ProgressBar"
 
+// Show Turnstile challenge on ~10% of uploads
+const TURNSTILE_PROBABILITY = 0.1
+
 const UploadModal = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadSpeed, setUploadSpeed] = useState("")
   const [playlists, setPlaylists] = useState<PlaylistOption[]>([])
+  // Determined once per modal open: whether this upload requires human verification
+  const [requiresChallenge, setRequiresChallenge] = useState(false)
 
   useEffect(() => {
     if (!isLoading) return
@@ -40,11 +45,11 @@ const UploadModal = () => {
   const { user, subscription } = useUser()
   const router = useRouter()
   const turnstileRef = useRef<HTMLDivElement>(null)
-  const { isVerified, token, resetTurnstileFn, shouldRenderChallenge } = useVerifyHuman(turnstileRef, {
-    isEnabled: uploadModal.isOpen,
-  })
   const isHumanGateEnabled = Boolean(process.env.NEXT_PUBLIC_CLOUDFLARE_SITE_KEY)
-  const isCreateBlocked = isLoading || (isHumanGateEnabled && !isVerified)
+  const { isVerified, token, resetTurnstileFn } = useVerifyHuman(turnstileRef, {
+    isEnabled: uploadModal.isOpen && requiresChallenge,
+  })
+  const isCreateBlocked = isLoading || (requiresChallenge && isHumanGateEnabled && !isVerified)
 
   const { register, handleSubmit, reset } = useForm<FieldValues>({
     defaultValues: {
@@ -55,6 +60,15 @@ const UploadModal = () => {
       playlistId: "",
     },
   })
+
+  // When modal opens, decide once whether this session requires the challenge
+  useEffect(() => {
+    if (uploadModal.isOpen) {
+      setRequiresChallenge(Math.random() < TURNSTILE_PROBABILITY)
+    } else {
+      setRequiresChallenge(false)
+    }
+  }, [uploadModal.isOpen])
 
   useEffect(() => {
     if (!uploadModal.isOpen || !user) {
@@ -188,7 +202,6 @@ const UploadModal = () => {
         return
       }
 
-      // Size check
       const MAX_SONG_SIZE_MiB = 100
       if (songFile.size > MAX_SONG_SIZE_MiB * 1024 * 1024) {
         toast.error(`Song file must be ${MAX_SONG_SIZE_MiB} MiB or smaller.`)
@@ -196,7 +209,6 @@ const UploadModal = () => {
         return
       }
 
-      // Duration Check
       try {
         const duration = await getSongDuration(songFile)
         const hours = duration / 3600
@@ -216,9 +228,9 @@ const UploadModal = () => {
 
       const isDev = process.env.NODE_ENV !== "production"
 
-      if (isHumanGateEnabled && !isDev) {
+      if (requiresChallenge && isHumanGateEnabled && !isDev) {
         if (!isVerified || !token) {
-          toast.error("Complete the Cloudflare challenge before creating a song.")
+          toast.error("Complete the verification challenge before uploading.")
           setIsLoading(false)
           return
         }
@@ -246,7 +258,6 @@ const UploadModal = () => {
         fileName: imageFile.name,
       })
 
-      // Upload Song with real progress
       const { error: songError } = await uploadFileWithProgress(songPath, songFile, "songs")
 
       if (songError) {
@@ -254,7 +265,6 @@ const UploadModal = () => {
         return toast.error("Failed song upload")
       }
 
-      // Upload Image (we can skip progress for smaller images or keep it)
       const { error: imageError } = await supabaseClient.storage.from("images").upload(imagePath, imageFile, {
         cacheControl: "3600",
         upsert: false,
@@ -283,7 +293,6 @@ const UploadModal = () => {
         return toast.error(supabaseError.message)
       }
 
-      // Add to playlist if selected
       if (values.playlistId) {
         const { data: existingPositions } = await supabaseClient
           .from("19_playlist_songs")
@@ -320,16 +329,13 @@ const UploadModal = () => {
   return (
     <Modal title="Add a song" description="Upload an mp3 file" isOpen={uploadModal.isOpen} onChange={onChange}>
       <form
-          onSubmit={handleSubmit(onSubmit, errors => {
-            if (errors.title) toast.error("Song title is required.")
-            else if (errors.author) toast.error("Song author is required.")
-            else if (errors.song) toast.error("Please select an MP3 file.")
-            else if (errors.image) toast.error("Please select a cover image.")
-          })}
-          className="flex flex-col gap-y-4">
-        {shouldRenderChallenge && (
-          <TurnstileChallenge isVerified={isVerified} onDismiss={() => onChange(false)} turnstileRef={turnstileRef} />
-        )}
+        onSubmit={handleSubmit(onSubmit, errors => {
+          if (errors.title) toast.error("Song title is required.")
+          else if (errors.author) toast.error("Song author is required.")
+          else if (errors.song) toast.error("Please select an MP3 file.")
+          else if (errors.image) toast.error("Please select a cover image.")
+        })}
+        className="flex flex-col gap-y-4">
         <Input id="title" disabled={isLoading} {...register("title", { required: true })} placeholder="Song title" />
         <Input id="author" disabled={isLoading} {...register("author", { required: true })} placeholder="Song author" />
         <div>
@@ -372,6 +378,10 @@ const UploadModal = () => {
         </div>
 
         {isLoading && <ProgressBar progress={uploadProgress} speed={uploadSpeed} />}
+
+        {requiresChallenge && isHumanGateEnabled && (
+          <TurnstileChallenge isVerified={isVerified} turnstileRef={turnstileRef} />
+        )}
 
         <Button disabled={isCreateBlocked} type="submit">
           {isLoading ? "Uploading..." : "Create"}
