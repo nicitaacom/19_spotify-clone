@@ -1,7 +1,7 @@
 import Stripe from "stripe"
 import { createClient } from "@supabase/supabase-js"
 
-import { Database } from "@/types_db"
+import { Database } from "@/app/interfaces/types_db"
 import { Price, Product } from "@/types"
 
 import { stripe } from "./stripe"
@@ -58,7 +58,7 @@ const createOrRetrieveCustomer = async ({ email, uuid }: { email: string; uuid: 
     if (email) customerData.email = email
     const customer = await stripe.customers.create(customerData)
     const { error: supabaseError } = await supabaseAdmin
-      .from(\"19_customers\")
+      .from("19_customers")
       .insert([{ id: uuid, stripe_customer_id: customer.id }])
     if (supabaseError) throw supabaseError
     console.log(`New customer created and inserted for ${uuid}.`)
@@ -87,7 +87,7 @@ const copyBillingDetailsToCustomer = async (uuid: string, payment_method: Stripe
 const manageSubscriptionStatusChange = async (subscriptionId: string, customerId: string, createAction = false) => {
   // Get customer's UUID from mapping table.
   const { data: customerData, error: noCustomerError } = await supabaseAdmin
-    .from(\"19_customers\")
+    .from("19_customers")
     .select("id")
     .eq("stripe_customer_id", customerId)
     .single()
@@ -99,7 +99,7 @@ const manageSubscriptionStatusChange = async (subscriptionId: string, customerId
     expand: ["default_payment_method"],
   })
   // Upsert the latest status of the subscription object.
-  const subscriptionData: Database["public"]["Tables"]["subscriptions"]["Insert"] = {
+  const subscriptionData: Database["public"]["Tables"]["19_subscriptions"]["Insert"] = {
     id: subscription.id,
     user_id: uuid,
     metadata: subscription.metadata,
@@ -120,7 +120,7 @@ const manageSubscriptionStatusChange = async (subscriptionId: string, customerId
     trial_end: subscription.trial_end ? toDateTime(subscription.trial_end).toISOString() : null,
   }
 
-  const { error } = await supabaseAdmin.from(\"19_subscriptions\").upsert([subscriptionData])
+  const { error } = await supabaseAdmin.from("19_subscriptions").upsert([subscriptionData])
   if (error) throw error
   console.log(`Inserted/updated subscription [${subscription.id}] for user [${uuid}]`)
 

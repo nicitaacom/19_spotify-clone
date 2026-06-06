@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { IoChevronDown, IoCalendar, IoTrendingUp } from "react-icons/io5"
 
 import { IUTMAggregatedStats } from "../interfaces/IUTMAggregatedStats"
 
 const CHART_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"]
+type CountStat = { name: string; count: number }
 
 // Managed by Grok 4
 
@@ -175,6 +175,76 @@ const generateYTicks = (maxValue: number): number[] => {
     ticks.push(i * roundedStep)
   }
   return ticks
+}
+
+function TrafficSourcesChart({ data }: { data: CountStat[] }) {
+  const maxValue = Math.max(...data.map(item => item.count), 1)
+
+  return (
+    <div className="flex h-[300px] items-end gap-3 pt-6">
+      {data.map((item, index) => {
+        const height = Math.max((item.count / maxValue) * 220, 8)
+
+        return (
+          <div key={item.name} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-3">
+            <div className="flex h-[220px] w-full items-end justify-center">
+              <motion.div
+                initial={{ height: 0 }}
+                animate={{ height }}
+                transition={{ duration: 0.5, delay: index * 0.06 }}
+                className="w-full max-w-16 rounded-t bg-brand shadow-lg"
+                title={`${item.name}: ${item.count.toLocaleString()}`}
+              />
+            </div>
+            <div className="w-full text-center">
+              <p className="truncate text-xs font-medium text-title">{item.name}</p>
+              <p className="text-xs text-subTitle">{item.count.toLocaleString()}</p>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function TrafficMediumChart({ data }: { data: CountStat[] }) {
+  const total = data.reduce((sum, item) => sum + item.count, 0)
+
+  return (
+    <div className="grid h-[300px] items-center gap-6 mobile:grid-cols-[180px_1fr]">
+      <div
+        className="mx-auto aspect-square w-44 rounded-full shadow-lg"
+        style={{
+          background: `conic-gradient(${data
+            .reduce<{ color: string; start: number; end: number }[]>((segments, item, index) => {
+              const start = segments[index - 1]?.end ?? 0
+              const end = start + (item.count / total) * 100
+              return [...segments, { color: CHART_COLORS[index % CHART_COLORS.length], start, end }]
+            }, [])
+            .map(segment => `${segment.color} ${segment.start}% ${segment.end}%`)
+            .join(", ")})`,
+        }}
+      />
+      <div className="flex flex-col gap-3">
+        {data.map((item, index) => {
+          const percent = total > 0 ? Math.round((item.count / total) * 100) : 0
+
+          return (
+            <div key={item.name} className="flex items-center justify-between gap-3 text-sm">
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  className="h-3 w-3 shrink-0 rounded-full"
+                  style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                />
+                <span className="truncate text-title">{item.name}</span>
+              </div>
+              <span className="shrink-0 font-medium text-subTitle">{percent}%</span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 function DailyVisitsChart({ data }: { data: { date: string; visits: number }[] }) {
@@ -530,22 +600,7 @@ export function UTMDashboard({ utmStatsResponse }: { utmStatsResponse: IUTMAggre
             className="bg-foreground border border-border-color p-4 mobile:p-6 rounded-xl shadow-lg">
             <h3 className="text-lg mobile:text-xl font-bold text-title mb-4">Traffic Sources</h3>
             {stats.sourceStats.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats.sourceStats}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border-color) / 0.3)" />
-                  <XAxis dataKey="name" stroke="hsl(var(--subTitle))" fontSize={12} />
-                  <YAxis stroke="hsl(var(--subTitle))" fontSize={12} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--foreground))",
-                      border: "1px solid hsl(var(--border-color))",
-                      borderRadius: "8px",
-                      color: "hsl(var(--title))",
-                    }}
-                  />
-                  <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <TrafficSourcesChart data={stats.sourceStats} />
             ) : (
               <EmptyState title="Traffic sources" />
             )}
@@ -557,34 +612,7 @@ export function UTMDashboard({ utmStatsResponse }: { utmStatsResponse: IUTMAggre
             className="bg-foreground border border-border-color p-4 mobile:p-6 rounded-xl shadow-lg">
             <h3 className="text-lg mobile:text-xl font-bold text-title mb-4">Traffic Medium</h3>
             {stats.mediumStats.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={stats.mediumStats}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="count"
-                    labelLine={false}
-                    label={(props: any) => {
-                      const percent = props.percent || 0
-                      return `${props.name}: ${(percent * 100).toFixed(0)}%`
-                    }}>
-                    {stats.mediumStats.map((_, index: number) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--foreground))",
-                      border: "1px solid hsl(var(--border-color))",
-                      borderRadius: "8px",
-                      color: "hsl(var(--title))",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <TrafficMediumChart data={stats.mediumStats} />
             ) : (
               <EmptyState title="Traffic medium" />
             )}

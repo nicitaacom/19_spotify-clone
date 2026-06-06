@@ -28,7 +28,7 @@ const normalizePlaylist = (playlist: Record<string, any>): Playlist => ({
 })
 
 const normalizePlaylistSong = (item: Record<string, any>): PlaylistSongWithSong | null => {
-  if (!item?.songs) {
+  if (!item?.song) {
     return null
   }
 
@@ -38,8 +38,8 @@ const normalizePlaylistSong = (item: Record<string, any>): PlaylistSongWithSong 
     position: item.position,
     created_at: item.created_at,
     song: {
-      ...item.songs,
-      id: String(item.songs.id),
+      ...item.song,
+      id: String(item.song.id),
     },
   }
 }
@@ -84,7 +84,7 @@ const getPlaylistSongsByPlaylistIds = async (playlistIds: string[]) => {
   const supabase = await createServerComponentClient()
   const { data, error } = await supabase
     .from("19_playlist_songs")
-    .select("playlist_id, song_id, position, created_at, songs(*)")
+    .select("playlist_id, song_id, position, created_at, song:19_songs(*)")
     .in("playlist_id", playlistIds)
     .order("position", { ascending: true })
 

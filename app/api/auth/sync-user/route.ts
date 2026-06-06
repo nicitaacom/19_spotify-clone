@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { Database } from "@/types_db"
+import { Database } from "@/app/interfaces/types_db"
 import { upsertSpotifyUserFn } from "@/app/auth/callback/functions/upsertSpotifyUserFn"
 import { createRouteHandlerClient } from "@/libs/supabaseServer"
 

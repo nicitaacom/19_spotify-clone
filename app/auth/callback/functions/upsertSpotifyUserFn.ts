@@ -1,6 +1,6 @@
 import { User } from "@supabase/supabase-js"
 
-import supabaseAdmin from "@/app/libs/supabaseAdmin"
+import { supabaseAdmin } from "@/libs/supabaseAdmin"
 
 const getEmail = (user: User, username: string) => {
   return user.email ?? user.user_metadata.email ?? `${username}@users.noreply.github.com`

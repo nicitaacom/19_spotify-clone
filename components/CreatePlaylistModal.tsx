@@ -56,7 +56,7 @@ const CreatePlaylistModal = () => {
       for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt += 1) {
         const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`
 
-        const { error } = await supabaseClient.from("playlists").insert({
+        const { error } = await supabaseClient.from("19_playlists").insert({
           user_id: user.id,
           slug,
           title: title.trim(),

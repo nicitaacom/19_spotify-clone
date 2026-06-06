@@ -55,7 +55,7 @@ const UploadModal = () => {
 
     const fetchPlaylists = async () => {
       const { data, error } = await supabaseClient
-        .from("playlists")
+        .from("19_playlists")
         .select("id, title, updated_at, visibility")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false })
@@ -238,7 +238,7 @@ const UploadModal = () => {
       setUploadProgress(100)
 
       const { data: songRecord, error: supabaseError } = await supabaseClient
-        .from("songs")
+        .from("19_songs")
         .insert({
           user_id: user.id,
           title: values.title,
@@ -256,7 +256,7 @@ const UploadModal = () => {
       // Add to playlist if selected
       if (values.playlistId) {
         const { data: existingPositions } = await supabaseClient
-          .from("playlist_songs")
+          .from("19_playlist_songs")
           .select("position")
           .eq("playlist_id", values.playlistId)
           .order("position", { ascending: false })
@@ -264,7 +264,7 @@ const UploadModal = () => {
 
         const nextPosition = (existingPositions?.[0]?.position ?? -1) + 1
 
-        await supabaseClient.from("playlist_songs").insert({
+        await supabaseClient.from("19_playlist_songs").insert({
           playlist_id: values.playlistId,
           song_id: songRecord.id,
           position: nextPosition,

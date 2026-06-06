@@ -19,7 +19,8 @@ interface PlaylistDetailPageProps {
 
 export default async function PlaylistDetailPage({ params }: PlaylistDetailPageProps) {
   const resolvedParams = await params
-  const [playlist, supabase] = await Promise.all([getPlaylistBySlug(resolvedParams.slug), createServerComponentClient()])
+  const playlist = await getPlaylistBySlug(resolvedParams.slug)
+  const supabase = await createServerComponentClient()
 
   if (!playlist) {
     notFound()

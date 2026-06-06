@@ -34,7 +34,7 @@ const AddToPlaylistModal = () => {
       setIsLoading(true)
 
       const { data, error } = await supabaseClient
-        .from("playlists")
+        .from("19_playlists")
         .select("id, title, updated_at, visibility")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false })
@@ -78,7 +78,7 @@ const AddToPlaylistModal = () => {
 
     try {
       const { data: existingPositions, error: positionError } = await supabaseClient
-        .from("playlist_songs")
+        .from("19_playlist_songs")
         .select("position")
         .eq("playlist_id", playlistId)
         .order("position", { ascending: false })
@@ -90,7 +90,7 @@ const AddToPlaylistModal = () => {
 
       const nextPosition = (existingPositions?.[0]?.position ?? -1) + 1
 
-      const { error: insertError } = await supabaseClient.from("playlist_songs").insert({
+      const { error: insertError } = await supabaseClient.from("19_playlist_songs").insert({
         playlist_id: playlistId,
         song_id: addToPlaylistModal.song.id,
         position: nextPosition,
@@ -106,7 +106,7 @@ const AddToPlaylistModal = () => {
       }
 
       const { error: touchError } = await supabaseClient
-        .from("playlists")
+        .from("19_playlists")
         .update({ updated_at: new Date().toISOString() })
         .eq("id", playlistId)
 

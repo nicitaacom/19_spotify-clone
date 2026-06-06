@@ -61,11 +61,11 @@ export const AuthVisualPanel = () => {
   const ActiveIcon = activeSlide.icon
 
   return (
-    <div className="relative flex h-full flex-col justify-between overflow-hidden border-b border-white/10 bg-white/5 p-5 backdrop-blur-md md:min-h-[560px] md:border-b-0 md:border-r">
+    <div className="relative flex h-full flex-col justify-between overflow-hidden border-b border-white/10 bg-white/5 p-4 backdrop-blur-md md:min-h-[480px] md:border-b-0 md:border-r">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.12),_transparent_45%),radial-gradient(circle_at_bottom_right,_rgba(255,255,255,0.08),_transparent_28%)]" />
-      <div className="relative z-10 space-y-4">
-        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/70">
-          <HiOutlineSparkles size={14} />
+      <div className="relative z-10 space-y-3">
+        <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/70">
+          <HiOutlineSparkles size={13} />
           Organic Auth Scene
         </div>
         <AnimatePresence mode="wait">
@@ -77,50 +77,50 @@ export const AuthVisualPanel = () => {
             key={activeSlide.title}
             transition={{ duration: 0.4, ease: "easeOut" }}>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300/80">{activeSlide.eyebrow}</p>
-            <h2 className="max-w-md text-2xl font-semibold leading-tight text-white md:text-[32px]">{activeSlide.title}</h2>
-            <p className="max-w-lg text-sm leading-6 text-white/70 md:text-base">{activeSlide.description}</p>
+            <h2 className="max-w-md text-xl font-semibold leading-tight text-white md:text-[26px]">{activeSlide.title}</h2>
+            <p className="max-w-lg text-sm leading-5 text-white/70">{activeSlide.description}</p>
           </motion.div>
         </AnimatePresence>
       </div>
 
-      <div className="relative z-10 mt-8 space-y-4">
+      <div className="relative z-10 mt-5 space-y-3">
         <AnimatePresence mode="wait">
           <motion.div
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="rounded-[24px] border border-white/10 bg-black/30 p-4 shadow-[0_25px_80px_rgba(0,0,0,0.35)] backdrop-blur-xl"
+            className="rounded-[18px] border border-white/10 bg-black/30 p-3 shadow-[0_20px_60px_rgba(0,0,0,0.32)] backdrop-blur-xl"
             exit={{ opacity: 0, scale: 0.96, y: -18 }}
             initial={{ opacity: 0, scale: 0.96, y: 18 }}
             key={`${activeSlide.title}-card`}
             transition={{ duration: 0.45, ease: "easeOut" }}>
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
                 <motion.div
                   animate={{ rotate: 0, scale: 1 }}
-                  className="rounded-2xl bg-emerald-400/15 p-3 text-emerald-300"
+                  className="rounded-xl bg-emerald-400/15 p-2 text-emerald-300"
                   initial={{ rotate: -10, scale: 0.92 }}
                   transition={{ duration: 0.35, ease: "easeOut" }}>
-                  <ActiveIcon size={24} />
+                  <ActiveIcon size={20} />
                 </motion.div>
-                <div>
-                  <p className="text-sm font-semibold text-white">{activeSlide.eyebrow}</p>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">{activeSlide.eyebrow}</p>
                   <p className="text-xs text-white/55">Imported from your SaaS auth pattern</p>
                 </div>
               </div>
-              <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200">
+              <div className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-medium text-emerald-200">
                 GitHub + credentials
               </div>
             </div>
 
-            <div className="grid gap-3">
+            <div className="grid gap-2">
               {activeSlide.points.map((point, index) => (
                 <motion.div
                   animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2.5"
+                  className="flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-3 py-2"
                   initial={{ opacity: 0, x: -14 }}
                   key={`${activeSlide.title}-${point}`}
                   transition={{ delay: index * 0.08, duration: 0.3, ease: "easeOut" }}>
-                  <span className="text-sm text-white/80">{point}</span>
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_18px_rgba(34,197,94,0.8)]" />
+                  <span className="text-xs text-white/80">{point}</span>
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_18px_rgba(34,197,94,0.8)]" />
                 </motion.div>
               ))}
             </div>
@@ -131,7 +131,7 @@ export const AuthVisualPanel = () => {
           {slides.map((slide, index) => (
             <button
               className={twMerge(
-                "h-2 flex-1 rounded-full bg-white/10 transition-all duration-300",
+                "h-1.5 flex-1 rounded-full bg-white/10 transition-all duration-300",
                 currentSlide === index && "bg-emerald-400 shadow-[0_0_20px_rgba(34,197,94,0.6)]",
               )}
               key={slide.title}

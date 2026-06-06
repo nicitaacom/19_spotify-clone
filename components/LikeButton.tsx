@@ -37,7 +37,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassNam
 
     const fetchData = async () => {
       const { data, error } = await supabaseClient
-        .from("liked_songs")
+        .from("19_liked_songs")
         .select("*")
         .eq("user_id", user.id)
         .eq("song_id", songId)
@@ -61,7 +61,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassNam
     }
 
     if (isLiked) {
-      const { error } = await supabaseClient.from("liked_songs").delete().eq("user_id", user.id).eq("song_id", songId)
+      const { error } = await supabaseClient.from("19_liked_songs").delete().eq("user_id", user.id).eq("song_id", songId)
 
       if (error) {
         toast.error(error.message)
@@ -70,7 +70,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassNam
         onToggle?.(false)
       }
     } else {
-      const { error } = await supabaseClient.from("liked_songs").insert({
+      const { error } = await supabaseClient.from("19_liked_songs").insert({
         song_id: songId,
         user_id: user.id,
       })

@@ -49,7 +49,7 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
   const onPlay = useOnPlay(queueSongs)
 
   const touchPlaylist = async () => {
-    const { error } = await supabaseClient.from("playlists").update({ updated_at: new Date().toISOString() }).eq("id", playlist.id)
+    const { error } = await supabaseClient.from("19_playlists").update({ updated_at: new Date().toISOString() }).eq("id", playlist.id)
 
     if (error) {
       throw error
@@ -62,7 +62,7 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
       return
     }
 
-    const { error } = await supabaseClient.from("playlist_songs").upsert(
+    const { error } = await supabaseClient.from("19_playlist_songs").upsert(
       nextSongs.map(item => ({
         playlist_id: playlist.id,
         song_id: Number(item.song_id),
@@ -90,7 +90,7 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
 
     try {
       const { error } = await supabaseClient
-        .from("playlists")
+        .from("19_playlists")
         .update({
           title: title.trim(),
           description: description.trim() || null,
@@ -122,7 +122,7 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
     setIsDeletingPlaylist(true)
 
     try {
-      const { error } = await supabaseClient.from("playlists").delete().eq("id", playlist.id)
+      const { error } = await supabaseClient.from("19_playlists").delete().eq("id", playlist.id)
 
       if (error) {
         throw error
@@ -167,7 +167,11 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
     setBusySongId(songId)
 
     try {
-      const { error } = await supabaseClient.from("playlist_songs").delete().eq("playlist_id", playlist.id).eq("song_id", Number(songId))
+      const { error } = await supabaseClient
+        .from("19_playlist_songs")
+        .delete()
+        .eq("playlist_id", playlist.id)
+        .eq("song_id", Number(songId))
 
       if (error) {
         throw error
