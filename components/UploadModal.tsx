@@ -122,60 +122,27 @@ const UploadModal = () => {
     })
   }
 
-  const formatSpeed = (bytesPerSecond: number) => {
-    if (bytesPerSecond === 0) return "0 B/s"
-    const k = 1024
-    const sizes = ["B/s", "KB/s", "MB/s", "GB/s"]
-    const i = Math.floor(Math.log(bytesPerSecond) / Math.log(k))
-    return parseFloat((bytesPerSecond / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
-  }
-
-  const uploadFileWithProgress = (
+const uploadFileWithProgress = async (
     path: string,
     file: File,
     bucket: string,
   ): Promise<{ path: string; error: any }> => {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const { data, error } = await supabaseClient.storage.from(bucket).createSignedUploadUrl(path)
+    setUploadProgress(0)
+    setUploadSpeed("")
 
-        if (error) {
-          return resolve({ path: "", error })
-        }
-
-        const xhr = new XMLHttpRequest()
-        const startTime = Date.now()
-
-        xhr.upload.addEventListener("progress", event => {
-          if (event.lengthComputable) {
-            const progress = (event.loaded / event.total) * 100
-            const elapsedTime = (Date.now() - startTime) / 1000
-            const speed = elapsedTime > 0 ? event.loaded / elapsedTime : 0
-
-            setUploadProgress(progress)
-            setUploadSpeed(formatSpeed(speed))
-          }
-        })
-
-        xhr.onreadystatechange = () => {
-          if (xhr.readyState === 4) {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve({ path, error: null })
-            } else {
-              const detail = xhr.responseText || xhr.statusText || "no response body"
-              console.error(`[upload] ${bucket}/${path} → ${xhr.status}: ${detail}`)
-              resolve({ path: "", error: new Error(`${xhr.status}: ${detail}`) })
-            }
-          }
-        }
-
-        xhr.open("PUT", data.signedUrl)
-        xhr.setRequestHeader("Content-Type", file.type || "audio/mpeg")
-        xhr.send(file)
-      } catch (err) {
-        resolve({ path: "", error: err })
-      }
+    const { error } = await supabaseClient.storage.from(bucket).upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type || "audio/mpeg",
     })
+
+    if (error) {
+      console.error(`[upload] ${bucket}/${path} →`, error.message)
+      return { path: "", error }
+    }
+
+    setUploadProgress(100)
+    return { path, error: null }
   }
 
   const onSubmit: SubmitHandler<FieldValues> = async values => {

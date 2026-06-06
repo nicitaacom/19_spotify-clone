@@ -41,9 +41,9 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassNam
         .select("*")
         .eq("user_id", user.id)
         .eq("song_id", songId)
-        .single()
+        .maybeSingle()
 
-      if (!error && data) {
+      if (data) {
         setIsLiked(true)
       }
     }

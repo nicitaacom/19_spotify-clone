@@ -10,6 +10,7 @@ import { Song } from "@/types"
 import usePlayer from "@/hooks/usePlayer"
 import usePreloadNextTrack from "@/hooks/usePreloadNextTrack"
 import useVolumeStore from "@/hooks/useVolumeStore"
+import toast from "react-hot-toast"
 
 import AddToPlaylistButton from "./AddToPlaylistButton"
 import LikeButton from "./LikeButton"
@@ -113,8 +114,18 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
       isPlayingRef.current = false
       setIsPlayingInStore(false)
     },
-    onloaderror: () => { setIsPlayingInStore(false); setIsLoading(false) },
-    onplayerror: () => { setIsPlayingInStore(false); setIsLoading(false) },
+    onloaderror: (_id: number, err: unknown) => {
+      console.error("[player] load error for", songUrl, err)
+      toast.error("Failed to load audio. The file may be missing or unsupported.")
+      setIsPlayingInStore(false)
+      setIsLoading(false)
+    },
+    onplayerror: (_id: number, err: unknown) => {
+      console.error("[player] play error for", songUrl, err)
+      toast.error("Playback error. Try again.")
+      setIsPlayingInStore(false)
+      setIsLoading(false)
+    },
   })
 
   useEffect(() => { soundRef.current = sound ?? null }, [sound])
