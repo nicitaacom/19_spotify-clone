@@ -162,7 +162,9 @@ const UploadModal = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
               resolve({ path, error: null })
             } else {
-              resolve({ path: "", error: new Error(xhr.statusText || "Upload failed") })
+              const detail = xhr.responseText || xhr.statusText || "no response body"
+              console.error(`[upload] ${bucket}/${path} → ${xhr.status}: ${detail}`)
+              resolve({ path: "", error: new Error(`${xhr.status}: ${detail}`) })
             }
           }
         }
@@ -263,7 +265,7 @@ const UploadModal = () => {
 
       if (songError) {
         setIsLoading(false)
-        return toast.error("Failed song upload")
+        return toast.error(`Failed song upload: ${songError.message ?? songError}`)
       }
 
       const { error: imageError } = await supabaseClient.storage.from("images").upload(imagePath, imageFile, {
