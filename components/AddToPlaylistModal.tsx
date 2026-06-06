@@ -35,7 +35,7 @@ const AddToPlaylistModal = () => {
 
       const { data, error } = await supabaseClient
         .from("19_playlists")
-        .select("id, title, updated_at, visibility")
+        .select("id, slug, title, updated_at, visibility")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false })
 
@@ -45,6 +45,7 @@ const AddToPlaylistModal = () => {
         setPlaylists(
           (data ?? []).map(playlist => ({
             id: String(playlist.id),
+            slug: playlist.slug,
             title: playlist.title,
             updated_at: playlist.updated_at,
             visibility: playlist.visibility,

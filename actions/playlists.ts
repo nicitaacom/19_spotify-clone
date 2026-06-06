@@ -52,7 +52,7 @@ const getAuthorsById = async (userIds: string[]) => {
   const supabase = await createServerComponentClient()
   const { data, error } = await supabase
     .from("19_users")
-    .select("id, avatar_url, full_name, username")
+    .select("id, avatar_url, full_name")
     .in("id", userIds)
 
   if (error || !data) {
@@ -70,7 +70,7 @@ const getAuthorsById = async (userIds: string[]) => {
         id: author.id,
         avatar_url: author.avatar_url,
         full_name: author.full_name,
-        username: author.username,
+        username: author.full_name ?? "unknown",
       },
     ]),
   )
@@ -198,7 +198,7 @@ export const getUserPlaylistOptions = async (): Promise<PlaylistOption[]> => {
 
   const { data, error } = await supabase
     .from("19_playlists")
-    .select("id, title, updated_at, visibility")
+    .select("id, slug, title, updated_at, visibility")
     .eq("user_id", session.user.id)
     .order("updated_at", { ascending: false })
 
@@ -212,6 +212,7 @@ export const getUserPlaylistOptions = async (): Promise<PlaylistOption[]> => {
 
   return data.map(playlist => ({
     id: String(playlist.id),
+    slug: playlist.slug,
     title: playlist.title,
     updated_at: playlist.updated_at,
     visibility: playlist.visibility,
