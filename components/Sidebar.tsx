@@ -5,6 +5,7 @@ import { useMemo } from "react"
 import { HiHome } from "react-icons/hi"
 import { BiSearch } from "react-icons/bi"
 import { TbPlaylist } from "react-icons/tb"
+import { MdMusicNote } from "react-icons/md"
 import { twMerge } from "tailwind-merge"
 
 import Box from "./Box"
@@ -41,6 +42,12 @@ const Sidebar: React.FC<SidebarProps> = ({ children, songs }) => {
         label: "Playlists",
         active: pathname.startsWith("/playlists"),
         href: "/playlists",
+      },
+      {
+        icon: MdMusicNote,
+        label: "My Songs",
+        active: pathname.startsWith("/my-songs"),
+        href: "/my-songs",
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
     ],
