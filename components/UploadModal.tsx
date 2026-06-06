@@ -309,7 +309,7 @@ const UploadModal = () => {
                 {/* Create new */}
                 <button
                   type="button"
-                  onClick={() => { setDropdownOpen(false); createPlaylistModal.onOpen() }}
+                  onClick={() => { setDropdownOpen(false); createPlaylistModal.onOpen({ skipRedirect: true }) }}
                   className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-emerald-400 transition hover:bg-neutral-700">
                   <FiPlus size={14} />
                   Create new playlist

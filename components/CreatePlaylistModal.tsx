@@ -69,7 +69,9 @@ const CreatePlaylistModal = () => {
           toast.success("Playlist created!")
           createPlaylistModal.onClose()
           resetForm()
-          router.push(`/playlists/${slug}`)
+          if (!createPlaylistModal.skipRedirect) {
+            router.push(`/playlists/${slug}`)
+          }
           router.refresh()
           return
         }
@@ -114,7 +116,7 @@ const CreatePlaylistModal = () => {
             </option>
           ))}
         </select>
-        <Button disabled={isLoading || !title.trim()} onClick={handleCreatePlaylist}>
+        <Button disabled={isLoading || !title.trim()} onClick={handleCreatePlaylist} className="rounded-md">
           Create playlist
         </Button>
       </div>

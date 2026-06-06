@@ -2,14 +2,16 @@ import { create } from "zustand"
 
 interface CreatePlaylistModalStore {
   isOpen: boolean
-  onOpen: () => void
+  skipRedirect: boolean
+  onOpen: (options?: { skipRedirect?: boolean }) => void
   onClose: () => void
 }
 
 const useCreatePlaylistModal = create<CreatePlaylistModalStore>(set => ({
   isOpen: false,
-  onOpen: () => set({ isOpen: true }),
-  onClose: () => set({ isOpen: false }),
+  skipRedirect: false,
+  onOpen: (options) => set({ isOpen: true, skipRedirect: options?.skipRedirect ?? false }),
+  onClose: () => set({ isOpen: false, skipRedirect: false }),
 }))
 
 export default useCreatePlaylistModal
