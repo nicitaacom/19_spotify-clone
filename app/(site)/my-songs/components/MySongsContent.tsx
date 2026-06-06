@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation"
 import { useSupabaseClient } from "@supabase/auth-helpers-react"
 import toast from "react-hot-toast"
 import { MdMusicNote } from "react-icons/md"
-import { FiTrash2 } from "react-icons/fi"
+import { FiTrash2, FiPlus } from "react-icons/fi"
 
 import { Song } from "@/types"
 import { useUser } from "@/hooks/useUser"
 import useLoadImage from "@/hooks/useLoadImage"
+import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
 import Button from "@/components/Button"
 import Image from "next/image"
 
@@ -21,6 +22,7 @@ function SongRow({ song, onDelete }: { song: Song; onDelete: (id: string) => voi
   const imagePath = useLoadImage(song)
   const [deleting, setDeleting] = useState(false)
   const supabaseClient = useSupabaseClient()
+  const addToPlaylistModal = useAddToPlaylistModal()
 
   const handleDelete = async () => {
     if (!confirm(`Delete "${song.title}"? This cannot be undone.`)) return
@@ -60,6 +62,13 @@ function SongRow({ song, onDelete }: { song: Song; onDelete: (id: string) => voi
         <p className="truncate text-sm font-semibold text-white">{song.title}</p>
         <p className="truncate text-xs text-neutral-400">By {song.author}</p>
       </div>
+      <button
+        onClick={() => addToPlaylistModal.onOpen(song)}
+        aria-label={`Add ${song.title} to playlist`}
+        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/40 text-neutral-400 transition hover:border-emerald-500/40 hover:bg-emerald-500/20 hover:text-emerald-400"
+      >
+        <FiPlus size={15} />
+      </button>
       <button
         onClick={handleDelete}
         disabled={deleting}
