@@ -30,13 +30,14 @@ const PageContent: React.FC<PageContentProps> = ({ songs }) => {
         gap-4 
         mt-4
       ">
-      {songs.map(item => (
+      {songs.map((item, index) => (
         <SongItem
           onPlay={(id: string) => onPlay(id)}
           key={item.id}
           data={item}
           isLoading={isPlayerLoading && activeId === item.id}
           isPlaying={isPlayerPlaying && activeId === item.id}
+          priority={index === 0}
         />
       ))}
     </div>

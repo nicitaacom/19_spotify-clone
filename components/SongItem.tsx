@@ -20,9 +20,10 @@ interface SongItemProps {
   isLoading?: boolean
   isPlaying?: boolean
   className?: string
+  priority?: boolean
 }
 
-const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLike, isLoading = false, isPlaying = false, className }) => {
+const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLike, isLoading = false, isPlaying = false, className, priority = false }) => {
   const imagePath = useLoadImage(data)
   const handlePlay = () => onPlay?.(data.id)
 
@@ -71,6 +72,7 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
           fill
           sizes="(min-width: 1536px) 12.5vw, (min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
           alt={data.title}
+          priority={priority}
         />
 
         {/* 2. Gradient overlay — heavier at bottom for text contrast */}
