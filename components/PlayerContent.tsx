@@ -2,7 +2,7 @@
 
 import useSound from "use-sound"
 import { useEffect, useState } from "react"
-import { BsPauseFill, BsPlayFill, BsRepeat, BsRepeat1 } from "react-icons/bs"
+import { BsPauseFill, BsPlayFill, BsRepeat, BsRepeat1, BsSkipStartFill } from "react-icons/bs"
 import { HiSpeakerWave, HiSpeakerXMark } from "react-icons/hi2"
 import { AiFillStepBackward, AiFillStepForward, AiOutlineLoading3Quarters } from "react-icons/ai"
 
@@ -68,6 +68,12 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     setActiveSong(songs.find(queueSong => queueSong.id === nextSong))
     setIsLoading(true)
     setId(nextSong)
+  }
+
+  const onReplay = () => {
+    if (!sound) return
+    sound.seek(0)
+    if (!isPlaying) play()
   }
 
   const cycleRepeatMode = () => {
@@ -246,11 +252,17 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
           onClick={onPlayPrevious}
           size={30}
           className="
-              text-neutral-400 
-              cursor-pointer 
-              hover:text-white 
+              text-neutral-400
+              cursor-pointer
+              hover:text-white
               transition
             "
+        />
+        <BsSkipStartFill
+          onClick={onReplay}
+          size={24}
+          className="text-neutral-400 cursor-pointer hover:text-white transition"
+          title="Replay from start"
         />
         <div
           onClick={handlePlay}
