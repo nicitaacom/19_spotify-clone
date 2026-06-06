@@ -9,7 +9,7 @@ const getSongs = async (): Promise<Song[]> => {
     .select(
       `
       *,
-      liked_songs(count)
+      19_liked_songs(count)
     `,
     )
     .order("created_at", { ascending: false })
@@ -19,9 +19,10 @@ const getSongs = async (): Promise<Song[]> => {
   }
 
   const songsWithLikes =
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (data as any[])?.map(song => ({
       ...song,
-      likes_count: song.liked_songs?.[0]?.count || 0,
+      likes_count: song["19_liked_songs"]?.[0]?.count || 0,
     })) || []
 
   songsWithLikes.sort((a, b) => b.likes_count - a.likes_count)
