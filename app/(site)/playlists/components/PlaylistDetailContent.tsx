@@ -226,10 +226,10 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
                 <option value="unlisted">Unlisted</option>
                 <option value="private">Private</option>
               </select>
-              <Button disabled={isSavingDetails || !title.trim()} onClick={handleSaveDetails}>
+              <Button className="rounded-md" disabled={isSavingDetails || !title.trim()} onClick={handleSaveDetails}>
                 {isSavingDetails ? "Saving..." : "Save changes"}
               </Button>
-              <Button className="bg-red-500 text-white" disabled={isDeletingPlaylist} onClick={handleDeletePlaylist}>
+              <Button className="rounded-md border-red-500/60 bg-transparent text-red-400 hover:bg-red-500/10 hover:opacity-100" disabled={isDeletingPlaylist} onClick={handleDeletePlaylist}>
                 {isDeletingPlaylist ? "Deleting..." : "Delete playlist"}
               </Button>
             </div>
