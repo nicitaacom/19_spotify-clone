@@ -1,23 +1,11 @@
 "use client"
 
-import { SupabaseClient } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/hooks/useAuthStore"
 import { submitFormWithCredentialsFn } from "@/app/utils/submitFormWithCredentialsFn"
 import { InputEmail } from "./InputEmail"
 import { SubmitFormButton } from "./SubmitFormButton"
-
-interface RecoveryFormProps {
-  isActionBlocked: boolean
-  supabaseClient: SupabaseClient
-  isHumanGateEnabled: boolean
-  isVerified: boolean
-  token: string | null
-  onClose: () => void
-  syncCurrentUserFn: (provider: string) => Promise<true | string>
-  ensureHumanVerifiedFn: () => Promise<true | string>
-  resetTurnstileFn: () => void
-}
+import { AuthFormProps } from "./types"
 
 export function RecoveryForm({
   isActionBlocked,
@@ -29,7 +17,7 @@ export function RecoveryForm({
   syncCurrentUserFn,
   ensureHumanVerifiedFn,
   resetTurnstileFn,
-}: RecoveryFormProps) {
+}: AuthFormProps) {
   const router = useRouter()
   const store = useAuthStore()
 

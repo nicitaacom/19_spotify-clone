@@ -1,3 +1,5 @@
+packages:
+  - "."
 allowBuilds:
   sharp: true
   supabase: true

@@ -1,24 +1,12 @@
 "use client"
 
-import { SupabaseClient } from "@supabase/supabase-js"
 import { useRouter } from "next/navigation"
 import { useAuthStore } from "@/hooks/useAuthStore"
 import { submitFormWithCredentialsFn } from "@/app/utils/submitFormWithCredentialsFn"
 import { InputEmail } from "./InputEmail"
 import { InputPassword } from "./InputPassword"
 import { SubmitFormButton } from "./SubmitFormButton"
-
-interface RegisterFormProps {
-  isActionBlocked: boolean
-  supabaseClient: SupabaseClient
-  isHumanGateEnabled: boolean
-  isVerified: boolean
-  token: string | null
-  onClose: () => void
-  syncCurrentUserFn: (provider: string) => Promise<true | string>
-  ensureHumanVerifiedFn: () => Promise<true | string>
-  resetTurnstileFn: () => void
-}
+import { AuthFormProps } from "./types"
 
 export function RegisterForm({
   isActionBlocked,
@@ -30,7 +18,7 @@ export function RegisterForm({
   syncCurrentUserFn,
   ensureHumanVerifiedFn,
   resetTurnstileFn,
-}: RegisterFormProps) {
+}: AuthFormProps) {
   const router = useRouter()
   const store = useAuthStore()
 

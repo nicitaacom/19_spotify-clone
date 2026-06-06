@@ -24,6 +24,7 @@ import { AuthModeButton } from "./auth/form/AuthModeButton"
 import { LoginForm } from "./auth/form/LoginForm"
 import { RegisterForm } from "./auth/form/RegisterForm"
 import { RecoveryForm } from "./auth/form/RecoveryForm"
+import { AuthFormProps, SupabaseClient } from "./auth/form/types"
 
 const statusStyles = {
   error: "border-rose-400/20 bg-rose-400/10 text-rose-100",
@@ -40,15 +41,8 @@ const AuthModal = () => {
   const supabaseClient = useSupabaseClient()
   const turnstileRef = useRef<HTMLDivElement>(null)
 
-  const {
-    authMode,
-    authMessage,
-    authStatus,
-    setAuthMessage,
-    setAuthStatus,
-    setIsLoading,
-    resetAuthState,
-  } = useAuthStore()
+  const { authMode, authMessage, authStatus, setAuthMessage, setAuthStatus, setIsLoading, resetAuthState } =
+    useAuthStore()
 
   const { isVerified, token, resetTurnstileFn, shouldRenderChallenge } = useVerifyHuman(turnstileRef, {
     isEnabled: isOpen,
@@ -146,9 +140,9 @@ const AuthModal = () => {
     }
   }
 
-  const formProps = {
+  const formProps: AuthFormProps = {
     isActionBlocked,
-    supabaseClient,
+    supabaseClient: supabaseClient as unknown as SupabaseClient,
     isHumanGateEnabled,
     isVerified,
     token,
@@ -201,7 +195,11 @@ const AuthModal = () => {
               )}
 
               {shouldRenderChallenge && (
-                <TurnstileChallenge isVerified={isVerified} onDismiss={() => onChange(false)} turnstileRef={turnstileRef} />
+                <TurnstileChallenge
+                  isVerified={isVerified}
+                  onDismiss={() => onChange(false)}
+                  turnstileRef={turnstileRef}
+                />
               )}
 
               <div className="space-y-3">

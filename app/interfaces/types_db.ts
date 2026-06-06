@@ -162,63 +162,27 @@ export interface Database {
         }
         Relationships: []
       }
-      19_users: {
+      "19_users": {
         Row: {
           avatar_url: string | null
           billing_address: Json | null
-          created_at: string
-          email: string
-          email_verified_at: string | null
-          encrypted_password: string | null
           full_name: string | null
           id: string
-          is_otp_enabled: boolean
-          otp_encrypted_secret: string | null
           payment_method: Json | null
-          phone: string | null
-          phone_verified_at: string | null
-          providers: string[]
-          roles: string[]
-          username: string
-          verification_email_sent_at: string | null
         }
         Insert: {
           avatar_url?: string | null
           billing_address?: Json | null
-          created_at?: string
-          email: string
-          email_verified_at?: string | null
-          encrypted_password?: string | null
           full_name?: string | null
           id: string
-          is_otp_enabled?: boolean
-          otp_encrypted_secret?: string | null
           payment_method?: Json | null
-          phone?: string | null
-          phone_verified_at?: string | null
-          providers?: string[]
-          roles?: string[]
-          username: string
-          verification_email_sent_at?: string | null
         }
         Update: {
           avatar_url?: string | null
           billing_address?: Json | null
-          created_at?: string
-          email?: string
-          email_verified_at?: string | null
-          encrypted_password?: string | null
           full_name?: string | null
           id?: string
-          is_otp_enabled?: boolean
-          otp_encrypted_secret?: string | null
           payment_method?: Json | null
-          phone?: string | null
-          phone_verified_at?: string | null
-          providers?: string[]
-          roles?: string[]
-          username?: string
-          verification_email_sent_at?: string | null
         }
         Relationships: []
       }
