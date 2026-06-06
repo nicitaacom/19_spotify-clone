@@ -26,6 +26,15 @@ const UploadModal = () => {
   const [uploadSpeed, setUploadSpeed] = useState("")
   const [playlists, setPlaylists] = useState<PlaylistOption[]>([])
 
+  useEffect(() => {
+    if (!isLoading) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+    }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [isLoading])
+
   const uploadModal = useUploadModal()
   const { supabaseClient } = useSessionContext()
   const { user, subscription } = useUser()
