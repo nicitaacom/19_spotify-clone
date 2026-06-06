@@ -5,7 +5,7 @@ const nextConfig = {
       {
         protocol: "https",
         // hostname: "eqhntdpwtnhqzcnpxegh.supabase.co", // it was for old supabase that might be paused due to inactivity
-        hostname: "bvvhwcmjlbofleanshdm.supabase.co",
+        hostname: "sckioxanzluozlghvnts.supabase.co",
         port: "",
       },
     ],
