@@ -7,6 +7,7 @@ import toast from "react-hot-toast"
 import { FaGithub } from "react-icons/fa"
 import { HiOutlineArrowRight } from "react-icons/hi2"
 import { MdOutlineErrorOutline } from "react-icons/md"
+import { IoMdClose } from "react-icons/io"
 
 import useAuthModal from "@/hooks/useAuthModal"
 import { useVerifyHuman } from "@/hooks/useVerifyHuman"
@@ -299,12 +300,20 @@ const AuthModal = () => {
   return (
     <Modal
       contentClassName="h-[calc(100%-32px)] max-h-[calc(100%-32px)] w-[calc(100%-32px)] border-0 bg-transparent p-0 md:h-auto md:max-h-[92vh] md:max-w-[960px]"
+      isShowCloseButton={false}
       hideHeader
       isOpen={isOpen}
       onChange={onChange}
       title="Account authentication"
       description="Log in with GitHub or credentials to access your Spotify clone account.">
       <OrganicCanvasBackground className="rounded-[28px]">
+        <button
+          aria-label="Close"
+          className="absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full text-white/50 transition hover:bg-white/10 hover:text-white focus:outline-none"
+          onClick={() => onChange(false)}
+          type="button">
+          <IoMdClose size={18} />
+        </button>
         <div className="grid md:grid-cols-[1.08fr_0.92fr]">
           <AuthVisualPanel />
 

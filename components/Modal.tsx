@@ -13,6 +13,7 @@ interface ModalProps {
   overlayClassName?: string
   titleClassName?: string
   hideHeader?: boolean
+  isShowCloseButton?: boolean
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -26,6 +27,7 @@ const Modal: React.FC<ModalProps> = ({
   overlayClassName,
   titleClassName,
   hideHeader = false,
+  isShowCloseButton = true,
 }) => {
   return (
     <Dialog.Root open={isOpen} defaultOpen={isOpen} onOpenChange={onChange}>
@@ -95,27 +97,29 @@ const Modal: React.FC<ModalProps> = ({
             </Dialog.Description>
           ) : null}
           <div>{children}</div>
-          <Dialog.Close asChild>
-            <button
-              className="
-                text-neutral-400 
-                hover:text-white 
-                absolute 
-                top-[10px] 
-                right-[10px] 
-                inline-flex 
-                h-[25px] 
-                w-[25px] 
-                appearance-none 
-                items-center 
-                justify-center 
-                rounded-full 
-                focus:outline-none
-              "
-              aria-label="Close">
-              <IoMdClose />
-            </button>
-          </Dialog.Close>
+          {isShowCloseButton && (
+            <Dialog.Close asChild>
+              <button
+                className="
+                  text-neutral-400
+                  hover:text-white
+                  absolute
+                  top-[10px]
+                  right-[10px]
+                  inline-flex
+                  h-[25px]
+                  w-[25px]
+                  appearance-none
+                  items-center
+                  justify-center
+                  rounded-full
+                  focus:outline-none
+                "
+                aria-label="Close">
+                <IoMdClose />
+              </button>
+            </Dialog.Close>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
