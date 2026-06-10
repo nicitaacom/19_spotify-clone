@@ -185,11 +185,14 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     })
   }, [song.title, song.author])
 
+  const lastPlaybackCommandId = useRef(0)
   useEffect(() => {
     if (activeId !== song.id || isLoading || playbackCommandId === 0) return
-    if (playbackCommand === "pause" && isPlaying) { pause(); return }
-    if (playbackCommand === "play" && !isPlaying) play()
-  }, [activeId, isLoading, isPlaying, pause, play, playbackCommand, playbackCommandId, song.id])
+    if (playbackCommandId === lastPlaybackCommandId.current) return
+    lastPlaybackCommandId.current = playbackCommandId
+    if (playbackCommand === "pause") { pause(); return }
+    if (playbackCommand === "play") play()
+  }, [activeId, isLoading, pause, play, playbackCommand, playbackCommandId, song.id])
 
   useEffect(() => {
     if (activeId !== song.id || !sound || seekId === 0 || seekValue === undefined) return
