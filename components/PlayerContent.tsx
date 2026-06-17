@@ -135,12 +135,18 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
 
   usePreloadNextTrack({ currentSong: song, isPlaying, sound })
 
+  const hasAutoPlayedRef = useRef(false)
+
   useEffect(() => {
-    setIsLoading(true)
-    sound?.play()
+    if (!sound) return
+    if (!hasAutoPlayedRef.current) {
+      hasAutoPlayedRef.current = true
+      setIsLoading(true)
+      sound.play()
+    }
     return () => {
       setIsPlayingInStore(false)
-      sound?.unload()
+      sound.unload()
     }
   }, [setIsLoading, setIsPlayingInStore, sound])
 
