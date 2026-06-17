@@ -49,28 +49,15 @@ const LikedContent: React.FC<LikedContentProps> = ({ songs }) => {
   }
 
   return (
-    <div className="mb-7 mt-4 flex flex-col gap-y-6 px-6 pb-8">
-      <div className="rounded-[28px] border border-neon/15 bg-gradient-to-r from-neon/10 via-neon/5 to-transparent p-5 shadow-neon">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neon/80">Collection</p>
-            <h2 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">Your saved favorites</h2>
-            <p className="mt-2 max-w-2xl text-sm text-neutral-300">
-              Keep your best tracks close by. Every card now gives you quick access to play, add to playlist, and like controls.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-sm font-medium text-white">
-              {songs.length} liked {songs.length === 1 ? "song" : "songs"}
-            </div>
-            <Button className="flex w-auto items-center gap-2 px-6 py-3" onClick={() => onPlay(songs[0].id)}>
-              <FaPlay size={12} />
-              Play liked songs
-            </Button>
-          </div>
-        </div>
+    <div className="mb-7 mt-4 flex flex-col gap-y-4 px-6 pb-8">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-neutral-400">{songs.length} liked {songs.length === 1 ? "song" : "songs"}</p>
+        <Button className="flex w-auto items-center gap-2 px-5 py-2 text-sm" onClick={() => onPlay(songs[0].id)}>
+          <FaPlay size={10} />
+          Play all
+        </Button>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {songs.map(song => (
           <SongItem
             key={song.id}
