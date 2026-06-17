@@ -19,17 +19,7 @@ const PageContent: React.FC<PageContentProps> = ({ songs }) => {
 
   return (
     <div
-      className="
-        grid
-        grid-cols-3
-        sm:grid-cols-4
-        md:grid-cols-5
-        lg:grid-cols-6
-        xl:grid-cols-7
-        2xl:grid-cols-9
-        gap-3
-        mt-4
-      ">
+      className="grid grid-cols-2 min-[500px]:grid-cols-3 min-[1100px]:grid-cols-5 min-[1280px]:grid-cols-6 min-[1536px]:grid-cols-7 min-[1920px]:grid-cols-9 gap-3 mt-4">
       {songs.map((item, index) => (
         <SongItem
           onPlay={(id: string) => onPlay(id)}
