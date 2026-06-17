@@ -92,15 +92,15 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
         {/* Centered play button */}
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition duration-200 group-hover:opacity-100">
           {isLoading ? (
-            <div className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-neon text-black">
-              <AiOutlineLoading3Quarters size={16} className="animate-spin" />
+            <div className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-neon text-black">
+              <AiOutlineLoading3Quarters size={20} className="animate-spin" />
             </div>
           ) : (
             <PlayButton
               onClick={handlePlay}
               isPlaying={isPlaying}
-              size={16}
-              className="pointer-events-auto h-10 w-10 p-0"
+              size={isPlaying ? 28 : 18}
+              className="pointer-events-auto h-12 w-12 p-0"
             />
           )}
         </div>
