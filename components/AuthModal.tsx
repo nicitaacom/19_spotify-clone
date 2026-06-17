@@ -123,14 +123,14 @@ const AuthModal = () => {
 
   return (
     <Modal
-      contentClassName="h-[calc(100%-32px)] max-h-[calc(100%-32px)] w-[calc(100%-32px)] border-0 bg-transparent p-0 md:h-auto md:max-h-[92vh] md:max-w-[960px]"
+      contentClassName="h-[calc(100%-32px)] max-h-[calc(100%-32px)] w-[calc(100%-32px)] border-0 bg-transparent p-0 rounded-[28px] overflow-hidden shadow-none drop-shadow-none md:h-auto md:max-h-[92vh] md:max-w-[960px]"
       isShowCloseButton={false}
       hideHeader
       isOpen={isOpen}
       onChange={onChange}
       title="Account authentication"
       description="Log in with GitHub or credentials to access your Spotify clone account.">
-      <OrganicCanvasBackground className="rounded-[28px]">
+      <OrganicCanvasBackground className="h-full rounded-[28px]">
         <button
           aria-label="Close"
           className="absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full text-white/50 transition hover:bg-white/10 hover:text-white focus:outline-none"

@@ -39,6 +39,7 @@ const Modal: React.FC<ModalProps> = ({
             backdrop-blur-sm
             fixed
             inset-0
+            z-50
           `,
             overlayClassName,
           )}
@@ -48,24 +49,24 @@ const Modal: React.FC<ModalProps> = ({
             `
             fixed
             drop-shadow-md
-            top-[50%] 
-            left-[50%] 
-            max-h-full 
-            h-full 
-            md:h-auto 
-            md:max-h-[85vh] 
-            w-full 
-            md:w-[90vw] 
-            md:max-w-[450px] 
-            translate-x-[-50%] 
-            translate-y-[-50%] 
+            top-[50%]
+            left-[50%]
+            max-h-full
+            h-full
+            md:h-auto
+            md:max-h-[85vh]
+            w-full
+            md:w-[90vw]
+            md:max-w-[450px]
+            translate-x-[-50%]
+            translate-y-[-50%]
             rounded-md
             bg-surface
             border
             border-white/10
-            shadow-neon-lg
             p-[25px]
             focus:outline-none
+            z-50
           `,
             contentClassName,
           )}>
@@ -99,7 +100,7 @@ const Modal: React.FC<ModalProps> = ({
               {description}
             </Dialog.Description>
           ) : null}
-          <div>{children}</div>
+          <div className="h-full">{children}</div>
           {isShowCloseButton && (
             <Dialog.Close asChild>
               <button
