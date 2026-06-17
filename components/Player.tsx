@@ -122,7 +122,7 @@ const Player = () => {
 
       <div className="flex h-full items-center px-4 py-2">
         {song && songUrl ? (
-          <PlayerContent song={song} songUrl={songUrl} />
+          <PlayerContent key={`${song.id}-${songUrl}`} song={song} songUrl={songUrl} />
         ) : (
           <div className="flex h-full items-center gap-x-4 text-white">
             <div className="flex h-12 w-12 items-center justify-center rounded-md bg-neutral-800">
