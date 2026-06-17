@@ -35,8 +35,8 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
   const authorName = playlist.author.full_name || playlist.author.username
 
   return (
-    <div className="bg-neutral-900 rounded-lg w-full h-full overflow-hidden overflow-y-auto">
-      <Header className="from-emerald-900">
+    <div className="bg-surface rounded-lg w-full h-full overflow-x-hidden">
+      <Header className="from-[#0f1f14] via-[#0b0f0c]">
         <div className="mt-10">
           <div className="flex flex-col items-center gap-x-5 gap-y-4 md:flex-row md:items-end">
             <div className="relative h-32 w-32 overflow-hidden rounded-md lg:h-44 lg:w-44">

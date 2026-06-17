@@ -77,11 +77,14 @@ const Player = () => {
   return (
     <div
       className="
-        fixed 
-        bottom-0 
-        bg-black 
-        w-full 
-        h-[80px] 
+        fixed
+        bottom-0
+        bg-surface
+        border-t
+        border-white/5
+        w-full
+        h-[80px]
+        z-10
       ">
       {/* Full-width Progress Bar */}
       <div
@@ -92,25 +95,25 @@ const Player = () => {
           left-0 
           w-full 
           h-[3px] 
-          bg-neutral-800 
+          bg-elevated
           cursor-pointer 
           group/progress
         ">
         <div
-          className="relative h-full bg-emerald-500 transition-all duration-300"
+          className="relative h-full bg-neon shadow-neon-sm transition-all duration-300"
           style={{ width: `${progress * 100}%` }}>
           <div
             className="
-              absolute 
-              right-0 
-              top-1/2 
-              -translate-y-1/2 
-              translate-x-1/2 
-              h-4 
-              w-4 
-              rounded-full 
-              bg-emerald-500 
-              shadow-md 
+              absolute
+              right-0
+              top-1/2
+              -translate-y-1/2
+              translate-x-1/2
+              h-4
+              w-4
+              rounded-full
+              bg-neon
+              shadow-neon-sm
               border-2
               border-white
               transition-transform
@@ -125,7 +128,7 @@ const Player = () => {
           <PlayerContent key={`${song.id}-${songUrl}`} song={song} songUrl={songUrl} />
         ) : (
           <div className="flex h-full items-center gap-x-4 text-white">
-            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-neutral-800">
+            <div className="flex h-12 w-12 items-center justify-center rounded-md bg-elevated">
               <AiOutlineLoading3Quarters className="animate-spin text-neutral-300" size={22} />
             </div>
             <div className="flex flex-col">

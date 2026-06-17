@@ -9,8 +9,8 @@ export default async function Liked() {
   const songs = await getLikedSongs()
 
   return (
-    <div className="h-full w-full overflow-hidden overflow-y-auto rounded-lg bg-neutral-900">
-      <Header className="bg-gradient-to-b from-cyan-800 via-emerald-900 to-neutral-900">
+    <div className="h-full w-full overflow-x-hidden rounded-lg bg-surface">
+      <Header className="bg-gradient-to-b from-[#0f1f14] via-[#0b0f0c] to-transparent">
         <div className="mt-10">
           <div className="flex flex-col items-center gap-6 md:flex-row md:items-end">
             <div className="relative flex h-32 w-32 items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-indigo-500 via-sky-400 to-emerald-300 shadow-[0_24px_80px_-36px_rgba(56,189,248,0.55)] lg:h-44 lg:w-44">

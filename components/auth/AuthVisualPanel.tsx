@@ -76,7 +76,7 @@ export const AuthVisualPanel = () => {
             initial={{ opacity: 0, y: 18 }}
             key={activeSlide.title}
             transition={{ duration: 0.4, ease: "easeOut" }}>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-300/80">{activeSlide.eyebrow}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-neon/80">{activeSlide.eyebrow}</p>
             <h2 className="max-w-md text-xl font-semibold leading-tight text-white md:text-[26px]">{activeSlide.title}</h2>
             <p className="max-w-lg text-sm leading-5 text-white/70">{activeSlide.description}</p>
           </motion.div>
@@ -96,7 +96,7 @@ export const AuthVisualPanel = () => {
               <div className="flex min-w-0 items-center gap-2.5">
                 <motion.div
                   animate={{ rotate: 0, scale: 1 }}
-                  className="rounded-xl bg-emerald-400/15 p-2 text-emerald-300"
+                  className="rounded-xl bg-neon/15 p-2 text-neon"
                   initial={{ rotate: -10, scale: 0.92 }}
                   transition={{ duration: 0.35, ease: "easeOut" }}>
                   <ActiveIcon size={20} />
@@ -106,7 +106,7 @@ export const AuthVisualPanel = () => {
                   <p className="text-xs text-white/55">Spotify Clone</p>
                 </div>
               </div>
-              <div className="shrink-0 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-medium text-emerald-200">
+              <div className="shrink-0 rounded-full border border-neon/20 bg-neon/10 px-2.5 py-1 text-[11px] font-medium text-neon/80">
                 Free
               </div>
             </div>
@@ -120,7 +120,7 @@ export const AuthVisualPanel = () => {
                   key={`${activeSlide.title}-${point}`}
                   transition={{ delay: index * 0.08, duration: 0.3, ease: "easeOut" }}>
                   <span className="text-xs text-white/80">{point}</span>
-                  <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_18px_rgba(34,197,94,0.8)]" />
+                  <span className="h-2 w-2 rounded-full bg-neon shadow-[0_0_6px_rgba(74,222,128,0.3)]" />
                 </motion.div>
               ))}
             </div>
@@ -132,7 +132,7 @@ export const AuthVisualPanel = () => {
             <button
               className={twMerge(
                 "h-1.5 flex-1 rounded-full bg-white/10 transition-all duration-300",
-                currentSlide === index && "bg-emerald-400 shadow-[0_0_20px_rgba(34,197,94,0.6)]",
+                currentSlide === index && "bg-neon shadow-[0_0_6px_rgba(74,222,128,0.3)]",
               )}
               key={slide.title}
               onClick={() => setCurrentSlide(index)}

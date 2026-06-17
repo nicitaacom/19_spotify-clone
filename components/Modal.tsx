@@ -35,9 +35,9 @@ const Modal: React.FC<ModalProps> = ({
         <Dialog.Overlay
           className={twMerge(
             `
-            bg-neutral-900/90 
-            backdrop-blur-sm 
-            fixed 
+            bg-dark-base/90
+            backdrop-blur-sm
+            fixed
             inset-0
           `,
             overlayClassName,
@@ -59,9 +59,12 @@ const Modal: React.FC<ModalProps> = ({
             md:max-w-[450px] 
             translate-x-[-50%] 
             translate-y-[-50%] 
-            rounded-md 
-            bg-neutral-800 
-            p-[25px] 
+            rounded-md
+            bg-surface
+            border
+            border-white/10
+            shadow-neon-lg
+            p-[25px]
             focus:outline-none
           `,
             contentClassName,

@@ -297,7 +297,7 @@ const UploadModal = () => {
               type="button"
               disabled={isLoading}
               onClick={() => setDropdownOpen(o => !o)}
-              className="flex w-full items-center justify-between rounded-md bg-neutral-700 px-3 py-3 text-sm text-white transition hover:bg-neutral-600 disabled:cursor-not-allowed disabled:opacity-50">
+              className="flex w-full items-center justify-between rounded-md bg-elevated px-3 py-3 text-sm text-white transition hover:bg-elevated/80 disabled:cursor-not-allowed disabled:opacity-50">
               <span className={selectedPlaylist ? "text-white" : "text-neutral-400"}>
                 {selectedPlaylist ? selectedPlaylist.title : "No playlist"}
               </span>
@@ -305,12 +305,12 @@ const UploadModal = () => {
             </button>
 
             {dropdownOpen && (
-              <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-white/10 bg-neutral-800 shadow-xl">
+              <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-white/10 bg-surface shadow-xl">
                 {/* Create new */}
                 <button
                   type="button"
                   onClick={() => { setDropdownOpen(false); createPlaylistModal.onOpen({ skipRedirect: true }) }}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-emerald-400 transition hover:bg-neutral-700">
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-neon transition hover:bg-elevated">
                   <FiPlus size={14} />
                   Create new playlist
                 </button>
@@ -321,20 +321,20 @@ const UploadModal = () => {
                 <button
                   type="button"
                   onClick={() => { setSelectedPlaylist(null); setDropdownOpen(false) }}
-                  className="flex w-full items-center justify-between px-3 py-2.5 text-sm text-neutral-300 transition hover:bg-neutral-700">
+                  className="flex w-full items-center justify-between px-3 py-2.5 text-sm text-neutral-300 transition hover:bg-elevated">
                   No playlist
-                  {!selectedPlaylist && <FiCheck size={14} className="text-emerald-400" />}
+                  {!selectedPlaylist && <FiCheck size={14} className="text-neon" />}
                 </button>
 
                 {/* Playlist list */}
                 {playlists.map(playlist => (
-                  <div key={playlist.id} className="flex items-center hover:bg-neutral-700 transition">
+                  <div key={playlist.id} className="flex items-center hover:bg-elevated transition">
                     <button
                       type="button"
                       onClick={() => { setSelectedPlaylist(playlist); setDropdownOpen(false) }}
                       className="flex flex-1 items-center justify-between px-3 py-2.5 text-sm text-white">
                       <span className="truncate">{playlist.title}</span>
-                      {selectedPlaylist?.id === playlist.id && <FiCheck size={14} className="ml-2 shrink-0 text-emerald-400" />}
+                      {selectedPlaylist?.id === playlist.id && <FiCheck size={14} className="ml-2 shrink-0 text-neon" />}
                     </button>
                     <Link
                       href={`/playlists/${playlist.slug}`}

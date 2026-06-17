@@ -30,7 +30,7 @@ const ListItem: React.FC<ListItemProps> = ({ image, name, href }) => {
       <p className="font-medium truncate py-5">{name}</p>
       <div
         className="absolute transition opacity-0 rounded-full flex justify-center items-center
-      bg-green-500 p-4 drop-shadow-md right-5 group-hover:opacity-100 hover:scale-110">
+      bg-neon p-4 drop-shadow-md right-5 group-hover:opacity-100 hover:scale-110 shadow-neon-sm">
         <FaPlay className="text-black" />
       </div>
     </button>

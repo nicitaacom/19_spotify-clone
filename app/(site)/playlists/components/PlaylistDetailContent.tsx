@@ -199,7 +199,7 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
       {playlist.description ? <p className="max-w-3xl text-sm text-neutral-300">{playlist.description}</p> : null}
 
       {canManage ? (
-        <div className="rounded-lg border border-neutral-800 bg-neutral-900/80 p-4">
+        <div className="rounded-lg border border-white/10 bg-elevated p-4">
           <div className="mb-4">
             <h2 className="text-lg font-semibold text-white">Manage playlist</h2>
             <p className="text-sm text-neutral-400">Edit details, visibility, and song order here.</p>
@@ -213,7 +213,7 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
                 onChange={event => setDescription(event.target.value)}
                 placeholder="Description"
                 rows={4}
-                className="w-full rounded-md border border-transparent bg-neutral-700 px-3 py-3 text-sm placeholder:text-neutral-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full rounded-md border border-white/10 bg-elevated px-3 py-3 text-sm placeholder:text-neutral-500 focus:outline-none focus:border-neon/50 disabled:cursor-not-allowed disabled:opacity-50"
               />
             </div>
             <div className="flex flex-col gap-y-4">
@@ -221,7 +221,7 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
                 value={visibility}
                 disabled={isSavingDetails}
                 onChange={event => setVisibility(event.target.value as PlaylistVisibility)}
-                className="w-full rounded-md border border-transparent bg-neutral-700 px-3 py-3 text-sm capitalize focus:outline-none disabled:cursor-not-allowed disabled:opacity-50">
+                className="w-full rounded-md border border-white/10 bg-elevated px-3 py-3 text-sm capitalize focus:outline-none focus:border-neon/50 disabled:cursor-not-allowed disabled:opacity-50">
                 <option value="public">Public</option>
                 <option value="unlisted">Unlisted</option>
                 <option value="private">Private</option>
@@ -245,7 +245,7 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
         ) : null}
 
         {songs.map((item, index) => (
-          <div key={item.song.id} className="flex items-center gap-x-4 rounded-md bg-neutral-900/60 p-2">
+          <div key={item.song.id} className="flex items-center gap-x-4 rounded-md bg-elevated/60 border border-white/5 p-2 transition hover:border-neon/20">
             <div className="flex-1">
               <MediaItem onClick={id => onPlay(id)} data={item.song} />
             </div>

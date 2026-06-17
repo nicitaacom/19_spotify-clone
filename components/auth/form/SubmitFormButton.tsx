@@ -20,7 +20,7 @@ export function SubmitFormButton({ isActionBlocked }: SubmitFormButtonProps) {
 
   return (
     <Button
-      className="rounded-2xl border border-emerald-400/15 bg-emerald-500 px-4 py-3 text-sm font-semibold text-black"
+      className="rounded-2xl border border-neon/20 bg-neon px-4 py-3 text-sm font-semibold text-black hover:bg-neon-strong hover:shadow-neon hover:opacity-100"
       disabled={isActionBlocked}
       type="submit">
       <span className="flex items-center justify-center gap-2">

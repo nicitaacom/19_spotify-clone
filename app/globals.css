@@ -2,11 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* 10% — neon accent */
+  --neon: #4ade80;
+  --neon-strong: #6ef0a0;
+  --neon-glow: rgba(74, 222, 128, 0.35);
+  --neon-glow-soft: rgba(74, 222, 128, 0.12);
+  --neon-dim: rgba(74, 222, 128, 0.06);
+
+  /* 60% — base background */
+  --bg-base: #080808;
+
+  /* 30% — surfaces */
+  --bg-surface: #111111;
+  --bg-elevated: #1a1a1a;
+}
+
 html,
 body,
 :root {
   height: 100%;
-  background-color: black;
+  background-color: var(--bg-base);
   color-scheme: dark;
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.glow-ring {
+  box-shadow: 0 0 0 1px var(--neon-glow), 0 0 16px var(--neon-glow);
+}
+
+.glow-soft {
+  box-shadow: 0 0 24px var(--neon-glow-soft);
+}
+
+
+.hide-scrollbar {
+  overflow-y: scroll;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.scrollbar {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(74, 222, 128, 0.4) transparent !important;
+}
+.scrollbar::-webkit-scrollbar {
+  width: 6px !important;
+  display: block !important;
+}
+.scrollbar::-webkit-scrollbar-track {
+  background: #111111 !important;
+  border-radius: 9999px !important;
+}
+.scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(74, 222, 128, 0.35) !important;
+  border-radius: 9999px !important;
+  border: 2px solid transparent !important;
+  background-clip: padding-box !important;
+}
+.scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(74, 222, 128, 0.6) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+  }
 }

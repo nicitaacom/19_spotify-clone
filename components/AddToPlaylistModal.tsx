@@ -148,12 +148,12 @@ const AddToPlaylistModal = () => {
             type="button"
             disabled={loadingPlaylistId === playlist.id}
             onClick={() => handleAddToPlaylist(playlist.id)}
-            className="flex items-center justify-between rounded-md border border-neutral-700 px-4 py-3 text-left transition hover:border-white/30 hover:bg-neutral-700/40 disabled:cursor-not-allowed disabled:opacity-50">
+            className="flex items-center justify-between rounded-md border border-white/10 px-4 py-3 text-left transition hover:border-neon/30 hover:bg-elevated/40 disabled:cursor-not-allowed disabled:opacity-50">
             <div className="min-w-0">
               <p className="truncate font-medium text-white">{playlist.title}</p>
               <p className="text-xs capitalize text-neutral-400">{playlist.visibility}</p>
             </div>
-            <span className="text-sm font-medium text-emerald-300">{loadingPlaylistId === playlist.id ? "Adding..." : "Add"}</span>
+            <span className="text-sm font-medium text-neon/80">{loadingPlaylistId === playlist.id ? "Adding..." : "Add"}</span>
           </button>
         ))}
       </div>

@@ -10,8 +10,8 @@ export default async function PlaylistsPage() {
   const [publicPlaylists, userPlaylists] = await Promise.all([getPublicPlaylists(), getUserPlaylists()])
 
   return (
-    <div className="bg-neutral-900 rounded-lg w-full h-full overflow-hidden overflow-y-auto">
-      <Header className="from-sky-900">
+    <div className="bg-surface rounded-lg w-full h-full overflow-x-hidden">
+      <Header className="from-[#0f1f14] via-[#0b0f0c]">
         <div className="flex flex-col gap-y-6">
           <div className="flex flex-col gap-y-3 md:flex-row md:items-end md:justify-between">
             <div>
@@ -36,7 +36,7 @@ export default async function PlaylistsPage() {
           {publicPlaylists.length === 0 ? (
             <p className="text-sm text-neutral-400">No public playlists yet.</p>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {publicPlaylists.map(playlist => (
                 <PlaylistCard key={playlist.id} playlist={playlist} />
               ))}
@@ -50,7 +50,7 @@ export default async function PlaylistsPage() {
               <h2 className="text-2xl font-semibold text-white">Your playlists</h2>
               <p className="mt-1 text-sm text-neutral-400">Includes your public, unlisted, and private playlists.</p>
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {userPlaylists.map(playlist => (
                 <PlaylistCard key={playlist.id} playlist={playlist} showVisibility />
               ))}

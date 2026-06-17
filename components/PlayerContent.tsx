@@ -238,7 +238,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
       <div className="flex md:hidden flex-1 justify-end items-center">
         <div
           onClick={handlePlay}
-          className="h-10 w-10 flex items-center justify-center rounded-full bg-white p-1 cursor-pointer">
+          className="h-10 w-10 flex items-center justify-center rounded-full bg-neon p-1 cursor-pointer shadow-neon-sm hover:bg-neon-strong hover:shadow-neon transition">
           <Icon size={30} className={isLoading ? "animate-spin text-black" : "text-black"} />
         </div>
       </div>
@@ -248,35 +248,35 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
         <AiFillStepBackward
           onClick={onPlayPrevious}
           size={30}
-          className="text-neutral-400 cursor-pointer hover:text-white transition"
+          className="text-neutral-400 cursor-pointer hover:text-neon transition"
         />
         <BsSkipStartFill
           onClick={onReplay}
           size={24}
-          className="text-neutral-400 cursor-pointer hover:text-white transition"
+          className="text-neutral-400 cursor-pointer hover:text-neon transition"
           title="Replay from start"
         />
         <div
           onClick={handlePlay}
-          className="flex items-center justify-center h-10 w-10 rounded-full bg-white p-1 cursor-pointer">
+          className="flex items-center justify-center h-10 w-10 rounded-full bg-neon p-1 cursor-pointer shadow-neon-sm hover:bg-neon-strong hover:shadow-neon transition">
           <Icon size={30} className={isLoading ? "animate-spin text-black" : "text-black"} />
         </div>
         <AiFillStepForward
           onClick={onPlayNext}
           size={30}
-          className="text-neutral-400 cursor-pointer hover:text-white transition"
+          className="text-neutral-400 cursor-pointer hover:text-neon transition"
         />
         <RepeatIcon
           onClick={cycleRepeatMode}
           size={22}
-          className={`cursor-pointer transition ${repeatMode === "off" ? "text-neutral-400 hover:text-white" : "text-white"}`}
+          className={`cursor-pointer transition ${repeatMode === "off" ? "text-neutral-400 hover:text-neon" : "text-neon drop-shadow-[0_0_4px_rgba(74,222,128,0.3)]"}`}
         />
       </div>
 
       {/* Right: Volume */}
       <div className="hidden md:flex w-[30%] justify-end">
         <div className="flex items-center gap-x-2 w-[120px]">
-          <VolumeIcon onClick={toggleMute} className="cursor-pointer" size={34} />
+          <VolumeIcon onClick={toggleMute} className="cursor-pointer text-neutral-400 hover:text-neon transition" size={34} />
           <Slider value={volume} onChange={value => setVolume(value)} />
         </div>
       </div>

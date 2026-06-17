@@ -16,7 +16,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({ icon: Icon, label, active, hr
       className={twMerge(
         `flex flex-row w-auto h-full items-center
     gap-x-4 text-md font-medium cursor-pointer hover:text-white transition text-neutral-400 p-1`,
-        active && "text-white",
+        active && "text-neon [&>svg]:drop-shadow-[0_0_4px_rgba(74,222,128,0.3)]",
       )}>
       <Icon size={26} />
       <p className="truncate w-full">{label}</p>

@@ -103,13 +103,13 @@ const CreatePlaylistModal = () => {
           onChange={event => setDescription(event.target.value)}
           placeholder="Description"
           rows={4}
-          className="w-full rounded-md border border-transparent bg-neutral-700 px-3 py-3 text-sm placeholder:text-neutral-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-md border border-transparent bg-elevated px-3 py-3 text-sm placeholder:text-neutral-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
         <select
           value={visibility}
           disabled={isLoading}
           onChange={event => setVisibility(event.target.value as PlaylistVisibility)}
-          className="w-full rounded-md border border-transparent bg-neutral-700 px-3 py-3 text-sm capitalize focus:outline-none disabled:cursor-not-allowed disabled:opacity-50">
+          className="w-full rounded-md border border-transparent bg-elevated px-3 py-3 text-sm capitalize focus:outline-none disabled:cursor-not-allowed disabled:opacity-50">
           {visibilityOptions.map(option => (
             <option key={option} value={option} className="capitalize">
               {option}

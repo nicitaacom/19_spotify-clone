@@ -23,7 +23,7 @@ const TurnstileChallenge = ({ turnstileRef, isVerified, onDismiss }: TurnstileCh
       <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20 p-2.5">
         <div className="min-h-[66px]" ref={turnstileRef} />
       </div>
-      <p className={`text-center text-xs ${isVerified ? "text-emerald-400" : "text-amber-300/80"}`}>
+      <p className={`text-center text-xs ${isVerified ? "text-neon" : "text-amber-300/80"}`}>
         {isVerified ? "Verified ✓ — continuing…" : "Complete the challenge to continue."}
       </p>
     </div>

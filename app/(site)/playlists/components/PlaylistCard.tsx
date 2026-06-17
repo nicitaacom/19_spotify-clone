@@ -17,20 +17,19 @@ const PlaylistCard: React.FC<PlaylistCardProps> = ({ playlist, showVisibility = 
   return (
     <Link
       href={`/playlists/${playlist.slug}`}
-      className="group flex h-full flex-col gap-y-3 rounded-lg bg-neutral-900/70 p-4 transition hover:bg-neutral-800/80">
-      <div className="relative aspect-square w-full overflow-hidden rounded-md">
-        <Image className="object-cover" fill sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 100vw" src={coverUrl} alt={playlist.title} />
-      </div>
-      <div className="flex flex-col gap-y-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-lg font-semibold text-white">{playlist.title}</p>
-            <p className="truncate text-sm text-neutral-400">By {authorName}</p>
+      className="group flex flex-col overflow-hidden rounded-xl border border-white/5 bg-surface shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition duration-200 hover:border-neon/20 hover:bg-elevated">
+      <div className="relative aspect-square w-full overflow-hidden">
+        <Image className="object-cover transition duration-300 group-hover:scale-105" fill sizes="(min-width: 1024px) 16vw, (min-width: 640px) 25vw, 50vw" src={coverUrl} alt={playlist.title} />
+        <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/20 to-transparent" />
+        {showVisibility && (
+          <div className="absolute left-2 top-2">
+            <PlaylistVisibilityBadge visibility={playlist.visibility} />
           </div>
-          {showVisibility ? <PlaylistVisibilityBadge visibility={playlist.visibility} /> : null}
-        </div>
-        <p className="text-sm text-neutral-400">{playlist.song_count} songs</p>
-        {playlist.description ? <p className="line-clamp-2 text-sm text-neutral-300">{playlist.description}</p> : null}
+        )}
+      </div>
+      <div className="px-2.5 py-2">
+        <p className="truncate text-xs font-semibold text-white">{playlist.title}</p>
+        <p className="truncate text-[11px] text-neutral-500">{authorName} · {playlist.song_count} songs</p>
       </div>
     </Link>
   )

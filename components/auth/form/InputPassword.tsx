@@ -10,14 +10,14 @@ const strengthColors: Record<string, string> = {
   weak: "bg-rose-500",
   fair: "bg-amber-500",
   good: "bg-sky-500",
-  strong: "bg-emerald-500",
+  strong: "bg-neon",
 }
 
 const strengthTextColors: Record<string, string> = {
   weak: "text-rose-400",
   fair: "text-amber-400",
   good: "text-sky-400",
-  strong: "text-emerald-400",
+  strong: "text-neon",
 }
 
 export function InputPassword() {
@@ -116,7 +116,7 @@ export function InputPassword() {
           )}
 
           {passwordStrength && passwordStrength.strength === "strong" && passwordStrength.errors.length === 0 && (
-            <p className="flex items-center gap-1.5 text-xs text-emerald-400">
+            <p className="flex items-center gap-1.5 text-xs text-neon">
               <span>✓</span>
               <span>Strong password</span>
             </p>

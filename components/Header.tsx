@@ -44,33 +44,33 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
   }
 
   return (
-    <div className={twMerge(`h-fit bg-gradient-to-b from-emerald-800 p-6`, className)}>
+    <div className={twMerge(`h-fit bg-gradient-to-b from-[#0f1f14] via-[#0b0f0c] to-transparent border-b border-white/5 rounded-lg p-6 pr-8`, className)}>
       <div className="w-full mb-4 flex justify-between items-center">
         <div className="hidden md:flex gap-x-2 items-center">
           <button
-            className="rounded-full bg-black flex justify-center items-center hover:opacity-75 transition"
+            className="rounded-full bg-surface border border-white/10 flex justify-center items-center hover:border-neon/40 hover:shadow-neon-sm transition"
             onClick={() => router.back()}>
             <RxCaretLeft className="text-white" size={35} />
           </button>
           <button
-            className="rounded-full bg-black flex justify-center items-center hover:opacity-75 transition"
+            className="rounded-full bg-surface border border-white/10 flex justify-center items-center hover:border-neon/40 hover:shadow-neon-sm transition"
             onClick={() => router.forward()}>
             <RxCaretRight className="text-white" size={35} />
           </button>
         </div>
         <div className="flex md:hidden gap-x-2 items-center">
-          <button className="rounded-full p-2 bg-white flex items-center jusitfy-center hover:opacity-75 transition">
-            <HiHome className="text-black" size={20} />
+          <button className="rounded-full p-2 bg-surface border border-white/10 flex items-center justify-center hover:border-neon/40 hover:shadow-neon-sm transition">
+            <HiHome className="text-white" size={20} />
           </button>
-          <button className="rounded-full p-2 bg-white flex items-center jusitfy-center hover:opacity-75 transition">
-            <BiSearch className="text-black" size={20} />
+          <button className="rounded-full p-2 bg-surface border border-white/10 flex items-center justify-center hover:border-neon/40 hover:shadow-neon-sm transition">
+            <BiSearch className="text-white" size={20} />
           </button>
         </div>
-        <div className="flex justufy-between items-center gap-x-4">
+        <div className="flex justify-between items-center gap-x-4">
           {user ? (
             <div className="flex gap-x-4 items-center">
-              <Button onClick={handleLogout}>Logout</Button>
-              <Button className="bg-white" onClick={() => router.push("/account")}>
+              <Button onClick={handleLogout} className="bg-neon text-black hover:bg-neon-strong hover:shadow-neon hover:opacity-100">Logout</Button>
+              <Button className="bg-elevated border border-neon/30 text-neon hover:shadow-neon-sm hover:opacity-100" onClick={() => router.push("/account")}>
                 <FaUserAlt />
               </Button>
             </div>
@@ -79,14 +79,14 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
               <div>
                 {shouldOpenExternalAuth && authUrl ? (
                   <Link
-                    className="w-full rounded-full bg-green-500 border border-transparent px-3 py-3 disabled:cursor-not-allowed disabled:opacity-50 text-black font-bold hover:opacity-75 transition bg-transparent text-neutral-300 font-medium"
+                    className="w-full rounded-full border border-transparent px-3 py-3 text-neutral-300 font-medium hover:text-white transition"
                     href={authUrl}
                     target="_blank"
                     rel="noreferrer">
                     Sign up
                   </Link>
                 ) : (
-                  <Button className="bg-transparent text-neutral-300 font-medium" onClick={() => handleAuthAction({ isIframe })}>
+                  <Button className="bg-transparent text-neutral-300 font-medium hover:text-white hover:bg-transparent hover:shadow-none" onClick={() => handleAuthAction({ isIframe })}>
                     Sign up
                   </Button>
                 )}
@@ -94,14 +94,14 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
               <div>
                 {shouldOpenExternalAuth && authUrl ? (
                   <Link
-                    className="w-full rounded-full bg-green-500 border border-transparent px-3 py-3 disabled:cursor-not-allowed disabled:opacity-50 text-black font-bold hover:opacity-75 transition bg-white px-6 py-2"
+                    className="w-full rounded-full bg-neon border border-transparent px-6 py-2 text-black font-bold hover:bg-neon-strong transition"
                     href={authUrl}
                     target="_blank"
                     rel="noreferrer">
                     Log in
                   </Link>
                 ) : (
-                  <Button className="bg-white px-6 py-2" onClick={() => handleAuthAction({ isIframe })}>
+                  <Button className="bg-neon text-black px-6 py-2 hover:bg-neon-strong hover:opacity-100" onClick={() => handleAuthAction({ isIframe })}>
                     Log in
                   </Button>
                 )}

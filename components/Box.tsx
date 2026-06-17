@@ -8,5 +8,5 @@ interface BoxProps {
 }
 
 export default function Box({ children, className }: BoxProps) {
-  return <div className={twMerge(`bg-neutral-900 rounded-lg h-fit w-full`, className)}>{children}</div>
+  return <div className={twMerge(`bg-surface rounded-lg h-fit w-full border border-white/5`, className)}>{children}</div>
 }

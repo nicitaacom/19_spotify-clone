@@ -48,7 +48,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick }) => {
         items-center 
         gap-x-3 
         cursor-pointer 
-        hover:bg-neutral-800/50 
+        hover:bg-elevated/80
         w-full 
         p-2 
         rounded-md
@@ -65,7 +65,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick }) => {
         <Image fill sizes="48px" src={imageUrl || "/images/liked.png"} alt="MediaItem" className="object-cover" loading="eager" />
       </div>
       <div className="flex flex-col gap-y-1 overflow-hidden">
-        <p className={twMerge(`text-white truncate`, player.activeId === data.id && "text-emerald-500")}>
+        <p className={twMerge(`text-white truncate`, player.activeId === data.id && "text-neon")}>
           {data.title}
         </p>
         <p className="text-neutral-400 text-sm truncate">By {data.author}</p>

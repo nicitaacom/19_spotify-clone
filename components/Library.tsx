@@ -37,12 +37,12 @@ const Library = ({ songs }: LibraryProps) => {
           <p className="text-neutral-400 font-medium text-md">Your libray</p>
         </div>
         <AiOutlinePlus
-          className="text-neutral-400 cursor-pointer hover:text-white transition"
+          className="text-neutral-400 cursor-pointer hover:text-neon transition"
           onClick={onClick}
           size={20}
         />
       </div>
-      <div className="mx-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-medium text-emerald-200">
+      <div className="mx-3 rounded-md border border-neon/20 bg-neon/5 px-3 py-2 text-xs font-medium text-neon/80">
         Music upload is available for everyone - try now!
       </div>
       <div className="mt-3 flex flex-col gap-y-2 px-3">

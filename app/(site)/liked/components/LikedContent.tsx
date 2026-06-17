@@ -32,8 +32,8 @@ const LikedContent: React.FC<LikedContentProps> = ({ songs }) => {
   if (songs.length === 0) {
     return (
       <div className="px-6 pb-8">
-        <div className="flex min-h-[320px] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/10 bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800 px-6 py-12 text-center">
-          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-white/5 text-emerald-300">
+        <div className="flex min-h-[320px] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/10 bg-gradient-to-br from-surface via-surface to-elevated px-6 py-12 text-center">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-white/5 text-neon">
             <AiFillHeart size={28} />
           </div>
           <h2 className="text-2xl font-semibold text-white">No liked songs yet</h2>
@@ -49,11 +49,11 @@ const LikedContent: React.FC<LikedContentProps> = ({ songs }) => {
   }
 
   return (
-    <div className="mb-7 flex flex-col gap-y-6 px-6 pb-8">
-      <div className="rounded-[28px] border border-white/10 bg-gradient-to-r from-emerald-500/15 via-cyan-500/10 to-transparent p-5 shadow-[0_24px_80px_-50px_rgba(16,185,129,0.35)]">
+    <div className="mb-7 mt-4 flex flex-col gap-y-6 px-6 pb-8">
+      <div className="rounded-[28px] border border-neon/15 bg-gradient-to-r from-neon/10 via-neon/5 to-transparent p-5 shadow-neon">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200">Collection</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-neon/80">Collection</p>
             <h2 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">Your saved favorites</h2>
             <p className="mt-2 max-w-2xl text-sm text-neutral-300">
               Keep your best tracks close by. Every card now gives you quick access to play, add to playlist, and like controls.

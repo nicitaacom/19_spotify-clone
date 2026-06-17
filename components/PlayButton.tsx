@@ -32,14 +32,13 @@ const PlayButton: React.FC<PlayButtonProps> = ({ className, iconClassName, size 
           items-center
           justify-center
           rounded-full
-          bg-green-500
+          bg-neon
           p-4
           text-black
-          shadow-lg
-          shadow-black/30
           transition
           hover:scale-105
-          hover:bg-green-400
+          hover:bg-neon-strong
+          hover:shadow-[0_0_10px_rgba(74,222,128,0.2)]
         `,
         className,
       )}>

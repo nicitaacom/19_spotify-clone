@@ -48,7 +48,7 @@ function SongRow({ song, onDelete }: { song: Song; onDelete: (id: string) => voi
   }
 
   return (
-    <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-neutral-800/60 p-3 transition hover:bg-neutral-800">
+    <div className="flex items-center gap-4 rounded-2xl border border-white/5 bg-elevated/60 p-3 transition hover:border-neon/20 hover:bg-elevated">
       <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg">
         <Image
           src={imagePath || "/images/liked.png"}
@@ -65,7 +65,7 @@ function SongRow({ song, onDelete }: { song: Song; onDelete: (id: string) => voi
       <button
         onClick={() => addToPlaylistModal.onOpen(song)}
         aria-label={`Add ${song.title} to playlist`}
-        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/40 text-neutral-400 transition hover:border-emerald-500/40 hover:bg-emerald-500/20 hover:text-emerald-400"
+        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/40 text-neutral-400 transition hover:border-neon/40 hover:bg-neon/10 hover:text-neon"
       >
         <FiPlus size={15} />
       </button>
@@ -101,7 +101,7 @@ const MySongsContent: React.FC<MySongsContentProps> = ({ songs: initialSongs }) 
     return (
       <div className="px-6 pb-8">
         <div className="flex min-h-[320px] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/10 bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-800 px-6 py-12 text-center">
-          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-white/5 text-emerald-300">
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-white/5 text-neon">
             <MdMusicNote size={28} />
           </div>
           <h2 className="text-2xl font-semibold text-white">No uploaded songs</h2>
@@ -117,7 +117,7 @@ const MySongsContent: React.FC<MySongsContentProps> = ({ songs: initialSongs }) 
   }
 
   return (
-    <div className="mb-7 flex flex-col gap-y-4 px-6 pb-8">
+    <div className="mb-7 mt-4 flex flex-col gap-y-4 px-6 pb-8">
       <div className="rounded-[28px] border border-white/10 bg-gradient-to-r from-red-500/10 via-rose-500/5 to-transparent p-5">
         <p className="text-xs font-semibold uppercase tracking-[0.28em] text-rose-200">Manage</p>
         <h2 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">Your uploaded songs</h2>

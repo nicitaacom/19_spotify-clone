@@ -6,7 +6,7 @@ export const revalidate = 0
 
 export default async function Home() {
   return (
-    <div className="text-neutral-400 rounded-lg w-full h-full overflow-hidden overflow-y-auto">
+    <div className="text-neutral-400 w-full min-h-full bg-surface">
       <Header>
         <div className="mb-2">
           <h1 className="text-white text-3xl font-semibold">Welcome back</h1>
