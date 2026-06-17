@@ -13,6 +13,9 @@ import Player from "@/components/Player"
 export const metadata = {
   title: "Spotify clone",
   description: "Listen to music!",
+  icons: {
+    icon: "/favicon.png",
+  },
 }
 
 export const revalidate = 0
