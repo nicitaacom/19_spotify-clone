@@ -27,6 +27,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
     songs,
     activeId,
     preloadedSongId,
+    isPlaying: isPlayingInStore,
     setPreloadedSongId,
     setProgress,
   } = usePlayer()
@@ -74,7 +75,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
   }, [nextSongId, preloadedSongId, setPreloadedSongId])
 
   useEffect(() => {
-    if (!isPlaying || !sound) {
+    if ((!isPlaying && !isPlayingInStore) || !sound) {
       return
     }
 
@@ -102,7 +103,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [isPlaying, nextSongId, preloadedSongId, setPreloadedSongId, setProgress, sound])
+  }, [isPlaying, isPlayingInStore, nextSongId, preloadedSongId, setPreloadedSongId, setProgress, sound])
 
   useEffect(() => {
     if (!nextSongId || !nextSongUrl || preloadedSongId !== nextSongId) {

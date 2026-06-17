@@ -33,11 +33,14 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     seek: seekValue,
     seekId,
     repeatMode,
+    savedPosition,
     setId,
     setActiveSong,
     setIsLoading,
     setIsPlaying: setIsPlayingInStore,
+    setProgress,
     setRepeatMode,
+    setSavedPosition,
   } = usePlayer()
 
   const { volume, setVolume } = useVolumeStore()
@@ -113,6 +116,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
       }
     },
     onpause: () => {
+      if (!isPlayingRef.current) return
       setIsPlaying(false)
       isPlayingRef.current = false
       setIsPlayingInStore(false)
@@ -133,22 +137,43 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
 
   useEffect(() => { soundRef.current = sound ?? null }, [sound])
 
+  useEffect(() => {
+    if (!sound) setProgress(0)
+  }, [sound, setProgress])
+
   usePreloadNextTrack({ currentSong: song, isPlaying, sound })
 
-  const hasAutoPlayedRef = useRef(false)
+  const didAutoPlayRef = useRef(false)
+  const wasPlayingRef = useRef(false)
 
   useEffect(() => {
     if (!sound) return
-    if (!hasAutoPlayedRef.current) {
-      hasAutoPlayedRef.current = true
-      setIsLoading(true)
-      sound.play()
+
+    if (didAutoPlayRef.current) {
+      if (wasPlayingRef.current) {
+        const resumePos = savedPosition
+        setSavedPosition(0)
+        sound.play()
+        if (resumePos > 0) {
+          sound.once("play", () => sound.seek(resumePos))
+        }
+      }
+      return
     }
+
+    didAutoPlayRef.current = true
+    setIsLoading(true)
+    sound.play()
+
     return () => {
+      wasPlayingRef.current = isPlayingRef.current
+      const pos = sound.seek()
+      if (typeof pos === "number" && pos > 0) setSavedPosition(pos)
       setIsPlayingInStore(false)
       sound.unload()
     }
-  }, [setIsLoading, setIsPlayingInStore, sound])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sound])
 
   // Stable refs for mediaSession next/previous handlers
   const onPlayNextRef = useRef(onPlayNext)
@@ -239,7 +264,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
         <div
           onClick={handlePlay}
           className="h-10 w-10 flex items-center justify-center rounded-full bg-neon p-1 cursor-pointer shadow-neon-sm hover:bg-neon-strong hover:shadow-neon transition">
-          <Icon size={30} className={isLoading ? "animate-spin text-black" : "text-black"} />
+          <Icon size={38} className={isLoading ? "animate-spin text-black" : "text-black"} />
         </div>
       </div>
 
@@ -259,7 +284,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
         <div
           onClick={handlePlay}
           className="flex items-center justify-center h-10 w-10 rounded-full bg-neon p-1 cursor-pointer shadow-neon-sm hover:bg-neon-strong hover:shadow-neon transition">
-          <Icon size={30} className={isLoading ? "animate-spin text-black" : "text-black"} />
+          <Icon size={38} className={isLoading ? "animate-spin text-black" : "text-black"} />
         </div>
         <AiFillStepForward
           onClick={onPlayNext}
