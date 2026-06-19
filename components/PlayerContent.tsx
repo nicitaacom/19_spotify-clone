@@ -222,7 +222,10 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     if (playbackCommandId === lastPlaybackCommandId.current) return
     lastPlaybackCommandId.current = playbackCommandId
     if (playbackCommand === "pause") { pause(); return }
-    if (playbackCommand === "play") play()
+    if (playbackCommand === "play") {
+      if (soundRef.current) soundRef.current.play()
+      else play()
+    }
   }, [activeId, isLoading, pause, play, playbackCommand, playbackCommandId, song.id])
 
   useEffect(() => {
@@ -233,8 +236,12 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
 
   const handlePlay = () => {
     if (isLoading) return
-    if (!isPlaying) play()
-    else pause()
+    if (!isPlaying) {
+      if (soundRef.current) soundRef.current.play()
+      else play()
+    } else {
+      pause()
+    }
   }
 
   const onReplay = () => {
