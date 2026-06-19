@@ -107,6 +107,51 @@ useEffect(() => {
 
 ---
 
+### Bug: Double play (two streams at once) AND song restarts instead of resuming — the real root cause
+
+**Symptoms:**
+1. The same song is audible twice at the same time.
+2. Pressing play after pause restarts the track from 0 instead of continuing.
+
+**Root cause (two parts, both confirmed against `use-sound@4.0.4` source):**
+
+**Part A — frozen Howler callbacks.** `use-sound` spreads the `on*` callbacks into `new Howl(...)` **once, at construction**, and never updates them (only `onload` is wired by use-sound itself; everything else rides along in `delegated`). So `onend` / `onpause` capture the **first render's** closures — `repeatMode` is stuck at its initial `"off"`, `onPlayNext` is stuck at the initial `ids`/`activeId`. The stale `onend` then drives playback with wrong state (wrong next track, or the repeat-one `seek(0); play()` path firing when it shouldn't → restart).
+
+**Part B — `play()` stacks a second node.** With `html5: true`, Howler's `.play()` does **not** no-op when a sound node is already active; it spawns a **second** `<audio>` element. Multiple call sites (autoplay effect, play-command effect, play button, replay) could each call `.play()` while a node was still alive → two simultaneous streams.
+
+**Fix:**
+
+1. Route the dynamic callbacks through a ref refreshed every render, so Howler always runs current logic:
+
+```ts
+const handleEndRef = useRef<() => void>(() => {})
+useEffect(() => {
+  handleEndRef.current = () => {
+    /* reads CURRENT repeatMode + onPlayNext */
+  }
+}, [repeatMode, onPlayNext, setIsPlayingInStore])
+
+// in useSound options — stable identity, always calls latest:
+onend: () => handleEndRef.current(),
+```
+
+2. Funnel every start/resume through one guarded helper that refuses to stack a node and never seeks on resume (html5 Howl keeps its position across `pause()`, so a plain `play()` continues):
+
+```ts
+const playSound = useCallback(() => {
+  const s = soundRef.current
+  if (!s) { play(); return }
+  if (s.playing()) return   // ← prevents the 2nd node (double play)
+  s.play()                  // ← resumes from retained position (no restart)
+}, [play])
+```
+
+All play call sites (command effect, `handlePlay`, the autoplay resume branch) now go through `playSound` / a `playing()` check. Only explicit **replay** and **repeat-one** call `seek(0)` before playing.
+
+**Rule going forward:** never call `sound.play()` unguarded with `html5: true` — always check `sound.playing()` first, or you get a duplicate stream. And never assume a `useSound` `on*` callback sees current state — it sees the values from the render that created the Howl. Use a ref.
+
+---
+
 ### Bug: Progress bar frozen / showing stale time after tab switch
 
 **Symptom:** After switching tabs, the progress bar stayed frozen at the position from before the tab switch.
