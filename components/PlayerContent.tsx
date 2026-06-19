@@ -92,6 +92,29 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     else setRepeatMode("off")
   }
 
+  // use-sound captures the on* callbacks ONCE, at Howl construction time (it spreads them into
+  // `new Howl(...)` and never updates them). So any closure variable they read — repeatMode,
+  // onPlayNext, etc. — is frozen to the FIRST render's value. That stale onend was the cause of
+  // both the "double play" and the "restart instead of resume" bugs: it read repeatMode/onPlayNext
+  // as their initial values and triggered playback on a stale instance.
+  //
+  // Fix: keep the callbacks passed to useSound stable (identity never changes) but have them call
+  // through refs that we refresh every render. Howler then always runs the CURRENT logic.
+  const handleEndRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    handleEndRef.current = () => {
+      setIsPlaying(false)
+      isPlayingRef.current = false
+      setIsPlayingInStore(false)
+      if (repeatMode === "one") {
+        soundRef.current?.seek(0)
+        soundRef.current?.play()
+      } else {
+        onPlayNext()
+      }
+    }
+  }, [repeatMode, onPlayNext, setIsPlayingInStore])
+
   const [play, { pause, sound }] = useSound(songUrl, {
     volume,
     format: ["mp3"],
@@ -104,17 +127,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
       setIsPlayingInStore(true)
       setIsLoading(false)
     },
-    onend: () => {
-      setIsPlaying(false)
-      isPlayingRef.current = false
-      setIsPlayingInStore(false)
-      if (repeatMode === "one") {
-        soundRef.current?.seek(0)
-        play()
-      } else {
-        onPlayNext()
-      }
-    },
+    onend: () => handleEndRef.current(),
     onpause: () => {
       if (!isPlayingRef.current) return
       setIsPlaying(false)
@@ -137,6 +150,27 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
 
   useEffect(() => { soundRef.current = sound ?? null }, [sound])
 
+  // Single guarded entry point for starting/resuming playback.
+  //
+  // Why a guard: with html5: true, Howler's .play() does NOT no-op when a sound node is already
+  // active — calling it again spawns a SECOND <audio> node, so you hear the track twice at once
+  // (the "double play" bug). play() on an already-playing Howl is the only way that happens here,
+  // because several paths (autoplay effect, the play-command effect, the play button, replay) can
+  // each fire .play() while the previous node is still alive. playing() lets us skip those.
+  //
+  // Resuming (not restarting): an html5 Howl retains its position across pause(), so a plain
+  // .play() continues from where it was — that's the desired "song continues" behaviour. We must
+  // NOT seek(0) on a normal resume; only explicit replay/repeat-one do that.
+  const playSound = useCallback(() => {
+    const s = soundRef.current
+    if (!s) {
+      play()
+      return
+    }
+    if (s.playing()) return
+    s.play()
+  }, [play])
+
   useEffect(() => {
     if (!sound) setProgress(0)
   }, [sound, setProgress])
@@ -150,7 +184,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     if (!sound) return
 
     if (didAutoPlayRef.current) {
-      if (wasPlayingRef.current) {
+      if (wasPlayingRef.current && !sound.playing()) {
         const resumePos = savedPosition
         setSavedPosition(0)
         sound.play()
@@ -204,7 +238,6 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
       navigator.mediaSession.setActionHandler("nexttrack", null)
       navigator.mediaSession.setActionHandler("seekto", null)
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Update metadata when song changes so Chrome mini-player shows the correct track
@@ -222,11 +255,8 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     if (playbackCommandId === lastPlaybackCommandId.current) return
     lastPlaybackCommandId.current = playbackCommandId
     if (playbackCommand === "pause") { pause(); return }
-    if (playbackCommand === "play") {
-      if (soundRef.current) soundRef.current.play()
-      else play()
-    }
-  }, [activeId, isLoading, pause, play, playbackCommand, playbackCommandId, song.id])
+    if (playbackCommand === "play") playSound()
+  }, [activeId, isLoading, pause, playSound, playbackCommand, playbackCommandId, song.id])
 
   useEffect(() => {
     if (activeId !== song.id || !sound || seekId === 0 || seekValue === undefined) return
@@ -236,18 +266,17 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
 
   const handlePlay = () => {
     if (isLoading) return
-    if (!isPlaying) {
-      if (soundRef.current) soundRef.current.play()
-      else play()
-    } else {
-      pause()
-    }
+    if (!isPlaying) playSound()
+    else pause()
   }
 
   const onReplay = () => {
-    if (!soundRef.current) return
-    soundRef.current.seek(0)
-    if (!isPlayingRef.current) soundRef.current.play()
+    const s = soundRef.current
+    if (!s) return
+    s.seek(0)
+    // Force a real play() here (not the guarded playSound): after seek(0) Howler may still report
+    // playing() === true, but we still want it to (re)start from 0 if it was paused.
+    if (!s.playing()) s.play()
   }
 
   const toggleMute = () => {
