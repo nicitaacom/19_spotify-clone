@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation"
 import { useSupabaseClient } from "@supabase/auth-helpers-react"
 import toast from "react-hot-toast"
 import { MdMusicNote } from "react-icons/md"
-import { FiTrash2, FiPlus } from "react-icons/fi"
+import { FiTrash2, FiPlus, FiEdit2 } from "react-icons/fi"
 
 import { Song } from "@/types"
 import { useUser } from "@/hooks/useUser"
 import useLoadImage from "@/hooks/useLoadImage"
 import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
+import useEditSongModal from "@/hooks/useEditSongModal"
 import Button from "@/components/Button"
 import Image from "next/image"
 
@@ -18,11 +19,12 @@ interface MySongsContentProps {
   songs: Song[]
 }
 
-function SongRow({ song, onDelete }: { song: Song; onDelete: (id: string) => void }) {
+function SongRow({ song, onDelete, onUpdate }: { song: Song; onDelete: (id: string) => void; onUpdate: (updated: Song) => void }) {
   const imagePath = useLoadImage(song)
   const [deleting, setDeleting] = useState(false)
   const supabaseClient = useSupabaseClient()
   const addToPlaylistModal = useAddToPlaylistModal()
+  const editSongModal = useEditSongModal()
 
   const handleDelete = async () => {
     if (!confirm(`Delete "${song.title}"? This cannot be undone.`)) return
@@ -70,6 +72,13 @@ function SongRow({ song, onDelete }: { song: Song; onDelete: (id: string) => voi
         <FiPlus size={15} />
       </button>
       <button
+        onClick={() => editSongModal.onOpen(song, onUpdate)}
+        aria-label={`Edit ${song.title}`}
+        className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-white/10 bg-black/40 text-neutral-400 transition hover:border-yellow-500/40 hover:bg-yellow-500/10 hover:text-yellow-400"
+      >
+        <FiEdit2 size={15} />
+      </button>
+      <button
         onClick={handleDelete}
         disabled={deleting}
         aria-label={`Delete ${song.title}`}
@@ -95,6 +104,10 @@ const MySongsContent: React.FC<MySongsContentProps> = ({ songs: initialSongs }) 
   const handleDelete = (deletedId: string) => {
     setSongs(prev => prev.filter(s => s.id !== deletedId))
     router.refresh()
+  }
+
+  const handleUpdate = (updated: Song) => {
+    setSongs(prev => prev.map(s => s.id === updated.id ? updated : s))
   }
 
   if (songs.length === 0) {
@@ -131,7 +144,7 @@ const MySongsContent: React.FC<MySongsContentProps> = ({ songs: initialSongs }) 
 
       <div className="flex flex-col gap-y-2">
         {songs.map(song => (
-          <SongRow key={song.id} song={song} onDelete={handleDelete} />
+          <SongRow key={song.id} song={song} onDelete={handleDelete} onUpdate={handleUpdate} />
         ))}
       </div>
     </div>

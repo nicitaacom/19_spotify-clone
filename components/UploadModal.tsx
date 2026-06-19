@@ -2,7 +2,7 @@
 
 import uniqid from "uniqid"
 import React, { useRef, useState, useEffect, useCallback } from "react"
-import { useSupabaseClient, useSessionContext } from "@supabase/auth-helpers-react"
+import { useSessionContext } from "@supabase/auth-helpers-react"
 import { FieldValues, SubmitHandler, useForm } from "react-hook-form"
 import { toast } from "react-hot-toast"
 import { useRouter } from "next/navigation"
@@ -20,7 +20,7 @@ import { PlaylistOption } from "@/types"
 import Modal from "./Modal"
 import Input from "./Input"
 import Button from "./Button"
-import TurnstileChallenge from "./TurnstileChallenge"
+import TurnstileChallenge from "./turnstile/TurnstileChallenge"
 import ProgressBar from "./ProgressBar"
 
 // Show Turnstile challenge on ~10% of uploads
@@ -38,7 +38,9 @@ const UploadModal = () => {
 
   useEffect(() => {
     if (!isLoading) return
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault() }
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+    }
     window.addEventListener("beforeunload", handler)
     return () => window.removeEventListener("beforeunload", handler)
   }, [isLoading])
@@ -98,7 +100,7 @@ const UploadModal = () => {
       }))
       setPlaylists(mapped)
       // If we had a selected playlist, keep it in sync (e.g. after rename)
-      setSelectedPlaylist(prev => prev ? (mapped.find(p => p.id === prev.id) ?? null) : null)
+      setSelectedPlaylist(prev => (prev ? (mapped.find(p => p.id === prev.id) ?? null) : null))
     }
   }, [supabaseClient, user])
 
@@ -137,7 +139,10 @@ const UploadModal = () => {
     return new Promise((resolve, reject) => {
       const audio = new Audio()
       audio.src = URL.createObjectURL(file)
-      audio.onloadedmetadata = () => { URL.revokeObjectURL(audio.src); resolve(audio.duration) }
+      audio.onloadedmetadata = () => {
+        URL.revokeObjectURL(audio.src)
+        resolve(audio.duration)
+      }
       audio.onerror = reject
     })
   }
@@ -171,13 +176,28 @@ const UploadModal = () => {
       const imageFile = values.image?.[0]
       const songFile = values.song?.[0]
 
-      if (!user) { toast.error("You must be logged in to upload."); setIsLoading(false); return }
-      if (!songFile) { toast.error("Please select an MP3 file."); setIsLoading(false); return }
-      if (!imageFile) { toast.error("Please select a cover image."); setIsLoading(false); return }
+      if (!user) {
+        toast.error("You must be logged in to upload.")
+        setIsLoading(false)
+        return
+      }
+      if (!songFile) {
+        toast.error("Please select an MP3 file.")
+        setIsLoading(false)
+        return
+      }
+      if (!imageFile) {
+        toast.error("Please select a cover image.")
+        setIsLoading(false)
+        return
+      }
 
       const MAX_SONG_SIZE_MiB = 50
       if (songFile.size > MAX_SONG_SIZE_MiB * 1024 * 1024) {
-        toast.error(`File exceeds ${MAX_SONG_SIZE_MiB} MB. Please compress your MP3 first (Google "compress mp3 online").`, { duration: 6000 })
+        toast.error(
+          `File exceeds ${MAX_SONG_SIZE_MiB} MB. Please compress your MP3 first (Google "compress mp3 online").`,
+          { duration: 6000 },
+        )
         setIsLoading(false)
         return
       }
@@ -214,27 +234,51 @@ const UploadModal = () => {
       }
 
       const uniqueID = uniqid()
-      const songPath = getSafeStoragePath({ prefix: "song", value: values.title, uniqueId: uniqueID, fileName: songFile.name })
-      const imagePath = getSafeStoragePath({ prefix: "image", value: values.title, uniqueId: uniqueID, fileName: imageFile.name })
+      const songPath = getSafeStoragePath({
+        prefix: "song",
+        value: values.title,
+        uniqueId: uniqueID,
+        fileName: songFile.name,
+      })
+      const imagePath = getSafeStoragePath({
+        prefix: "image",
+        value: values.title,
+        uniqueId: uniqueID,
+        fileName: imageFile.name,
+      })
 
       const { error: songError } = await uploadFileWithProgress(songPath, songFile, "songs")
-      if (songError) { setIsLoading(false); return toast.error(`Failed song upload: ${songError.message ?? songError}`) }
+      if (songError) {
+        setIsLoading(false)
+        return toast.error(`Failed song upload: ${songError.message ?? songError}`)
+      }
 
       const { error: imageError } = await supabaseClient.storage.from("images").upload(imagePath, imageFile, {
         cacheControl: "3600",
         upsert: false,
       })
-      if (imageError) { setIsLoading(false); return toast.error("Failed image upload") }
+      if (imageError) {
+        setIsLoading(false)
+        return toast.error("Failed image upload")
+      }
 
       setUploadProgress(100)
 
       const { data: songRecord, error: supabaseError } = await supabaseClient
         .from("19_songs")
-        .insert({ user_id: user.id, title: values.title, author: values.author, image_path: imagePath, song_path: songPath })
+        .insert({
+          user_id: user.id,
+          title: values.title,
+          author: values.author,
+          image_path: imagePath,
+          song_path: songPath,
+        })
         .select("id")
         .single()
 
-      if (supabaseError) { return toast.error(supabaseError.message) }
+      if (supabaseError) {
+        return toast.error(supabaseError.message)
+      }
 
       if (selectedPlaylist) {
         const { data: existingPositions } = await supabaseClient
@@ -282,11 +326,25 @@ const UploadModal = () => {
         <Input id="author" disabled={isLoading} {...register("author", { required: true })} placeholder="Song author" />
         <div>
           <div className="pb-1">Select a song file</div>
-          <Input placeholder="test" disabled={isLoading} type="file" accept=".mp3" id="song" {...register("song", { required: true })} />
+          <Input
+            placeholder="test"
+            disabled={isLoading}
+            type="file"
+            accept=".mp3"
+            id="song"
+            {...register("song", { required: true })}
+          />
         </div>
         <div>
           <div className="pb-1">Select an image</div>
-          <Input placeholder="test" disabled={isLoading} type="file" accept="image/*" id="image" {...register("image", { required: true })} />
+          <Input
+            placeholder="test"
+            disabled={isLoading}
+            type="file"
+            accept="image/*"
+            id="image"
+            {...register("image", { required: true })}
+          />
         </div>
 
         {/* Playlist selector */}
@@ -301,7 +359,10 @@ const UploadModal = () => {
               <span className={selectedPlaylist ? "text-white" : "text-neutral-400"}>
                 {selectedPlaylist ? selectedPlaylist.title : "No playlist"}
               </span>
-              <FiChevronDown size={16} className={`text-neutral-400 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+              <FiChevronDown
+                size={16}
+                className={`text-neutral-400 transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
+              />
             </button>
 
             {dropdownOpen && (
@@ -309,7 +370,10 @@ const UploadModal = () => {
                 {/* Create new */}
                 <button
                   type="button"
-                  onClick={() => { setDropdownOpen(false); createPlaylistModal.onOpen({ skipRedirect: true }) }}
+                  onClick={() => {
+                    setDropdownOpen(false)
+                    createPlaylistModal.onOpen({ skipRedirect: true })
+                  }}
                   className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-neon transition hover:bg-elevated">
                   <FiPlus size={14} />
                   Create new playlist
@@ -320,7 +384,10 @@ const UploadModal = () => {
                 {/* No playlist option */}
                 <button
                   type="button"
-                  onClick={() => { setSelectedPlaylist(null); setDropdownOpen(false) }}
+                  onClick={() => {
+                    setSelectedPlaylist(null)
+                    setDropdownOpen(false)
+                  }}
                   className="flex w-full items-center justify-between px-3 py-2.5 text-sm text-neutral-300 transition hover:bg-elevated">
                   No playlist
                   {!selectedPlaylist && <FiCheck size={14} className="text-neon" />}
@@ -331,10 +398,15 @@ const UploadModal = () => {
                   <div key={playlist.id} className="flex items-center hover:bg-elevated transition">
                     <button
                       type="button"
-                      onClick={() => { setSelectedPlaylist(playlist); setDropdownOpen(false) }}
+                      onClick={() => {
+                        setSelectedPlaylist(playlist)
+                        setDropdownOpen(false)
+                      }}
                       className="flex flex-1 items-center justify-between px-3 py-2.5 text-sm text-white">
                       <span className="truncate">{playlist.title}</span>
-                      {selectedPlaylist?.id === playlist.id && <FiCheck size={14} className="ml-2 shrink-0 text-neon" />}
+                      {selectedPlaylist?.id === playlist.id && (
+                        <FiCheck size={14} className="ml-2 shrink-0 text-neon" />
+                      )}
                     </button>
                     <Link
                       href={`/playlists/${playlist.slug}`}

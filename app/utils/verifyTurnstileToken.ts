@@ -1,7 +1,7 @@
 "use client"
 
 export const verifyTurnstileTokenFn = async (token: string) => {
-  const response = await fetch("/api/turnstile/verify", {
+  const response = await fetch("/api/turnstile", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
