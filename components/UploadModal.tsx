@@ -239,12 +239,14 @@ const UploadModal = () => {
         value: values.title,
         uniqueId: uniqueID,
         fileName: songFile.name,
+        folder: selectedPlaylist?.slug ?? undefined,
       })
       const imagePath = getSafeStoragePath({
         prefix: "image",
         value: values.title,
         uniqueId: uniqueID,
         fileName: imageFile.name,
+        folder: selectedPlaylist?.slug ?? undefined,
       })
 
       const { error: songError } = await uploadFileWithProgress(songPath, songFile, "songs")

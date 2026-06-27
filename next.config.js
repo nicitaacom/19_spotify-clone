@@ -10,6 +10,10 @@ const nextConfig = {
       },
     ],
   },
+  // Allow large archive uploads to /api/backup/import (default cap is 10 MB)
+  experimental: {
+    middlewareClientMaxBodySize: "2gb",
+  },
 }
 
 module.exports = nextConfig

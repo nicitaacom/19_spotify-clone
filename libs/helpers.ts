@@ -100,13 +100,26 @@ export const getSupabasePublicUrl = (bucket: string, path?: string | null) => {
   return `${normalizedBaseUrl}/storage/v1/object/public/${bucket}/${encodedPath}`
 }
 
-export const getSafeStoragePath = ({ prefix, value, uniqueId, fileName }: { prefix: string; value: string; uniqueId: string; fileName?: string }) => {
+export const getSafeStoragePath = ({
+  prefix,
+  value,
+  uniqueId,
+  fileName,
+  folder,
+}: {
+  prefix: string
+  value: string
+  uniqueId: string
+  fileName?: string
+  folder?: string
+}) => {
   const extension = fileName?.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "")
   const safeValue = slugifyFilePart(value)
 
-  if (!extension || extension === fileName?.toLowerCase()) {
-    return `${prefix}-${safeValue}-${uniqueId}`
-  }
+  const name =
+    !extension || extension === fileName?.toLowerCase()
+      ? `${prefix}-${safeValue}-${uniqueId}`
+      : `${prefix}-${safeValue}-${uniqueId}.${extension}`
 
-  return `${prefix}-${safeValue}-${uniqueId}.${extension}`
+  return folder ? `${folder}/${name}` : name
 }

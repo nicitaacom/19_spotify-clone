@@ -76,8 +76,16 @@ const CreatePlaylistModal = () => {
           return
         }
 
-        if ((error as { code?: string }).code !== "23505") {
+        const pgError = error as { code?: string; message?: string }
+        if (pgError.code !== "23505") {
           throw error
+        }
+
+        // If the duplicate is on the title column (unique per-user title constraint), bail early
+        if (pgError.message?.includes("title")) {
+          toast.error("You already have a playlist with this name.")
+          setIsLoading(false)
+          return
         }
       }
 
