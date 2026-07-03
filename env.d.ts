@@ -16,6 +16,8 @@ declare global {
 
       NEXT_PUBLIC_CLOUDFLARE_SITE_KEY: string
       TURNSTILE_SECRET_KEY: string
+
+      OWNER_IDS_ARR: string
     }
   }
 
