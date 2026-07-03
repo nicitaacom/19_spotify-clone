@@ -56,13 +56,9 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick }) => {
       ">
       <div
         className="
-          relative 
-          rounded-md 
-          min-h-[48px] 
-          min-w-[48px] 
           overflow-hidden
         ">
-        <Image fill sizes="48px" src={imageUrl || "/images/liked.png"} alt="MediaItem" className="object-cover" loading="eager" />
+        <Image width={128} height={128} src={imageUrl || "/images/liked.png"} alt="MediaItem" className="object-cover" loading="eager" />
       </div>
       <div className="flex flex-col gap-y-1 overflow-hidden">
         <p className={twMerge(`text-white truncate`, player.activeId === data.id && "text-neon")}>
