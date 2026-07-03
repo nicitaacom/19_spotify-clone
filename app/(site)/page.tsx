@@ -1,6 +1,6 @@
 import Header from "../../components/Header"
 import ListItem from "../../components/ListItem"
-import AllSongsSection from "./components/AllSongsSection"
+import RankedPlaylistsSection from "./components/RankedPlaylistsSection"
 
 export const revalidate = 0
 
@@ -15,7 +15,7 @@ export default async function Home() {
           <ListItem image="/images/liked.png" name="Liked Songs" href="liked" />
         </div>
       </Header>
-      <AllSongsSection />
+      <RankedPlaylistsSection />
     </div>
   )
 }

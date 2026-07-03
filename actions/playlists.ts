@@ -76,7 +76,7 @@ const getAuthorsById = async (userIds: string[]) => {
   )
 }
 
-const getPlaylistSongsByPlaylistIds = async (playlistIds: string[]) => {
+export const getPlaylistSongsByPlaylistIds = async (playlistIds: string[]) => {
   if (playlistIds.length === 0) {
     return new Map<string, PlaylistSongWithSong[]>()
   }

@@ -8,6 +8,7 @@ import { useUser } from "@/hooks/useUser"
 import Button from "@/components/Button"
 import { postData } from "@/libs/helpers"
 import useDbBackupModal from "@/hooks/useDbBackupModal"
+import StorageUsageBar from "@/components/StorageUsageBar"
 
 const AccountContent = () => {
   const router = useRouter()
@@ -57,6 +58,14 @@ const AccountContent = () => {
           <Button disabled={loading || isLoading} onClick={redirectToCustomerPortal} className="w-[300px]">
             Open customer portal
           </Button>
+        </div>
+      )}
+
+      {user && (
+        <div className="mt-8 flex flex-col gap-y-3 border-t border-white/10 pt-6">
+          <p className="text-sm font-semibold text-neutral-300">Storage</p>
+          <p className="text-sm text-neutral-400">Total song storage used across the Supabase free tier.</p>
+          <StorageUsageBar />
         </div>
       )}
 

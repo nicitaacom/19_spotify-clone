@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { useSessionContext } from "@supabase/auth-helpers-react"
 
 import { Song } from "@/types"
+import { useUser } from "@/hooks/useUser"
 
 import useLoadSongUrl from "./useLoadSongUrl"
 import usePlayer from "./usePlayer"
@@ -19,6 +21,7 @@ interface UsePreloadNextTrackParams {
 }
 
 const PRELOAD_THRESHOLD = 0.8
+const PLAY_RECORD_THRESHOLD = 0.5
 const PROGRESS_POLL_INTERVAL_MS = 400
 
 const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTrackParams) => {
@@ -31,9 +34,12 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
     setPreloadedSongId,
     setProgress,
   } = usePlayer()
+  const { supabaseClient } = useSessionContext()
+  const { user } = useUser()
 
   const preloadAudioRef = useRef<HTMLAudioElement | null>(null)
   const preloadTargetIdRef = useRef<string | undefined>(undefined)
+  const hasRecordedPlayRef = useRef(false)
 
   const currentIndex = ids.findIndex(id => id === activeId)
   const nextSongId = currentIndex >= 0 ? ids[currentIndex + 1] : undefined
@@ -56,6 +62,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
   useEffect(() => {
     setProgress(0)
     setPreloadedSongId(undefined)
+    hasRecordedPlayRef.current = false
   }, [currentSong.id, setPreloadedSongId, setProgress])
 
   useEffect(() => {
@@ -94,6 +101,11 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
       if (nextProgress >= PRELOAD_THRESHOLD && nextSongId && preloadedSongId !== nextSongId) {
         setPreloadedSongId(nextSongId)
       }
+
+      if (nextProgress >= PLAY_RECORD_THRESHOLD && !hasRecordedPlayRef.current && user) {
+        hasRecordedPlayRef.current = true
+        supabaseClient.from("song_plays").insert({ song_id: currentSong.id, user_id: user.id })
+      }
     }
 
     syncProgress()
@@ -103,7 +115,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [isPlaying, isPlayingInStore, nextSongId, preloadedSongId, setPreloadedSongId, setProgress, sound])
+  }, [currentSong.id, isPlaying, isPlayingInStore, nextSongId, preloadedSongId, setPreloadedSongId, setProgress, sound, supabaseClient, user])
 
   useEffect(() => {
     if (!nextSongId || !nextSongUrl || preloadedSongId !== nextSongId) {

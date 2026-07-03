@@ -57,6 +57,7 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
           sizes="(min-width: 1280px) 14vw, (min-width: 1024px) 20vw, (min-width: 640px) 25vw, 50vw"
           alt={data.title}
           priority={priority}
+          quality={90}
         />
 
         {/* Gradient overlay */}

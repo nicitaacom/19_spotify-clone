@@ -44,6 +44,7 @@ export interface PlaylistSummary extends Playlist {
   author: PlaylistAuthor
   cover_image_path?: string | null
   song_count: number
+  score?: number
 }
 
 export interface PlaylistDetail extends Playlist {

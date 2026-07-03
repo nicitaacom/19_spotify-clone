@@ -274,6 +274,7 @@ const UploadModal = () => {
           author: values.author,
           image_path: imagePath,
           song_path: songPath,
+          size_bytes: songFile.size,
         })
         .select("id")
         .single()
