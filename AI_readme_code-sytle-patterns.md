@@ -311,7 +311,6 @@ export default useUserStore
 - Initialize complex cross-store logic using `setTimeout(() => store.subscribe(...), 0)`.
 - Prefer direct state updates with `set(state => ({ ...state, key: value }))`.
 
-
 ### Store action style
 
 ```ts
@@ -439,7 +438,8 @@ import { NextResponse } from "next/server"
 import { aiPrettifyMessage } from "./aiPrettifyMessage"
 
 export async function POST(req: Request) {
-  const { encryptedEnvsClient, message, provider, model, userInstructions } = (await req.json()) as API.AIPrettifyMessageRequest
+  const { encryptedEnvsClient, message, provider, model, userInstructions } =
+    (await req.json()) as API.AIPrettifyMessageRequest
 
   if (!encryptedEnvsClient?.length) return NextResponse.json({ error: "encryptedEnvsClient missing" }, { status: 400 })
   if (!message) return NextResponse.json({ error: "message missing" }, { status: 400 })
@@ -599,6 +599,7 @@ AI should follow these steps:
 8. Use `twMerge` for conditional Tailwind classes.
 9. Put `className` first in TSX props.
 10. Prefer the smallest possible change that fits the pattern.
+11. Stop after you've done with once task and wait for me to review.
 
 ## Example checklist for AI-generated code
 
