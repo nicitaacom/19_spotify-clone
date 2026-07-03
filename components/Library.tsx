@@ -43,7 +43,7 @@ const Library = ({ songs }: LibraryProps) => {
         />
       </div>
       <div className="mx-3 rounded-md border border-neon/20 bg-neon/5 px-3 py-2 text-xs font-medium text-neon/80">
-        Music upload is available for everyone - try now!
+        {`Here you find the best songs I found in last ${new Date().getFullYear() - 2022} years of listening to music`}
       </div>
       <div className="mt-3 flex flex-col gap-y-2 px-3">
         {songs.map(song => (
