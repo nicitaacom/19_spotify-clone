@@ -103,9 +103,9 @@ export interface Database {
         Relationships: []
       }
       "19_songs": {
-        Row: { author: string | null; created_at: string; id: number; image_path: string | null; song_path: string | null; title: string | null; user_id: string | null }
-        Insert: { author?: string | null; created_at?: string; id?: number; image_path?: string | null; song_path?: string | null; title?: string | null; user_id?: string | null }
-        Update: { author?: string | null; created_at?: string; id?: number; image_path?: string | null; song_path?: string | null; title?: string | null; user_id?: string | null }
+        Row: { author: string | null; created_at: string; id: number; image_path: string | null; size_bytes: number | null; song_path: string | null; title: string | null; user_id: string | null }
+        Insert: { author?: string | null; created_at?: string; id?: number; image_path?: string | null; size_bytes?: number | null; song_path?: string | null; title?: string | null; user_id?: string | null }
+        Update: { author?: string | null; created_at?: string; id?: number; image_path?: string | null; size_bytes?: number | null; song_path?: string | null; title?: string | null; user_id?: string | null }
         Relationships: []
       }
       "19_subscriptions": {
@@ -160,6 +160,12 @@ export interface Database {
           trial_start?: string | null
           user_id?: string
         }
+        Relationships: []
+      }
+      song_plays: {
+        Row: { id: number; created_at: string; song_id: number; user_id: string }
+        Insert: { id?: number; created_at?: string; song_id: number; user_id: string }
+        Update: { id?: number; created_at?: string; song_id?: number; user_id?: string }
         Relationships: []
       }
       "19_users": {
