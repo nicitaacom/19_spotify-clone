@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 
-import getStorageUsage, { SUPABASE_FREE_TIER_LIMIT_BYTES } from "@/actions/getStorageUsage"
+import getStorageUsageAction, { SUPABASE_FREE_TIER_LIMIT_BYTES } from "@/actions/getStorageUsageAction"
 
 export const useStorageUsage = () => {
   const [isSkeleton, setIsSkeleton] = useState(false)
@@ -14,7 +14,7 @@ export const useStorageUsage = () => {
     setErrorMessage("")
     try {
       setIsSkeleton(true)
-      const result = await getStorageUsage()
+      const result = await getStorageUsageAction()
       if (typeof result === "string") throw new Error(result)
       setUsedBytes(result.usedBytes)
       setLimitBytes(result.limitBytes)
