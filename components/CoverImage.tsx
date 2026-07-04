@@ -11,9 +11,9 @@ interface CoverImageProps extends Omit<ImageProps, "src" | "onError"> {
 
 /**
  * Wraps next/image for song/playlist covers. A cover URL can point at a file that no longer
- * exists in Storage (see dev_readme-backup.md's "Failed iterations" #7/#8 — most commonly a
- * backup restore that skipped re-uploading an image) — this falls back to the placeholder on
- * load failure instead of rendering a broken-image icon.
+ * exists in Storage (see app/features/backup/dev_readme-backup.md's "Failed iterations" #7 — most
+ * commonly a backup restore that skipped re-uploading an image) — this falls back to the
+ * placeholder on load failure instead of rendering a broken-image icon.
  */
 const CoverImage: React.FC<CoverImageProps> = ({ src, alt, ...imageProps }) => {
   const [hasError, setHasError] = useState(false)
