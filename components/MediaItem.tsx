@@ -10,9 +10,10 @@ import usePlayer from "@/hooks/usePlayer"
 interface MediaItemProps {
   data: Song
   onClick?: (id: string) => void
+  size?: number
 }
 
-const MediaItem: React.FC<MediaItemProps> = ({ data, onClick }) => {
+const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 128 }) => {
   const player = usePlayer()
   const imageUrl = useLoadImage(data)
 
@@ -54,16 +55,19 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick }) => {
         rounded-md
         overflow-hidden
       ">
-      <div
-        className="
-          overflow-hidden
-        ">
-        <Image width={128} height={128} src={imageUrl || "/images/liked.png"} alt="MediaItem" className="object-cover" loading="eager" />
+      <div className="relative shrink-0 overflow-hidden rounded-md" style={{ width: size, height: size }}>
+        <Image
+          style={{ width: "64px", height: "64px" }}
+          width={size * 4}
+          height={size * 4}
+          src={imageUrl || "/images/liked.png"}
+          alt="MediaItem"
+          className="object-cover"
+          loading="eager"
+        />
       </div>
       <div className="flex flex-col gap-y-1 overflow-hidden">
-        <p className={twMerge(`text-white truncate`, player.activeId === data.id && "text-neon")}>
-          {data.title}
-        </p>
+        <p className={twMerge(`text-white truncate`, player.activeId === data.id && "text-neon")}>{data.title}</p>
         <p className="text-neutral-400 text-sm truncate">By {data.author}</p>
       </div>
     </div>

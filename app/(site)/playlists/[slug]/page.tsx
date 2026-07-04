@@ -40,7 +40,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
         <div className="mt-10">
           <div className="flex flex-col items-center gap-x-5 gap-y-4 md:flex-row md:items-end">
             <div className="relative h-32 w-32 overflow-hidden rounded-md lg:h-44 lg:w-44">
-              <Image className="object-cover" width={128} height={128} src={coverUrl} alt={playlist.title} />
+              <Image className="object-cover" fill sizes="176px" quality={100} unoptimized src={coverUrl} alt={playlist.title} />
             </div>
             <div className="flex flex-col gap-y-3 text-center md:text-left">
               <div className="flex flex-wrap items-center justify-center gap-3 md:justify-start">
