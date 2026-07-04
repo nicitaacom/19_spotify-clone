@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { twMerge } from "tailwind-merge"
@@ -15,6 +16,7 @@ import { useUser } from "@/hooks/useUser"
 import usePlayer from "@/hooks/usePlayer"
 import { getProductionAuthUrl, handleAuthAction, shouldUseExternalAuth } from "@/app/utils/handleAuthAction"
 import useIsIframeAuth from "@/hooks/useIsIframeAuth"
+import useSearchModal from "@/hooks/useSearchModal"
 
 interface HeaderProps {
   children: React.ReactNode
@@ -30,6 +32,19 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
   const isIframe = useIsIframeAuth()
   const authUrl = getProductionAuthUrl()
   const shouldOpenExternalAuth = shouldUseExternalAuth({ isIframe })
+  const searchModal = useSearchModal()
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault()
+        searchModal.onOpen()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [searchModal])
 
   const handleLogout = async () => {
     const { error } = await supabaseClient.auth.signOut()
@@ -62,7 +77,9 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
           <button className="rounded-full p-2 bg-surface border border-white/10 flex items-center justify-center hover:border-neon/40 hover:shadow-neon-sm transition">
             <HiHome className="text-white" size={20} />
           </button>
-          <button className="rounded-full p-2 bg-surface border border-white/10 flex items-center justify-center hover:border-neon/40 hover:shadow-neon-sm transition">
+          <button
+            className="rounded-full p-2 bg-surface border border-white/10 flex items-center justify-center hover:border-neon/40 hover:shadow-neon-sm transition"
+            onClick={searchModal.onOpen}>
             <BiSearch className="text-white" size={20} />
           </button>
         </div>
@@ -70,6 +87,11 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
           {user ? (
             <div className="flex gap-x-4 items-center">
               <Button onClick={handleLogout} className="bg-neon text-black hover:bg-neon-strong hover:shadow-neon hover:opacity-100">Logout</Button>
+              <Button
+                className="hidden md:inline-block bg-elevated border border-neon/30 text-neon hover:shadow-neon-sm hover:opacity-100"
+                onClick={searchModal.onOpen}>
+                <BiSearch />
+              </Button>
               <Button className="bg-elevated border border-neon/30 text-neon hover:shadow-neon-sm hover:opacity-100" onClick={() => router.push("/account")}>
                 <FaUserAlt />
               </Button>
