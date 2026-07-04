@@ -120,7 +120,10 @@ export async function exportWithProgress(opts: {
 }): Promise<{ archives: { fileName: string; blob: Blob }[] }> {
   const { includeImages, onProgress, onPhase } = opts
 
-  const manifest = await getManifest(includeImages)
+  onPhase?.("Testing connection speed…", 0, null)
+  const bytesPerMs = await measureConnectionSpeed()
+
+  const manifest = await getManifest(includeImages, bytesPerMs)
   const totalFiles = manifest.fileCount
   const archives: { fileName: string; blob: Blob }[] = []
 
@@ -133,15 +136,17 @@ export async function exportWithProgress(opts: {
   }
 
   // ── Dynamic chunking ───────────────────────────────────────────────────────
-  // Chunk 1: use the manifest's initial splitIdx as the upper bound.
-  // After chunk 1 completes we know the real ms/file and recompute all subsequent
-  // chunk sizes so they each stay within BUDGET_MS.
+  // Chunk 1: use the manifest's initial splitIdx (sized off the measured
+  // connection speed) as the upper bound. After chunk 1 completes we know the
+  // real ms/file and recompute all subsequent chunk sizes so they each stay
+  // within BUDGET_MS.
 
   let from = 0
   let chunkNum = 1
-  let msPerFile = INITIAL_MS_PER_FILE
+  const avgBytesPerFile = totalFiles > 0 ? manifest.totalBytes / totalFiles : 0
+  let msPerFile = avgBytesPerFile > 0 ? avgBytesPerFile / bytesPerMs : INITIAL_MS_PER_FILE
 
-  // Initial upper bound from manifest (byte-based estimate), but capped to what fits in budget
+  // Initial upper bound from manifest (measured-throughput estimate), but capped to what fits in budget
   let to = manifest.splitIdx ?? Math.max(1, Math.floor(BUDGET_MS / msPerFile))
   to = Math.min(to, totalFiles)
 
