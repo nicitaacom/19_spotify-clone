@@ -184,9 +184,9 @@ const DbBackupModal = () => {
           )}
 
           {backup.importPhase === "error" && (
-            <div className="flex items-center gap-x-2 text-sm text-red-400">
-              <FiAlertCircle size={14} />
-              <span>Import failed. Try again.</span>
+            <div className="flex items-start gap-x-2 text-sm text-red-400">
+              <FiAlertCircle size={14} className="mt-0.5 shrink-0" />
+              <span className="break-words">{backup.importError ?? "Import failed. Try again."}</span>
             </div>
           )}
 

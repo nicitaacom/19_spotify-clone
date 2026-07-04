@@ -19,6 +19,7 @@ export function useDbBackup() {
   const [importTotal, setImportTotal] = useState(0)
   const [importLabel, setImportLabel] = useState("")
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [importError, setImportError] = useState<string | null>(null)
   const importFileRef = useRef<HTMLInputElement | null>(null)
 
   const importProgress = importTotal > 0 ? Math.round((importDone / importTotal) * 100) : 0
@@ -76,6 +77,7 @@ export function useDbBackup() {
     setImportTotal(0)
     setImportLabel("Uploading archive…")
     setImportResult(null)
+    setImportError(null)
 
     const allResults: ImportResult = { tables: [], buckets: [] }
 
@@ -107,7 +109,9 @@ export function useDbBackup() {
       toast.success(`Restored ${totalRows} rows and ${totalFiles} files.`)
     } catch (err: any) {
       setImportPhase("error")
-      toast.error(err?.message ?? "Import failed")
+      const message = err?.message ?? "Import failed"
+      setImportError(message)
+      toast.error(message)
     }
   }
 
@@ -121,6 +125,7 @@ export function useDbBackup() {
     setImportTotal(0)
     setImportLabel("")
     setImportResult(null)
+    setImportError(null)
     if (importFileRef.current) importFileRef.current.value = ""
   }
 
@@ -128,7 +133,7 @@ export function useDbBackup() {
     exportPhase, exportProgress, exportDone, exportTotal, exportLabel,
     includeImages, setIncludeImages, startExport,
     importPhase, importProgress, importDone, importTotal, importLabel,
-    importResult, importFileRef, startImport,
+    importResult, importError, importFileRef, startImport,
     reset,
   }
 }

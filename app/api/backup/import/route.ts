@@ -48,85 +48,102 @@ export async function POST(req: Request) {
       let done = 0
       const tableResults: TableResult[] = []
       const bucketStats: Record<string, { files: number; failed: number }> = {}
+      let currentStage = "starting import"
 
-      // ── Restore table rows ───────────────────────────────────────────────
-      for (const table of BACKUP_TABLES) {
-        send({ type: "progress", done, total, label: `Restoring ${table}…` })
+      try {
+        // ── Restore table rows ───────────────────────────────────────────────
+        for (const table of BACKUP_TABLES) {
+          currentStage = `restoring table "${table}"`
+          send({ type: "progress", done, total, label: `Restoring ${table}…` })
 
-        const entryBuf = entries.get(`${table}.json`)
-        if (!entryBuf) { done++; continue }
+          const entryBuf = entries.get(`${table}.json`)
+          if (!entryBuf) { done++; continue }
 
-        let rows: any[]
-        try { rows = JSON.parse(entryBuf.toString("utf8")) }
-        catch { done++; continue }
+          let rows: any[]
+          try { rows = JSON.parse(entryBuf.toString("utf8")) }
+          catch { done++; continue }
 
-        const ownedRows = rows.filter((row: any) => ("user_id" in row ? row.user_id === userId : true))
+          const ownedRows = rows.filter((row: any) => ("user_id" in row ? row.user_id === userId : true))
 
-        if (table === "19_playlist_songs") {
-          const { data: userPlaylists } = await supabaseAdmin.from("19_playlists").select("id").eq("user_id", userId)
-          const ownedPlaylistIds = new Set((userPlaylists ?? []).map((p: any) => p.id))
-          const safeRows = ownedRows.filter((row: any) => ownedPlaylistIds.has(row.playlist_id))
-          const { error } = await supabaseAdmin.from("19_playlist_songs" as any).upsert(safeRows, { onConflict: "playlist_id,song_id" })
-          tableResults.push({ table, rows: error ? 0 : safeRows.length, skipped: rows.length - safeRows.length + (error ? safeRows.length : 0) })
-        } else {
-          let skipped = rows.length - ownedRows.length
-          if (ownedRows.length > 0) {
-            const { error } = await supabaseAdmin.from(table as any).upsert(ownedRows)
-            if (error) { skipped += ownedRows.length; tableResults.push({ table, rows: 0, skipped }); done++; continue }
+          if (table === "19_playlist_songs") {
+            const { data: userPlaylists } = await supabaseAdmin.from("19_playlists").select("id").eq("user_id", userId)
+            const ownedPlaylistIds = new Set((userPlaylists ?? []).map((p: any) => p.id))
+            const safeRows = ownedRows.filter((row: any) => ownedPlaylistIds.has(row.playlist_id))
+            const { error } = await supabaseAdmin.from("19_playlist_songs" as any).upsert(safeRows, { onConflict: "playlist_id,song_id" })
+            tableResults.push({ table, rows: error ? 0 : safeRows.length, skipped: rows.length - safeRows.length + (error ? safeRows.length : 0) })
+          } else {
+            let skipped = rows.length - ownedRows.length
+            if (ownedRows.length > 0) {
+              const { error } = await supabaseAdmin.from(table as any).upsert(ownedRows)
+              if (error) { skipped += ownedRows.length; tableResults.push({ table, rows: 0, skipped }); done++; continue }
+            }
+            tableResults.push({ table, rows: ownedRows.length, skipped })
           }
-          tableResults.push({ table, rows: ownedRows.length, skipped })
-        }
 
-        done++
-        send({ type: "progress", done, total, label: `Restored ${table}` })
-      }
-
-      // ── Restore storage files ────────────────────────────────────────────
-      const { data: userSongs } = await supabaseAdmin.from("19_songs").select("song_path, image_path").eq("user_id", userId)
-      const ownedSongPaths = new Set((userSongs ?? []).map((s: any) => s.song_path).filter(Boolean))
-      const ownedImagePaths = new Set((userSongs ?? []).map((s: any) => s.image_path).filter(Boolean))
-
-      const contentTypesEntry = entries.get("storage-content-types.json")
-      const contentTypes: Record<string, string> = contentTypesEntry
-        ? JSON.parse(contentTypesEntry.toString("utf8"))
-        : {}
-
-      for (const entryName of storageEntries) {
-        const data = entries.get(entryName)!
-        const withoutPrefix = entryName.slice("storage/".length)
-        const slashIdx = withoutPrefix.indexOf("/")
-        if (slashIdx === -1) { done++; continue }
-
-        const bucket = withoutPrefix.slice(0, slashIdx)
-        const filePath = withoutPrefix.slice(slashIdx + 1)
-
-        if (!bucketStats[bucket]) bucketStats[bucket] = { files: 0, failed: 0 }
-
-        send({ type: "progress", done, total, label: `Uploading ${bucket}/${filePath.split("/").pop()}…` })
-
-        const isOwned =
-          (bucket === "songs" && ownedSongPaths.has(filePath)) ||
-          (bucket === "images" && ownedImagePaths.has(filePath))
-
-        if (!isOwned) {
-          bucketStats[bucket].failed++
           done++
-          continue
+          send({ type: "progress", done, total, label: `Restored ${table}` })
         }
 
-        const contentType = contentTypes[`${bucket}/${filePath}`] ?? "application/octet-stream"
-        const { error } = await supabaseAdmin.storage.from(bucket).upload(filePath, data, { contentType, upsert: true })
+        // ── Restore storage files ────────────────────────────────────────────
+        currentStage = "loading owned song/image paths"
+        const { data: userSongs } = await supabaseAdmin.from("19_songs").select("song_path, image_path").eq("user_id", userId)
+        const ownedSongPaths = new Set((userSongs ?? []).map((s: any) => s.song_path).filter(Boolean))
+        const ownedImagePaths = new Set((userSongs ?? []).map((s: any) => s.image_path).filter(Boolean))
 
-        if (error) bucketStats[bucket].failed++
-        else bucketStats[bucket].files++
+        const contentTypesEntry = entries.get("storage-content-types.json")
+        const contentTypes: Record<string, string> = contentTypesEntry
+          ? JSON.parse(contentTypesEntry.toString("utf8"))
+          : {}
 
-        done++
-        send({ type: "progress", done, total, label: `Uploaded ${bucket}/${filePath.split("/").pop()}` })
+        for (const entryName of storageEntries) {
+          const data = entries.get(entryName)!
+          const withoutPrefix = entryName.slice("storage/".length)
+          const slashIdx = withoutPrefix.indexOf("/")
+          if (slashIdx === -1) { done++; continue }
+
+          const bucket = withoutPrefix.slice(0, slashIdx)
+          const filePath = withoutPrefix.slice(slashIdx + 1)
+          currentStage = `uploading ${bucket}/${filePath}`
+
+          if (!bucketStats[bucket]) bucketStats[bucket] = { files: 0, failed: 0 }
+
+          send({ type: "progress", done, total, label: `Uploading ${bucket}/${filePath.split("/").pop()}…` })
+
+          const isOwned =
+            (bucket === "songs" && ownedSongPaths.has(filePath)) ||
+            (bucket === "images" && ownedImagePaths.has(filePath))
+
+          if (!isOwned) {
+            bucketStats[bucket].failed++
+            done++
+            continue
+          }
+
+          const contentType = contentTypes[`${bucket}/${filePath}`] ?? "application/octet-stream"
+          const { error } = await supabaseAdmin.storage.from(bucket).upload(filePath, data, { contentType, upsert: true })
+
+          if (error) bucketStats[bucket].failed++
+          else bucketStats[bucket].files++
+
+          done++
+          send({ type: "progress", done, total, label: `Uploaded ${bucket}/${filePath.split("/").pop()}` })
+        }
+
+        const bucketResults: BucketResult[] = Object.entries(bucketStats).map(([bucket, s]) => ({ bucket, ...s }))
+        send({ type: "done", tables: tableResults, buckets: bucketResults })
+        controller.close()
+      } catch (err: any) {
+        send({
+          type: "error",
+          message: err?.message ?? "Import failed",
+          name: err?.name,
+          code: err?.code,
+          details: err?.details,
+          hint: err?.hint,
+          stage: currentStage,
+        })
+        controller.close()
       }
-
-      const bucketResults: BucketResult[] = Object.entries(bucketStats).map(([bucket, s]) => ({ bucket, ...s }))
-      send({ type: "done", tables: tableResults, buckets: bucketResults })
-      controller.close()
     },
   })
 

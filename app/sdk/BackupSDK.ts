@@ -134,6 +134,11 @@ export async function importArchive(
         onProgress(msg.done, msg.total, msg.label ?? "")
       } else if (msg.type === "done") {
         return { tables: msg.tables, buckets: msg.buckets }
+      } else if (msg.type === "error") {
+        const parts = [msg.stage ? `[${msg.stage}]` : null, msg.message ?? "Import failed", msg.code ? `(code: ${msg.code})` : null, msg.details, msg.hint ? `Hint: ${msg.hint}` : null]
+        const detailedError = new Error(parts.filter(Boolean).join(" — "))
+        detailedError.name = msg.name ?? "ImportError"
+        throw detailedError
       }
     }
   }
