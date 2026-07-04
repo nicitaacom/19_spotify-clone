@@ -60,11 +60,7 @@ export function useDbBackup() {
         downloadBlob(blob, fileName)
       }
 
-      if (archives.length > 1) {
-        toast.success("Downloaded 2 archive parts — import both to restore everything.")
-      } else {
-        toast.success("Backup downloaded!")
-      }
+      toast.success("Backup downloaded!")
 
       setExportPhase("done")
     } catch (err: any) {
