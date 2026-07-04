@@ -7,6 +7,9 @@ type TablesImportPhase = "idle" | "importing" | "done" | "error"
 type FilesExportPhase = "idle" | "exporting" | "done" | "error"
 type FilesImportPhase = "idle" | "importing" | "done" | "error"
 
+// How long with no progress update before the UI shows "taking longer than usual".
+const STALL_THRESHOLD_MS = 10_000
+
 export function useDbBackup() {
   // Tables export state
   const [tablesExportPhase, setTablesExportPhase] = useState<TablesExportPhase>("idle")
@@ -39,6 +42,17 @@ export function useDbBackup() {
   const [filesImportError, setFilesImportError] = useState<string | null>(null)
   const filesImportFileRef = useRef<HTMLInputElement | null>(null)
 
+  // "Taking longer than usual" watchdog: bump lastProgressRef on every progress event; a 1s ticker
+  // flips isStalled on once nothing has advanced for STALL_THRESHOLD_MS, and back off on the next
+  // progress event. Marks stall detection so a genuinely stuck operation is distinguishable from a
+  // slow-but-alive one.
+  const [isStalled, setIsStalled] = useState(false)
+  const lastProgressRef = useRef(Date.now())
+  const bumpProgress = () => {
+    lastProgressRef.current = Date.now()
+    setIsStalled(false)
+  }
+
   const isBusy =
     tablesExportPhase === "exporting" ||
     tablesImportPhase === "importing" ||
@@ -54,14 +68,27 @@ export function useDbBackup() {
     return () => window.removeEventListener("beforeunload", handler)
   }, [isBusy])
 
+  useEffect(() => {
+    if (!isBusy) {
+      setIsStalled(false)
+      return
+    }
+    const timer = setInterval(() => {
+      setIsStalled(Date.now() - lastProgressRef.current > STALL_THRESHOLD_MS)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [isBusy])
+
   async function startExportTables() {
     setTablesExportPhase("exporting")
     setTablesExportDone(0)
     setTablesExportTotal(0)
     setTablesExportError(null)
+    bumpProgress()
 
     try {
       const { fileName, blob } = await exportTables((done, total) => {
+        bumpProgress()
         setTablesExportDone(done)
         setTablesExportTotal(total)
       })
@@ -81,9 +108,11 @@ export function useDbBackup() {
     setFilesExportDone(0)
     setFilesExportTotal(0)
     setFilesExportError(null)
+    bumpProgress()
 
     try {
       const { fileName, blob } = await exportFiles(includeImagesFiles, (done, total) => {
+        bumpProgress()
         setFilesExportDone(done)
         setFilesExportTotal(total)
       })
@@ -106,9 +135,11 @@ export function useDbBackup() {
     setFilesImportLabel("Reading archive…")
     setFilesImportResult(null)
     setFilesImportError(null)
+    bumpProgress()
 
     try {
       const result = await importFiles(files[0], (done, total, label) => {
+        bumpProgress()
         setFilesImportDone(done)
         setFilesImportTotal(total)
         setFilesImportLabel(label)
@@ -136,9 +167,11 @@ export function useDbBackup() {
     setTablesImportLabel("Reading files…")
     setTablesImportResult(null)
     setTablesImportError(null)
+    bumpProgress()
 
     try {
       const result = await importTables(Array.from(files), (done, total, label) => {
+        bumpProgress()
         setTablesImportDone(done)
         setTablesImportTotal(total)
         setTablesImportLabel(label)
@@ -188,7 +221,17 @@ export function useDbBackup() {
   const filesExportProgress = filesExportTotal > 0 ? Math.round((filesExportDone / filesExportTotal) * 100) : 0
   const filesImportProgress = filesImportTotal > 0 ? Math.round((filesImportDone / filesImportTotal) * 100) : 0
 
+  // The label of whichever operation is currently running — used by the stall notice so it can say
+  // what is still in flight.
+  const activeLabel =
+    tablesExportPhase === "exporting" ? "exporting tables" :
+    filesExportPhase === "exporting" ? "exporting files" :
+    tablesImportPhase === "importing" ? (tablesImportLabel || "importing tables") :
+    filesImportPhase === "importing" ? (filesImportLabel || "importing files") :
+    ""
+
   return {
+    isBusy, isStalled, activeLabel,
     tablesExportPhase, tablesExportProgress, tablesExportDone, tablesExportTotal, tablesExportError, startExportTables,
     tablesImportPhase, tablesImportProgress, tablesImportDone, tablesImportTotal, tablesImportLabel,
     tablesImportResult, tablesImportError, tablesImportFileRef, startImportTables,
