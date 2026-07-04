@@ -9,6 +9,39 @@ export interface Database {
         Update: { id?: string; stripe_customer_id?: string | null }
         Relationships: []
       }
+      utm_stats: {
+        Row: {
+          id: string
+          created_at: string
+          user_id: string
+          source: string | null
+          medium: string | null
+          campaign: string | null
+          url: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          user_id: string
+          source?: string | null
+          medium?: string | null
+          campaign?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          user_id?: string
+          source?: string | null
+          medium?: string | null
+          campaign?: string | null
+          url?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       "19_liked_songs": {
         Row: { created_at: string; song_id: number; user_id: string }
         Insert: { created_at?: string; song_id: number; user_id: string }
