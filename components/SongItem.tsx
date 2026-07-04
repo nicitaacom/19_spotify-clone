@@ -6,6 +6,7 @@ import { AiOutlineLoading3Quarters } from "react-icons/ai"
 import { twMerge } from "tailwind-merge"
 
 import useLoadImage from "@/hooks/useLoadImage"
+import useOwnerStore from "@/hooks/useOwnerStore"
 import { Song } from "@/types"
 
 import AddToPlaylistButton from "./AddToPlaylistButton"
@@ -26,6 +27,7 @@ interface SongItemProps {
 
 const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLike, isLoading = false, isPlaying = false, className, priority = false }) => {
   const imagePath = useLoadImage(data)
+  const { isOwner } = useOwnerStore()
   const handlePlay = () => onPlay?.(data.id)
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -88,13 +90,15 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
               className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-neutral-200 backdrop-blur-sm transition hover:text-white"
             />
           </span>
-          <span onClick={e => e.stopPropagation()}>
-            <DeleteSongButton
-              song={data}
-              size={14}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-neutral-200 backdrop-blur-sm transition hover:text-red-400"
-            />
-          </span>
+          {isOwner && (
+            <span onClick={e => e.stopPropagation()}>
+              <DeleteSongButton
+                song={data}
+                size={14}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-neutral-200 backdrop-blur-sm transition hover:text-red-400"
+              />
+            </span>
+          )}
         </div>
 
         {/* Centered play button */}

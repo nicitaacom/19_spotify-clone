@@ -18,7 +18,6 @@ declare global {
       TURNSTILE_SECRET_KEY: string
 
       OWNER_IDS_ARR: string
-      NEXT_PUBLIC_OWNER_IDS_ARR: string
     }
   }
 

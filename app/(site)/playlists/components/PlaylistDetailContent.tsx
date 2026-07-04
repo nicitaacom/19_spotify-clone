@@ -14,6 +14,7 @@ import LikeButton from "@/components/LikeButton"
 import MediaItem from "@/components/MediaItem"
 import PlaylistVisibilityBadge from "@/components/PlaylistVisibilityBadge"
 import useOnPlay from "@/hooks/useOnPlay"
+import useOwnerStore from "@/hooks/useOwnerStore"
 import { PlaylistDetail, PlaylistSongWithSong, PlaylistVisibility } from "@/types"
 
 interface PlaylistDetailContentProps {
@@ -30,6 +31,7 @@ const reindexPlaylistSongs = (songs: PlaylistSongWithSong[]) =>
 const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage, playlist }) => {
   const router = useRouter()
   const { supabaseClient } = useSessionContext()
+  const { isOwner } = useOwnerStore()
 
   const [title, setTitle] = useState(playlist.title)
   const [description, setDescription] = useState(playlist.description ?? "")
@@ -253,7 +255,7 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
             <div className="flex items-center gap-x-3">
               <AddToPlaylistButton song={item.song} />
               <LikeButton songId={item.song.id} />
-              <DeleteSongButton song={item.song} />
+              {isOwner && <DeleteSongButton song={item.song} />}
               {canManage ? (
                 <>
                   <button

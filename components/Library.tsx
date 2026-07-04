@@ -4,6 +4,7 @@ import { AiOutlinePlus } from "react-icons/ai"
 import { useUser } from "@/hooks/useUser"
 import useIsIframeAuth from "@/hooks/useIsIframeAuth"
 import useUploadModal from "@/hooks/useUploadModal"
+import useOwnerStore from "@/hooks/useOwnerStore"
 import { Song } from "@/types"
 import AddToPlaylistButton from "./AddToPlaylistButton"
 import MediaItem from "./MediaItem"
@@ -18,6 +19,7 @@ const Library = ({ songs }: LibraryProps) => {
   const uploadModal = useUploadModal()
   const { user } = useUser()
   const isIframe = useIsIframeAuth()
+  const { isOwner } = useOwnerStore()
 
   const onPlay = useOnPlay(songs)
 
@@ -36,11 +38,13 @@ const Library = ({ songs }: LibraryProps) => {
           <TbPlaylist className="text-neutral-400" size={26} />
           <p className="text-neutral-400 font-medium text-md">Your libray</p>
         </div>
-        <AiOutlinePlus
-          className="text-neutral-400 cursor-pointer hover:text-neon transition"
-          onClick={onClick}
-          size={20}
-        />
+        {isOwner && (
+          <AiOutlinePlus
+            className="text-neutral-400 cursor-pointer hover:text-neon transition"
+            onClick={onClick}
+            size={20}
+          />
+        )}
       </div>
       <div className="mx-3 rounded-md border border-neon/20 bg-neon/5 px-3 py-2 text-xs font-medium text-neon/80">
         {`Here you find the best songs I found in last ${new Date().getFullYear() - 2022} years of listening to music`}

@@ -6,8 +6,6 @@ import toast from "react-hot-toast"
 import { FiTrash2 } from "react-icons/fi"
 import { twMerge } from "tailwind-merge"
 
-import { useUser } from "@/hooks/useUser"
-import { isOwnerIdClient } from "@/libs/getOwnerIdsClient"
 import { Song } from "@/types"
 
 interface DeleteSongButtonProps {
@@ -20,10 +18,6 @@ interface DeleteSongButtonProps {
 
 const DeleteSongButton: React.FC<DeleteSongButtonProps> = ({ song, className, iconClassName, size = 15, onDeleted }) => {
   const router = useRouter()
-  const { user } = useUser()
-
-  const isOwner = isOwnerIdClient(user?.id)
-  if (!isOwner) return null
 
   const handleDelete = async (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()

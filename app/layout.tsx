@@ -9,6 +9,8 @@ import ModalProvider from "./providers/ModalProvider"
 import ToasterProvider from "./providers/ToastProvider"
 import getSongsByUserId from "@/actions/getSongsByUserId"
 import Player from "@/components/Player"
+import { isOwnerId } from "@/libs/getOwnerIds"
+import { createServerComponentClient } from "@/libs/supabaseServer"
 
 export const metadata = {
   title: "Spotify clone",
@@ -23,6 +25,12 @@ export const revalidate = 0
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const userSongs = await getSongsByUserId()
 
+  const supabase = await createServerComponentClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const isOwner = isOwnerId(session?.user?.id)
+
   return (
     <html lang="en">
       <body>
@@ -36,7 +44,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <SupabaseProvider>
           <UserProvider>
             <ModalProvider />
-            <Sidebar songs={userSongs}>{children}</Sidebar>
+            <Sidebar songs={userSongs} isOwner={isOwner}>
+              {children}
+            </Sidebar>
             <Player />
           </UserProvider>
         </SupabaseProvider>

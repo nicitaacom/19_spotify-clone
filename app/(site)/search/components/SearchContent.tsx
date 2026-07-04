@@ -6,6 +6,7 @@ import DeleteSongButton from "@/components/DeleteSongButton"
 import MediaItem from "@/components/MediaItem"
 import LikeButton from "@/components/LikeButton"
 import useOnPlay from "@/hooks/useOnPlay"
+import useOwnerStore from "@/hooks/useOwnerStore"
 
 interface SearchContentProps {
   songs: Song[]
@@ -13,6 +14,7 @@ interface SearchContentProps {
 
 const SearchContent: React.FC<SearchContentProps> = ({ songs }) => {
   const onPlay = useOnPlay(songs)
+  const { isOwner } = useOwnerStore()
 
   if (songs.length === 0) {
     return (
@@ -39,7 +41,7 @@ const SearchContent: React.FC<SearchContentProps> = ({ songs }) => {
           </div>
           <AddToPlaylistButton song={song} />
           <LikeButton songId={song.id} />
-          <DeleteSongButton song={song} />
+          {isOwner && <DeleteSongButton song={song} />}
         </div>
       ))}
     </div>

@@ -1,6 +1,5 @@
 "use client"
 
-import uniqid from "uniqid"
 import React, { useRef, useState, useEffect, useCallback } from "react"
 import { useSessionContext } from "@supabase/auth-helpers-react"
 import { FieldValues, SubmitHandler, useForm } from "react-hook-form"
@@ -12,7 +11,6 @@ import { FiEdit2, FiPlus, FiChevronDown, FiCheck } from "react-icons/fi"
 import useUploadModal from "@/hooks/useUploadModal"
 import useCreatePlaylistModal from "@/hooks/useCreatePlaylistModal"
 import { useUser } from "@/hooks/useUser"
-import { getSafeStoragePath } from "@/libs/helpers"
 import { useVerifyHuman } from "@/hooks/useVerifyHuman"
 import { verifyTurnstileTokenFn } from "@/app/utils/verifyTurnstileToken"
 import { PlaylistOption } from "@/types"
@@ -147,24 +145,44 @@ const UploadModal = () => {
     })
   }
 
-  const uploadFileWithProgress = async (
-    path: string,
-    file: File,
-    bucket: string,
-  ): Promise<{ path: string; error: any }> => {
+  const uploadViaApi = (formData: FormData): Promise<{ id: number }> => {
     setUploadProgress(0)
     setUploadSpeed("")
-    const { error } = await supabaseClient.storage.from(bucket).upload(path, file, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: file.type || "audio/mpeg",
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      let lastLoaded = 0
+      let lastTime = Date.now()
+
+      xhr.upload.onprogress = event => {
+        if (!event.lengthComputable) return
+        const now = Date.now()
+        const elapsed = (now - lastTime) / 1000
+        if (elapsed > 0.2) {
+          const bytesPerSec = (event.loaded - lastLoaded) / elapsed
+          setUploadSpeed(`${(bytesPerSec / 1024 / 1024).toFixed(1)} MB/s`)
+          lastLoaded = event.loaded
+          lastTime = now
+        }
+        setUploadProgress(Math.round((event.loaded / event.total) * 100))
+      }
+
+      xhr.onload = () => {
+        let body: any = {}
+        try {
+          body = JSON.parse(xhr.responseText)
+        } catch {
+          // ignore parse failure, handled by status check below
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(body)
+        } else {
+          reject(new Error(body?.error ?? `Upload failed (${xhr.status})`))
+        }
+      }
+      xhr.onerror = () => reject(new Error("Upload failed"))
+      xhr.open("POST", "/api/songs")
+      xhr.send(formData)
     })
-    if (error) {
-      console.error(`[upload] ${bucket}/${path} →`, error.message)
-      return { path: "", error }
-    }
-    setUploadProgress(100)
-    return { path, error: null }
   }
 
   const onSubmit: SubmitHandler<FieldValues> = async values => {
@@ -233,70 +251,21 @@ const UploadModal = () => {
         }
       }
 
-      const uniqueID = uniqid()
-      const songPath = getSafeStoragePath({
-        prefix: "song",
-        value: values.title,
-        uniqueId: uniqueID,
-        fileName: songFile.name,
-        folder: selectedPlaylist?.slug ?? undefined,
-      })
-      const imagePath = getSafeStoragePath({
-        prefix: "image",
-        value: values.title,
-        uniqueId: uniqueID,
-        fileName: imageFile.name,
-        folder: selectedPlaylist?.slug ?? undefined,
-      })
-
-      const { error: songError } = await uploadFileWithProgress(songPath, songFile, "songs")
-      if (songError) {
-        setIsLoading(false)
-        return toast.error(`Failed song upload: ${songError.message ?? songError}`)
-      }
-
-      const { error: imageError } = await supabaseClient.storage.from("images").upload(imagePath, imageFile, {
-        cacheControl: "3600",
-        upsert: false,
-      })
-      if (imageError) {
-        setIsLoading(false)
-        return toast.error("Failed image upload")
-      }
-
-      setUploadProgress(100)
-
-      const { data: songRecord, error: supabaseError } = await supabaseClient
-        .from("19_songs")
-        .insert({
-          user_id: user.id,
-          title: values.title,
-          author: values.author,
-          image_path: imagePath,
-          song_path: songPath,
-          size_bytes: songFile.size,
-        })
-        .select("id")
-        .single()
-
-      if (supabaseError) {
-        return toast.error(supabaseError.message)
-      }
-
+      const formData = new FormData()
+      formData.append("song", songFile)
+      formData.append("image", imageFile)
+      formData.append("title", values.title)
+      formData.append("author", values.author)
       if (selectedPlaylist) {
-        const { data: existingPositions } = await supabaseClient
-          .from("19_playlist_songs")
-          .select("position")
-          .eq("playlist_id", selectedPlaylist.id)
-          .order("position", { ascending: false })
-          .limit(1)
+        formData.append("playlistId", selectedPlaylist.id)
+        formData.append("playlistSlug", selectedPlaylist.slug)
+      }
 
-        const nextPosition = (existingPositions?.[0]?.position ?? -1) + 1
-        await supabaseClient.from("19_playlist_songs").insert({
-          playlist_id: selectedPlaylist.id,
-          song_id: songRecord.id,
-          position: nextPosition,
-        })
+      try {
+        await uploadViaApi(formData)
+      } catch (err: any) {
+        setIsLoading(false)
+        return toast.error(err?.message ?? "Upload failed")
       }
 
       router.refresh()

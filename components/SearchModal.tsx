@@ -7,6 +7,7 @@ import { FiSearch } from "react-icons/fi"
 import useSearchModal from "@/hooks/useSearchModal"
 import useDebounce from "@/hooks/useDebounce"
 import useOnPlay from "@/hooks/useOnPlay"
+import useOwnerStore from "@/hooks/useOwnerStore"
 import searchSongsAndPlaylistsAction from "@/actions/searchSongsAndPlaylistsAction"
 import { Playlist, Song } from "@/types"
 
@@ -24,6 +25,7 @@ const SearchModal = () => {
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [errorMessage, setErrorMessage] = useState("")
   const onPlay = useOnPlay(songs)
+  const { isOwner } = useOwnerStore()
 
   useEffect(() => {
     if (!isOpen || !debouncedSearchValue) {
@@ -82,7 +84,9 @@ const SearchModal = () => {
                 <div className="flex-1 min-w-0">
                   <MediaItem onClick={id => onPlay(id)} data={song} />
                 </div>
-                <DeleteSongButton song={song} onDeleted={() => setSongs(prev => prev.filter(item => item.id !== song.id))} />
+                {isOwner && (
+                  <DeleteSongButton song={song} onDeleted={() => setSongs(prev => prev.filter(item => item.id !== song.id))} />
+                )}
               </div>
             ))}
           </div>
