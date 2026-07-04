@@ -32,7 +32,7 @@ storage/images/<path>               # raw image bytes (only if checkbox ticked)
 | `app/api/backup/backupTables.ts` | Re-exports the pure parts from `tarClient.ts`; also holds the server-only Node `zlib` `gzipBuffer` / `gunzipBuffer` (used by import to decompress uploaded archives) |
 | `app/api/backup/requireUser.ts` | Auth gate — 401 if no session, returns `{ userId }` |
 | `app/api/backup/export/route.ts` | `GET` — metadata only: `{ tables, files }` (rows + storage file paths). Never touches Storage bytes. |
-| `app/api/backup/import-init/route.ts` | `POST` — issues a signed upload URL + token for the `backups-tmp` bucket (also ensures the bucket exists) |
+| `app/api/backup/import-init/route.ts` | `POST` — issues a signed upload URL + token for the `backups-tmp` bucket (also ensures the bucket exists with an explicit 1GB `fileSizeLimit` — Supabase's own default without one is 50MB, easily exceeded by a real backup) |
 | `app/api/backup/import/route.ts` | `POST { path }` — downloads the archive from `backups-tmp` (server-to-Supabase), processes it, deletes the temp file |
 | `app/sdk/BackupSDK.ts` | Client helpers: `exportWithProgress`, `importArchive`, `downloadBlob` |
 | `hooks/useDbBackupModal.ts` | Zustand store: `isOpen / onOpen / onClose` |
@@ -133,6 +133,8 @@ Upload a single `19_backup-<date>.tar.gz` from the import section.
 ```
 
 **Server-side processing** (step 3 above): `gunzipBuffer` → `parseTar` → for each table JSON, `upsert` rows scoped to the session user; for each `storage/<bucket>/<path>` entry, re-upload via `supabaseAdmin.storage.from(bucket).upload(path, data, { contentType, upsert: true })` — content type comes from `storage-content-types.json` in the archive. The temp file in `backups-tmp` is deleted once downloaded.
+
+**Max archive size:** 1GB, set explicitly via `fileSizeLimit` on the `backups-tmp` bucket in `import-init/route.ts` (`TMP_BUCKET_SIZE_LIMIT`). Without an explicit limit, Supabase falls back to a project-wide default (50MB on most plans) — too small for a real music-library backup, and the resulting error ("The object exceeded the maximum allowed size") doesn't even state the actual number. `BackupSDK.ts` mirrors the same byte value (`TMP_BUCKET_SIZE_LIMIT_BYTES`, kept in sync manually) to check file size client-side upfront and produce a precise error instead of relying on Supabase's vague message. If this limit ever needs to change, update it in **both** places.
 
 Import behavior is **append + override on conflict** — nothing is ever deleted:
 
