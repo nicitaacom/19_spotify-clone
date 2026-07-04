@@ -11,19 +11,22 @@ import {
 import { toCsv, parseCsv } from "./csvClient"
 
 /**
- * Upload a chunk to a Supabase signed upload URL with real progress events, using the same
- * multipart shape as the Supabase SDK's `uploadToSignedUrl` (a `cacheControl` field + the chunk
+ * Upload a file/chunk to a Supabase signed upload URL with real progress events, using the same
+ * multipart shape as the Supabase SDK's `uploadToSignedUrl` (a `cacheControl` field + the body
  * appended under an empty-string key) — but via XHR so we get `upload.onprogress` instead of a
- * single opaque await with no feedback until the whole upload finishes.
+ * single opaque await with no feedback until the whole upload finishes. `x-upsert: true` mirrors
+ * the SDK and lets a re-import overwrite an existing object. The stored content type comes from the
+ * Blob's own `type`, so callers pass a correctly-typed Blob.
  */
 function uploadToSignedUrlWithProgress(
   signedUrl: string,
-  chunk: Blob,
+  body: Blob,
   onProgress: (loaded: number, total: number) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open("PUT", signedUrl)
+    xhr.setRequestHeader("x-upsert", "true")
     xhr.upload.onprogress = e => {
       if (e.lengthComputable) onProgress(e.loaded, e.total)
     }
@@ -35,18 +38,18 @@ function uploadToSignedUrlWithProgress(
         // parse it for a human-readable message instead of dumping the raw JSON string to the user.
         let message = xhr.responseText || xhr.statusText
         try {
-          const body = JSON.parse(xhr.responseText)
-          if (body?.message) message = body.message
+          const parsed = JSON.parse(xhr.responseText)
+          if (parsed?.message) message = parsed.message
         } catch {
           // Not JSON — fall back to the raw text as-is.
         }
-        reject(new Error(`Archive upload failed: ${message}`))
+        reject(new Error(`Upload failed: ${message}`))
       }
     }
-    xhr.onerror = () => reject(new Error("Archive upload failed: network error"))
+    xhr.onerror = () => reject(new Error("Upload failed: network error"))
     const formData = new FormData()
     formData.append("cacheControl", "3600")
-    formData.append("", chunk)
+    formData.append("", body)
     xhr.send(formData)
   })
 }
@@ -387,6 +390,133 @@ export async function exportFiles(
   const blob = new Blob([gz], { type: "application/gzip" })
 
   return { fileName, blob }
+}
+
+export interface FilesImportResult {
+  buckets: { bucket: string; files: number; failed: number }[]
+}
+
+type ArchiveFile = { bucket: string; path: string; bytes: Uint8Array; contentType: string }
+type UploadTarget =
+  | { bucket: string; path: string; signedUrl: string }
+  | { bucket: string; path: string; skipped: true; reason: string }
+
+// How many signed upload URLs to request per /api/backup/files POST. The bytes never pass through
+// that call, so this is only a batching knob — kept ≤ MAX_FILES_PER_REQUEST in files/route.ts.
+const URL_BATCH_SIZE = 100
+
+/**
+ * Import storage files from a .tar.gz archive — entirely client-side. The browser decompresses and
+ * parses the archive locally (no server ever sees the archive bytes, which is what avoids the Vercel
+ * out-of-memory / 60s ceilings — see dev_readme-backup.md's Failed iteration #9/#10), asks the server
+ * for a signed upload URL per file (issued only for paths the user owns), then PUTs each file's bytes
+ * straight to Supabase Storage. Backward-compatible with old combined archives: non-storage entries
+ * (table .json / .csv) are simply ignored.
+ */
+export async function importFiles(
+  file: File,
+  onProgress: (done: number, total: number, label: string) => void,
+): Promise<FilesImportResult> {
+  onProgress(0, 0, "Reading archive…")
+
+  let tarBytes: Uint8Array
+  try {
+    tarBytes = await gunzipBufferClient(new Uint8Array(await file.arrayBuffer()))
+  } catch (error: any) {
+    throw new Error(`${file.name} is not a valid .tar.gz archive: ${error?.message ?? String(error)}`)
+  }
+
+  const entries = parseTar(Buffer.from(tarBytes))
+
+  const contentTypesEntry = entries.get("storage-content-types.json")
+  const contentTypes: Record<string, string> = contentTypesEntry ? JSON.parse(contentTypesEntry.toString("utf8")) : {}
+
+  // Collect every storage/<bucket>/<path> entry, keeping its raw bytes in browser memory only.
+  const archiveFiles: ArchiveFile[] = []
+  for (const [name, buf] of Array.from(entries)) {
+    if (!name.startsWith("storage/")) continue
+    const withoutPrefix = name.slice("storage/".length)
+    const slashIndex = withoutPrefix.indexOf("/")
+    if (slashIndex === -1) continue
+    const bucket = withoutPrefix.slice(0, slashIndex)
+    const path = withoutPrefix.slice(slashIndex + 1)
+    archiveFiles.push({
+      bucket,
+      path,
+      bytes: new Uint8Array(buf),
+      contentType: contentTypes[`${bucket}/${path}`] ?? "application/octet-stream",
+    })
+  }
+
+  if (archiveFiles.length === 0) {
+    throw new Error("No storage files found in the archive — expected storage/songs/… or storage/images/… entries.")
+  }
+
+  const byPath = new Map(archiveFiles.map(archiveFile => [`${archiveFile.bucket}/${archiveFile.path}`, archiveFile]))
+  const bucketStats: Record<string, { files: number; failed: number }> = {}
+  const firstErrorByBucket: Record<string, string> = {}
+  let done = 0
+
+  const bumpStat = (bucket: string, key: "files" | "failed") => {
+    if (!bucketStats[bucket]) bucketStats[bucket] = { files: 0, failed: 0 }
+    bucketStats[bucket][key]++
+  }
+
+  for (let start = 0; start < archiveFiles.length; start += URL_BATCH_SIZE) {
+    const batch = archiveFiles.slice(start, start + URL_BATCH_SIZE)
+
+    const res = await fetch("/api/backup/files", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ files: batch.map(archiveFile => ({ bucket: archiveFile.bucket, path: archiveFile.path })) }),
+    })
+    if (!res.ok) {
+      const responseText = await res.text().catch(() => "")
+      let message: string | undefined
+      try {
+        message = JSON.parse(responseText)?.error
+      } catch {
+        message = responseText || undefined
+      }
+      throw new Error(`Failed to prepare file upload (${res.status})${message ? `: ${message}` : ""}`)
+    }
+
+    const { results }: { results: UploadTarget[] } = await res.json()
+
+    for (const target of results) {
+      const archiveFile = byPath.get(`${target.bucket}/${target.path}`)
+      done++
+
+      if ("skipped" in target) {
+        bumpStat(target.bucket, "failed")
+        continue
+      }
+      if (!archiveFile) {
+        bumpStat(target.bucket, "failed")
+        continue
+      }
+
+      onProgress(done, archiveFiles.length, `Uploading ${target.bucket}/${target.path.split("/").pop()}…`)
+      const uploadBlob = new Blob([archiveFile.bytes], { type: archiveFile.contentType })
+      try {
+        await uploadToSignedUrlWithProgress(target.signedUrl, uploadBlob, () => {})
+        bumpStat(target.bucket, "files")
+      } catch (error: any) {
+        bumpStat(target.bucket, "failed")
+        if (!firstErrorByBucket[target.bucket]) firstErrorByBucket[target.bucket] = error?.message ?? String(error)
+      }
+    }
+  }
+
+  // Surface a real error only if EVERY file failed — a partial success still returns counts so the
+  // user sees what landed and what didn't, rather than a blanket failure.
+  const totalUploaded = Object.values(bucketStats).reduce((sum, stat) => sum + stat.files, 0)
+  if (totalUploaded === 0) {
+    const firstError = Object.values(firstErrorByBucket)[0]
+    throw new Error(firstError ?? "No files were uploaded — every path was skipped (import tables first so the files are recognized as yours).")
+  }
+
+  return { buckets: Object.entries(bucketStats).map(([bucket, stat]) => ({ bucket, ...stat })) }
 }
 
 // Supabase's project-wide "Global file size limit" is hard-fixed at 50MB on the Free plan and

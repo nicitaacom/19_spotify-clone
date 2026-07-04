@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from "react"
 import { toast } from "react-hot-toast"
-import { exportWithProgress, exportTables, exportFiles, importTables, importArchive, downloadBlob, ImportResult, TablesImportResult } from "./BackupSDK"
+import { exportWithProgress, exportTables, exportFiles, importTables, importFiles, importArchive, downloadBlob, ImportResult, TablesImportResult, FilesImportResult } from "./BackupSDK"
 
 type ExportPhase = "idle" | "exporting" | "done" | "error"
 type ImportPhase = "idle" | "uploading" | "processing" | "done" | "error"
 type TablesExportPhase = "idle" | "exporting" | "done" | "error"
 type TablesImportPhase = "idle" | "importing" | "done" | "error"
 type FilesExportPhase = "idle" | "exporting" | "done" | "error"
+type FilesImportPhase = "idle" | "importing" | "done" | "error"
 
 export function useDbBackup() {
   // Export state
@@ -38,6 +39,15 @@ export function useDbBackup() {
   const [filesExportError, setFilesExportError] = useState<string | null>(null)
   const [includeImagesFiles, setIncludeImagesFiles] = useState(true)
 
+  // Files import state
+  const [filesImportPhase, setFilesImportPhase] = useState<FilesImportPhase>("idle")
+  const [filesImportDone, setFilesImportDone] = useState(0)
+  const [filesImportTotal, setFilesImportTotal] = useState(0)
+  const [filesImportLabel, setFilesImportLabel] = useState("")
+  const [filesImportResult, setFilesImportResult] = useState<FilesImportResult | null>(null)
+  const [filesImportError, setFilesImportError] = useState<string | null>(null)
+  const filesImportFileRef = useRef<HTMLInputElement | null>(null)
+
   // Import state
   const [importPhase, setImportPhase] = useState<ImportPhase>("idle")
   const [importDone, setImportDone] = useState(0)
@@ -56,6 +66,7 @@ export function useDbBackup() {
     tablesExportPhase === "exporting" ||
     tablesImportPhase === "importing" ||
     filesExportPhase === "exporting" ||
+    filesImportPhase === "importing" ||
     importPhase === "uploading" ||
     importPhase === "processing"
 
@@ -142,6 +153,36 @@ export function useDbBackup() {
       const message = err?.message ?? "Files export failed"
       setFilesExportError(message)
       toast.error(message)
+    }
+  }
+
+  async function startImportFiles(files: FileList) {
+    if (!files.length) return
+    setFilesImportPhase("importing")
+    setFilesImportDone(0)
+    setFilesImportTotal(0)
+    setFilesImportLabel("Reading archive…")
+    setFilesImportResult(null)
+    setFilesImportError(null)
+
+    try {
+      const result = await importFiles(files[0], (done, total, label) => {
+        setFilesImportDone(done)
+        setFilesImportTotal(total)
+        setFilesImportLabel(label)
+      })
+      setFilesImportResult(result)
+      setFilesImportPhase("done")
+
+      const totalFiles = result.buckets.reduce((sum, bucket) => sum + bucket.files, 0)
+      toast.success(`Restored ${totalFiles} files.`)
+    } catch (err: any) {
+      setFilesImportPhase("error")
+      const message = err?.message ?? "Files import failed"
+      setFilesImportError(message)
+      toast.error(message)
+    } finally {
+      if (filesImportFileRef.current) filesImportFileRef.current.value = ""
     }
   }
 
@@ -241,6 +282,13 @@ export function useDbBackup() {
     setFilesExportDone(0)
     setFilesExportTotal(0)
     setFilesExportError(null)
+    setFilesImportPhase("idle")
+    setFilesImportDone(0)
+    setFilesImportTotal(0)
+    setFilesImportLabel("")
+    setFilesImportResult(null)
+    setFilesImportError(null)
+    if (filesImportFileRef.current) filesImportFileRef.current.value = ""
     setImportPhase("idle")
     setImportDone(0)
     setImportTotal(0)
@@ -253,6 +301,7 @@ export function useDbBackup() {
   const tablesExportProgress = tablesExportTotal > 0 ? Math.round((tablesExportDone / tablesExportTotal) * 100) : 0
   const tablesImportProgress = tablesImportTotal > 0 ? Math.round((tablesImportDone / tablesImportTotal) * 100) : 0
   const filesExportProgress = filesExportTotal > 0 ? Math.round((filesExportDone / filesExportTotal) * 100) : 0
+  const filesImportProgress = filesImportTotal > 0 ? Math.round((filesImportDone / filesImportTotal) * 100) : 0
 
   return {
     exportPhase, exportProgress, exportDone, exportTotal, exportLabel,
@@ -262,6 +311,8 @@ export function useDbBackup() {
     tablesImportResult, tablesImportError, tablesImportFileRef, startImportTables,
     filesExportPhase, filesExportProgress, filesExportDone, filesExportTotal, filesExportError,
     includeImagesFiles, setIncludeImagesFiles, startExportFiles,
+    filesImportPhase, filesImportProgress, filesImportDone, filesImportTotal, filesImportLabel,
+    filesImportResult, filesImportError, filesImportFileRef, startImportFiles,
     importPhase, importProgress, importDone, importTotal, importLabel,
     importResult, importError, importFileRef, startImport,
     reset,

@@ -12,6 +12,7 @@ const DbBackupModal = () => {
   const backup = useDbBackup()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const tablesFileInputRef = useRef<HTMLInputElement>(null)
+  const filesFileInputRef = useRef<HTMLInputElement>(null)
 
   const onChange = (open: boolean) => {
     if (!open) {
@@ -30,12 +31,18 @@ const DbBackupModal = () => {
     if (files?.length) backup.startImportTables(files)
   }
 
+  const handleFilesFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files?.length) backup.startImportFiles(files)
+  }
+
   const isExportingTables = backup.tablesExportPhase === "exporting"
   const isImportingTables = backup.tablesImportPhase === "importing"
   const isExportingFiles = backup.filesExportPhase === "exporting"
+  const isImportingFiles = backup.filesImportPhase === "importing"
   const isExporting = backup.exportPhase === "exporting"
   const isImporting = backup.importPhase === "uploading" || backup.importPhase === "processing"
-  const isBusy = isExporting || isImporting || isExportingTables || isImportingTables || isExportingFiles
+  const isBusy = isExporting || isImporting || isExportingTables || isImportingTables || isExportingFiles || isImportingFiles
 
   return (
     <Modal
@@ -294,6 +301,73 @@ const DbBackupModal = () => {
             <div className="flex items-start gap-x-2 text-sm text-red-400">
               <FiAlertCircle size={14} className="mt-0.5 shrink-0" />
               <span className="break-words">{backup.filesExportError ?? "Files export failed."}</span>
+            </div>
+          )}
+
+          <input
+            ref={el => {
+              filesFileInputRef.current = el
+              backup.filesImportFileRef.current = el
+            }}
+            type="file"
+            accept=".tar.gz,.gz,.tgz"
+            className="hidden"
+            onChange={handleFilesFileChange}
+          />
+
+          <button
+            type="button"
+            onClick={() => filesFileInputRef.current?.click()}
+            disabled={isBusy}
+            className="
+              flex items-center justify-center gap-x-2
+              w-full rounded-md border border-neon/30 bg-elevated px-4 py-2.5
+              text-sm font-semibold text-neon
+              hover:border-neon/60 hover:bg-elevated/80
+              disabled:cursor-not-allowed disabled:opacity-50
+              transition
+            ">
+            <FiUpload size={15} />
+            {isImportingFiles ? "Importing files…" : "Import files archive (.tar.gz)…"}
+          </button>
+
+          {isImportingFiles && (
+            <div className="flex flex-col gap-y-1.5">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-elevated">
+                <div
+                  style={{ width: `${backup.filesImportProgress}%` }}
+                  className="h-full rounded-full bg-neon shadow-neon-sm transition-all duration-200"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-x-2">
+                <p className="text-xs text-neutral-400 truncate">{backup.filesImportLabel}</p>
+                <p className="text-xs text-neutral-500 shrink-0">
+                  {backup.filesImportDone} / {backup.filesImportTotal}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {backup.filesImportResult && backup.filesImportPhase === "done" && (
+            <div className="flex flex-col gap-y-1 rounded-md border border-white/10 bg-elevated/50 p-3">
+              {backup.filesImportResult.buckets.map(bucket => (
+                <div key={bucket.bucket} className="flex items-center gap-x-2 text-xs text-neutral-300">
+                  <FiCheckCircle size={12} className="shrink-0 text-neon" />
+                  <span>
+                    <span className="font-mono text-white">{bucket.bucket}</span>
+                    {" → "}
+                    {bucket.files} files
+                    {bucket.failed > 0 && <span className="text-neutral-500"> ({bucket.failed} skipped)</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {backup.filesImportPhase === "error" && (
+            <div className="flex items-start gap-x-2 text-sm text-red-400">
+              <FiAlertCircle size={14} className="mt-0.5 shrink-0" />
+              <span className="break-words">{backup.filesImportError ?? "Files import failed."}</span>
             </div>
           )}
         </section>
