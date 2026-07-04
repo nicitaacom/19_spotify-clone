@@ -6,26 +6,39 @@ import { NextResponse } from "next/server"
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
+const TMP_BUCKET = "backups-tmp"
+
 type TableResult = { table: string; rows: number; skipped: number }
 type BucketResult = { bucket: string; files: number; failed: number }
 
+// POST /api/backup/import  { path }
+//
+// `path` points to a .tar.gz the browser already uploaded directly to the `backups-tmp` Supabase
+// bucket via a signed URL from /api/backup/import-init. This route downloads it server-to-Supabase
+// (never through the request body, so the Vercel body-size cap never applies) and processes it.
 export async function POST(req: Request) {
-  let body: ArrayBuffer
-  try {
-    body = await req.arrayBuffer()
-  } catch {
-    return NextResponse.json({ error: "Failed to read request body" }, { status: 400 })
-  }
-
-  if (!body.byteLength) {
-    return NextResponse.json({ error: "Empty request body" }, { status: 400 })
+  const { path } = await req.json().catch(() => ({}))
+  if (!path || typeof path !== "string") {
+    return NextResponse.json({ error: "Missing path" }, { status: 400 })
   }
 
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
   const { userId } = auth
 
-  const gzBuf = Buffer.from(body)
+  // Only allow downloading paths under the requesting user's own prefix (see import-init).
+  if (!path.startsWith(`${userId}/`)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
+
+  const { data: gzData, error: downloadError } = await supabaseAdmin.storage.from(TMP_BUCKET).download(path)
+  if (downloadError || !gzData) {
+    return NextResponse.json({ error: downloadError?.message ?? "Failed to fetch uploaded archive" }, { status: 400 })
+  }
+
+  const gzBuf = Buffer.from(await gzData.arrayBuffer())
+  supabaseAdmin.storage.from(TMP_BUCKET).remove([path]).catch(() => {})
+
   let tarBuf: Buffer
   try {
     tarBuf = await gunzipBuffer(gzBuf)

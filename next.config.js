@@ -10,10 +10,11 @@ const nextConfig = {
       },
     ],
   },
-  // Allow large archive uploads to /api/backup/import (default cap is 10 MB)
-  experimental: {
-    middlewareClientMaxBodySize: "2gb",
-  },
+  // Removed: experimental.middlewareClientMaxBodySize (was meant to allow large archive uploads to
+  // /api/backup/import, default cap is 10 MB) — not a real Next.js option, silently ignored, and
+  // didn't matter anyway since Vercel's ~4.5MB function body cap sits in front of it regardless.
+  // Import now uploads archives directly to Supabase via a signed URL instead, bypassing the
+  // Vercel function body entirely (see dev_readme-backup.md).
 }
 
 module.exports = nextConfig
