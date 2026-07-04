@@ -57,9 +57,8 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48 }) => {
       ">
       <div style={{ width: size, height: size }} className="relative shrink-0 overflow-hidden rounded-md">
         <Image
-          style={{ width: size, height: size }}
-          width={size * 4}
-          height={size * 4}
+          fill
+          sizes={`${size * 2}px`}
           src={imageUrl || "/images/liked.png"}
           alt="MediaItem"
           className="object-cover"
