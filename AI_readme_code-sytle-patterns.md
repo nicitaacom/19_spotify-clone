@@ -2,6 +2,10 @@
 
 Use this as the default style when generating code for this project.
 
+For UI colors, theming, and visual patterns specifically, see [dev_readme-ui.md](dev_readme-ui.md) — it documents the neon design system (color tokens, 60/30/10 rule, glow shadows, card/button/input patterns) in more detail than the "UI style" section below.
+
+<br/>
+
 ## Core stack
 
 - Next.js 14
@@ -12,38 +16,47 @@ Use this as the default style when generating code for this project.
 - Supabase
 - `tailwind-merge`, `react-icons`, `lodash` when useful
 
+<br/>
+
 ## Code style rules
+
+### General
 
 1. Keep code concise and prefer one-liners when readable.
 2. Use ternaries where they improve clarity.
 3. Prefer early returns.
 4. Keep commented lines that already exist.
-5. If a function can return an error, return a string error instead of throwing unless the file
-   already uses a different pattern.
+5. If a function can return an error, return a string error instead of throwing unless the file already uses a different pattern.
 6. Put `style` first then `className` in HTML tag arguments.
 7. Use `useEffect` only when needed and keep side effects in hooks, not components.
-8. Each distinct realtime concern (typing indicator, ticket updates, message updates, etc.) must
-   live in its own hook file. Do not merge multiple Pusher event groups into one hook or one
-   component `useEffect`.
-9. NEVER export const with classNames
-10. NEVVER use `localstorage.setItem` or `localstorage.getItem` - use zustand store persist instead
+8. Each distinct realtime concern (typing indicator, ticket updates, message updates, etc.) must live in its own hook file. Do not merge multiple Pusher event groups into one hook or one component `useEffect`.
+9. NEVER export const with classNames.
+10. NEVER use `localStorage.setItem` or `localStorage.getItem` — use Zustand store persist instead.
 11. Prefer `null` over empty strings where the absence of a value matters.
-12. NEVER fetch data if you can get it from state (exception if it's something massive to don't pass ca 0.5MB of data in 1 API request)
-13. Absolutely no short variable names like `e` or `err` or `idx` - user `error` or `index` instead (exception is e for event)
-14. No jargon/clever/vivid words, in code AND in comments/docs. Use the plainest accurate word — for AI and humans both. If a word needs decoding, replace it. Banned words (not exhaustive — if a word could confuse a reader, it's banned even if not listed):
-    - `blob`, `plain`, `orphan`, `dead`, `load` (as a verb standing alone), `server attaches` — use the real noun/verb for what the thing is.
-    - `popup` — name what it actually is (notification/toast/card), not "thing that pops up".
-    - `instructions` — for user-facing AI input, use `prompt` (exception: fine inside an AI system-prompt's own text, e.g. "follow user instructions").
-    - `saving`/`isSaving` — say which backend: `updating`/`inserting` (Supabase), `setting` (Redis).
-    - `arm`/`armed` — use `enable`.
-    - `narrow`/`narrowed` — banned as a vague verb for "picked the error case out of a union" (spell out what happens); OK as TypeScript's own term for type narrowing.
-    - `SDK call` — ambiguous (method call vs network request). Use `SDK method` or "SDK sends an API request".
-    - `carrying`/`carries` — use `sending` or name the real mechanism.
-    - `mutate`/`mutates` — use `update`/`upd` per the verb table below, not the generic CS term.
-    - `closure` standalone/unexplained — say what's actually stale/captured instead of naming the JS concept and stopping there.
-    - `"has loaded real data"` / `"real (fetched) state"` — name the actual hook and verb, e.g. "after `useSetSomething` has selected/got the data and set it into state".
-    - **"can't X" / "cannot X" / "never can X"** — state the positive guarantee or the actual mechanism instead. E.g. not "can't diverge" → "always stays in sync"; not "a missed release can't wedge the cap" → "a missed release frees itself automatically";
-15. ABSOLUTELY NO ANY FUNCTIONS IN DEPS
+12. NEVER fetch data if you can get it from state (exception if it's something massive, to avoid passing ~0.5MB of data in one API request).
+13. Absolutely no short variable names like `e`, `err`, or `idx` — use `error` or `index` instead (exception is `e` for event).
+14. ABSOLUTELY NO ANY FUNCTIONS IN DEPS.
+
+### Plain-language wording
+
+No jargon/clever/vivid words, in code AND in comments/docs. Use the plainest accurate word — for AI and humans both. If a word needs decoding, replace it.
+
+Banned words (not exhaustive — if a word could confuse a reader, it's banned even if not listed):
+
+- `blob`, `plain`, `orphan`, `dead`, `load` (as a verb standing alone), `server attaches` — use the real noun/verb for what the thing is.
+- `popup` — name what it actually is (notification/toast/card), not "thing that pops up".
+- `instructions` — for user-facing AI input, use `prompt` (exception: fine inside an AI system-prompt's own text, e.g. "follow user instructions").
+- `saving`/`isSaving` — say which backend: `updating`/`inserting` (Supabase), `setting` (Redis).
+- `arm`/`armed` — use `enable`.
+- `narrow`/`narrowed` — banned as a vague verb for "picked the error case out of a union" (spell out what happens); OK as TypeScript's own term for type narrowing.
+- `SDK call` — ambiguous (method call vs network request). Use `SDK method` or "SDK sends an API request".
+- `carrying`/`carries` — use `sending` or name the real mechanism.
+- `mutate`/`mutates` — use `update`/`upd` per the verb table below, not the generic CS term.
+- `closure` standalone/unexplained — say what's actually stale/captured instead of naming the JS concept and stopping there.
+- `"has loaded real data"` / `"real (fetched) state"` — name the actual hook and verb, e.g. "after `useSetSomething` has selected/got the data and set it into state".
+- **"can't X" / "cannot X" / "never can X"** — state the positive guarantee or the actual mechanism instead. E.g. not "can't diverge" → "always stays in sync"; not "a missed release can't wedge the cap" → "a missed release frees itself automatically".
+
+<br/>
 
 ## General architecture
 
@@ -54,9 +67,11 @@ Use this as the default style when generating code for this project.
 - Types should live in dedicated `type.ts` or `types.ts` files.
 - One responsibility per file is preferred.
 
+<br/>
+
 ## UI style
 
-The UI should usually feel compact and minimalistic.
+The UI should usually feel compact and minimalistic. See [dev_readme-ui.md](dev_readme-ui.md) for the full neon design system (color tokens, 60/30/10 rule, glow shadows, card/button/input patterns).
 
 Common pattern:
 
@@ -76,17 +91,19 @@ Favor:
 - clear loading states
 - readable truncation for long text
 
+<br/>
+
 ## Naming conventions
 
 ### Functions and callbacks
 
-| prefix / suffix  | use                                           |
-| ---------------- | --------------------------------------------- |
-| `handle`         | user interaction returned to a component      |
-| `Fn` suffix      | internal async logic inside hooks             |
-| `add` / `del`    | mutate array-like state or DB rows            |
-| `update` / `upd` | patch or update data                          |
-| `refetch`        | re-run fetch logic and return it to component |
+| prefix / suffix   | use                                            |
+| ------------------ | ----------------------------------------------- |
+| `handle`           | user interaction returned to a component       |
+| `Fn` suffix         | internal async logic inside hooks              |
+| `add` / `del`      | mutate array-like state or DB rows             |
+| `update` / `upd`   | patch or update data                           |
+| `refetch`          | re-run fetch logic and return it to component  |
 
 ### Refs
 
@@ -97,7 +114,7 @@ Favor:
 | `lastSavedRef`    | snapshot for rollback                            |
 | `xxxRef`          | stable ref for latest closure                    |
 
-Verb rules:
+### State verb rules
 
 - `set` - set in state, not DB
 - `get` - read from state, not DB
@@ -111,19 +128,21 @@ Verb rules:
 - `decrease` - subtract from numeric state
 - `toggle` - flip boolean state
 
-DB verbs:
+### DB verbs
 
 - `selectDB`
 - `insertDB`
 - `updateDB`
 - `deleteDB`
 
-Redis verbs:
+### Redis verbs
 
 - `getRedis`
 - `setRedis`
 - `updRedis`
 - `delRedis`
+
+<br/>
 
 ## Fundamental workflow
 
@@ -145,6 +164,8 @@ Redis verbs:
 1. Split code into components, hooks, and helper functions
 2. Ask AI to validate after each major step
 3. Create docs for what was built
+
+<br/>
 
 ## Component pattern
 
@@ -188,6 +209,8 @@ export function Something({ className, title }: SomethingProps) {
   - `isSkeleton` for initial full-screen or full-card loading
   - `isLoading` for single action buttons
   - global `isLoading` or `mountingStep` for app-level boot logic
+
+<br/>
 
 ## Hook pattern
 
@@ -257,7 +280,9 @@ Component
 | `isLoading`    | one button/action | disable a single button                      |
 | `currentState` | status badge      | `"fetching"` / `"updating"` / `"up to date"` |
 
-### Zustand store pattern
+<br/>
+
+## Zustand store pattern
 
 Use Zustand for UI and app state with `subscribeWithSelector` and `devtools`.
 
@@ -327,6 +352,8 @@ Not this:
 setSettings(prev => ({ ...prev, enabled: true }))
 ```
 
+<br/>
+
 ## Debounce watcher pattern
 
 Use this pattern for auto-save.
@@ -355,6 +382,8 @@ useEffect(() => {
 - `hasFetchedRef` blocks watchers before first data load.
 - `serverUpdateRef` prevents feedback loops after server-driven updates.
 
+<br/>
+
 ## Optimistic update + rollback
 
 ```ts
@@ -380,10 +409,12 @@ try {
 - Keep the `serverUpdateRef` guard active during rollback.
 - Convert unknown errors to string safely.
 
+<br/>
+
 ## SDK instantiation
 
 | approach                         | use when                               |
-| -------------------------------- | -------------------------------------- |
+| --------------------------------- | --------------------------------------- |
 | `useMemo(() => new MySDK(), [])` | SDK has internal state or is expensive |
 | `new MySDK()` outside component  | SDK is stateless and cheap             |
 
@@ -391,6 +422,8 @@ Rule:
 
 - If the class is stateless and simple, create it outside React.
 - If unsure, use `useMemo`.
+
+<br/>
 
 ## Server action pattern
 
@@ -427,6 +460,8 @@ export async function selectDBSchedulesPickerAction(encryptedEnvsClient: string[
 - Keep server-only utilities in server files.
 - Use `typeof result === "string"` checks at call sites.
 
+<br/>
+
 ## Route handler pattern
 
 API routes should validate input and convert action output into API responses.
@@ -458,6 +493,8 @@ export async function POST(req: Request) {
 - Return `200` for success.
 - Keep the route thin and move logic into helper functions.
 
+<br/>
+
 ## `api.d.ts` pattern
 
 Use module augmentation for shared request and response types.
@@ -479,6 +516,8 @@ declare module API {
 - Use unions for success vs error.
 - Keep optional fields explicit.
 - Avoid anonymous loose shapes in route handlers.
+
+<br/>
 
 ## AI helper pattern
 
@@ -512,6 +551,8 @@ export async function aiPrettifyMessage(
 - Return only the final result object or error string.
 - Avoid extra explanation in the returned AI output.
 
+<br/>
+
 ## Lists, maps, and derived data
 
 Use `useMemo` for derived structures like maps, lookup tables, and booleans computed from arrays.
@@ -538,6 +579,8 @@ const isAllDayMap = useMemo(
 - Keep derived data out of Zustand unless it must be stored.
 - Use readable names like `isAllDayMap`, `dropdownStates`, `newTimeSlots`.
 
+<br/>
+
 ## Time slot and schedule rules
 
 - Prefer `null` over empty strings where the absence of a value matters.
@@ -555,6 +598,8 @@ const to = Number(temp.to)
 if (isNaN(from) || isNaN(to)) return schedule
 ```
 
+<br/>
+
 ## Error handling rules
 
 - Check returned strings from server actions and SDK helpers.
@@ -570,6 +615,8 @@ catch (error) {
 }
 ```
 
+<br/>
+
 ## Preferred file structure
 
 ```txt
@@ -582,6 +629,8 @@ consts/
 utils/
 classes/
 ```
+
+<br/>
 
 ## When generating new code
 
@@ -599,6 +648,8 @@ AI should follow these steps:
 10. Prefer the smallest possible change that fits the pattern.
 11. Stop after you've done with once task and wait for me to review.
 
+<br/>
+
 ## Example checklist for AI-generated code
 
 Before returning code, verify that it:
@@ -611,7 +662,9 @@ Before returning code, verify that it:
 - keeps components thin
 - uses `useMemo` and `useCallback` where appropriate
 - follows the store/action separation
-- matches the project’s minimal UI style
+- matches the project's minimal UI style
+
+<br/>
 
 ## Notes
 
@@ -619,8 +672,10 @@ Before returning code, verify that it:
 - If a pattern is already established in the surrounding file, keep it.
 - Prefer consistency over novelty.
 - Avoid introducing new abstractions unless they reduce complexity.
-- Use <Image/> component from "next/image" for better prformance - pass props `alt` `src` `width` `height` `sizes`
-- follow this order of props - style is ALWAYS comes first - then className - then rest
+- Use `<Image/>` component from `next/image` for better performance — pass props `alt`, `src`, `width`, `height`, `sizes`.
+- Follow this prop order: `style` always comes first, then `className`, then the rest.
+
+<br/>
 
 ## Example: compact helper style
 
