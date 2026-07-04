@@ -51,7 +51,7 @@ Both directions used to route file bytes **through** the Next.js API route (serv
 **The fix used throughout this feature: never put file bytes in the Vercel function's request or response body.** Both directions instead move bytes directly between the **browser** and **Supabase Storage**, and only use the Vercel function for small, fast metadata/DB work:
 
 - **Export** — server returns rows + file paths (tiny JSON). Browser downloads each file straight from Supabase's public CDN and assembles the `.tar.gz` locally.
-- **Import** — browser uploads the `.tar.gz` straight to a private `backups-tmp` Supabase Storage bucket via `uploadToSignedUrl` (URL + token issued by the server via `import-init`, but the actual bytes never pass through the function). Server then downloads the complete file **from Supabase** (server-to-Supabase, not client-to-Vercel) and processes it in one go.
+- **Import** — browser uploads the `.tar.gz` straight to a private `backups-tmp` Supabase Storage bucket via a signed upload URL (issued by the server via `import-init`, but the actual bytes never pass through the function). Server then downloads the complete file **from Supabase** (server-to-Supabase, not client-to-Vercel) and processes it in one go.
 
 If a future change reintroduces "the export/import times out" or "413 payload too large," check whether file bytes have been routed back through the API route body before reaching for chunking — chunking only delays the ceiling, it doesn't remove it. The fix is always to keep bytes off the Vercel request/response path entirely.
 
@@ -111,9 +111,9 @@ Upload a single `19_backup-<date>.tar.gz` from the import section.
 │                                   │◀───────┼─ { path, token }        │    │ (backups-tmp,     │
 │                                   │        └─────────────────────────┘    │  service role)     │
 │                                   │                                       └──────────────────┘
-│ 2. uploadToSignedUrl(path, token, file)                                                        │
-│    (direct PUT, browser → Supabase — never enters the Vercel function body,                    │
-│     so its ~4.5MB request-body cap never applies no matter how large the archive is)            │
+│ 2. XHR PUT to signedUrl, multipart body (direct upload, browser → Supabase — never enters       │
+│    the Vercel function body, so its ~4.5MB request-body cap never applies no matter how         │
+│    large the archive is). Uses XHR (not fetch) so upload.onprogress gives real byte progress.   │
 │    ───────────────────────────────────────────────────────────────────▶┌──────────────────┐    │
 │                                                                          │ backups-tmp       │    │
 │                                                                          │ bucket (private)  │    │
@@ -148,6 +148,24 @@ Import behavior is **append + override on conflict** — nothing is ever deleted
 | Storage file not in backup | **Untouched** |
 
 **Error reporting:** the import stream tracks a `currentStage` label (e.g. `restoring table "19_songs"`, `uploading songs/foo.mp3`) and, on any failure, sends `{ type: "error", message, name, code, details, hint, stage }` — `code`/`details`/`hint` are the real Postgres/Supabase error fields, not just a generic message. The modal shows this directly instead of a hardcoded "Import failed." If you see a bare, undetailed failure again, check that the route's `try/catch` around the whole stream body is still intact — that's what makes error reporting possible at all.
+
+<br/>
+
+## Failed iterations (don't redo these)
+
+This feature went through several wrong turns before landing on the architecture above. Recorded here so the same mistakes aren't repeated:
+
+1. **Chunking export by file range (`from`/`to`/`chunk` params, `SERVER_BUDGET_MS`, dynamic re-estimation).** The original fix attempt for the Vercel 60s timeout kept downloading files *through* the Vercel function, just in smaller batches, with the server self-enforcing a time budget and telling the client where it stopped (`nextFrom`/`isStoppedEarly`) so the client could request the next chunk. **Wrong because:** chunking only delays the ceiling, it doesn't remove it — a single large file's `download()` call was itself unbounded and could still blow the 60s budget on its own, and `finalizeTar`+`gzipBuffer` ran *after* the last budget check so they weren't counted either. Replaced entirely by the metadata-only export + direct browser-to-Supabase downloads described above.
+
+2. **Client-side connection-speed test (`/api/backup/speed-test`, `measureConnectionSpeed()`) to size chunks.** Built to make the chunk-size *estimate* more accurate. **Wrong because:** it was solving the wrong problem — better estimates still don't eliminate the ceiling chunking can't move (see #1). Deleted along with the whole chunking system.
+
+3. **`experimental.middlewareClientMaxBodySize: "2gb"` in `next.config.js`**, meant to allow large import uploads. **Wrong because:** this is not a real Next.js config option — it was silently ignored the entire time. Even if it had been real, it wouldn't have helped: Vercel's serverless function request body cap (~4.5MB) is enforced by the platform in front of the function, not by Next.js. Removed entirely once the signed-URL relay made it moot.
+
+4. **Import: guessing whether an upload error was a size-limit error via regex (`/size|exceed/i.test(uploadError.message)`).** After adding an explicit `fileSizeLimit` on the `backups-tmp` bucket, an unrelated upload error was regex-matched as if it were a size error and the code **fabricated** a wrong "exceeds limit" message — for a 241MB file well under the 1GB limit. **Wrong because:** never synthesize an error message by pattern-matching another error's text; it can be confidently wrong. Fixed by showing the real error (status code + response body) verbatim, and only asserting "exceeds limit" from an actual size comparison (`file.size > TMP_BUCKET_SIZE_LIMIT_BYTES`), not a text guess.
+
+5. **Import: using the Supabase SDK's `uploadToSignedUrl()` with no progress feedback.** The whole upload was a single `await` with zero visibility into progress, so a large file appeared "stuck at 0/0" for however long the upload actually took — indistinguishable from a real hang. **Fixed by** uploading via a hand-rolled `XMLHttpRequest` PUT (`uploadToSignedUrlWithProgress` in `BackupSDK.ts`) using the same multipart shape the SDK sends (`cacheControl` field + file under an empty-string key), which gives real `upload.onprogress` byte counts and the exact HTTP status/response body on failure instead of an SDK-wrapped generic error.
+
+6. **Sidebar cover images rendering blank:** first suspected as a URL-encoding regression (`getSupabasePublicUrl`'s manual `encodeURIComponent` per path segment vs. the old SDK's `getPublicUrl`). Ruled out because `/my-songs` rendered the *same* `image_path` correctly at the same time the sidebar showed blank — if the URL were wrong it would fail everywhere. **Actual root cause:** a CSS/layout regression in `MediaItem.tsx` (commit `668cc8f`) that swapped a working `fill`-inside-a-sized-`relative`-container pattern for fixed `width`/`height` + inline `style`, which collapsed the rendered `<img>` box. Fixed by restoring `fill` (matching the still-working `MySongsContent` pattern) with `sizes={size * 2}px` for a sharp (non-blurry) source. A **second, separate** issue remains open: some covers still show a real broken-image icon (genuine 404 — file missing/never uploaded), not a layout bug — root cause not yet found, see the open item below.
 
 <br/>
 
