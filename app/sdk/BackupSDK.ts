@@ -226,7 +226,7 @@ export async function importArchive(
     const body = await initRes.json().catch(() => ({}))
     throw new Error(body?.error ?? `Failed to start import (${initRes.status})`)
   }
-  const { uploadId, chunkPaths, signedUrls } = await initRes.json()
+  const { chunkPaths, signedUrls } = await initRes.json()
 
   // 2. Upload each chunk in turn, reporting one smooth 0-100% progress bar across all of them.
   let uploadedBytes = 0
@@ -238,28 +238,18 @@ export async function importArchive(
     uploadedBytes += chunks[index].size
   }
 
-  // 3. Tell the server to reassemble the uploaded chunks into one archive.
+  // 3. Process the uploaded chunks, resuming with a cursor until a "done" message arrives — each
+  //    call downloads and concatenates the chunks fresh (no size limit on downloads, only uploads,
+  //    which is why the archive is never reassembled into one Storage object) and is budgeted
+  //    server-side to stay well under the Vercel function's 60s execution limit.
   onProgress(0, 0, "Processing…", "processing")
-  const finalizeRes = await fetch("/api/backup/import-finalize", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ uploadId, chunkPaths }),
-  })
-  if (!finalizeRes.ok) {
-    const body = await finalizeRes.json().catch(() => ({}))
-    throw new Error(body?.error ?? `Failed to finalize import (${finalizeRes.status})`)
-  }
-  const { path } = await finalizeRes.json()
-
-  // 4. Process the archive, resuming with a cursor until a "done" message arrives — each call is
-  //    budgeted server-side to stay well under the Vercel function's 60s execution limit.
   let cursor: ImportCursor = { stage: "tables", tableIndex: 0, rowOffset: 0, entryIndex: 0, tableResults: [], bucketStats: {} }
 
   while (true) {
     const res = await fetch("/api/backup/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path, cursor }),
+      body: JSON.stringify({ chunkPaths, cursor }),
     })
     if (!res.ok || !res.body) {
       const body = await res.json().catch(() => ({}))
