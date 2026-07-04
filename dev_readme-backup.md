@@ -28,10 +28,12 @@ storage/images/<path>               # raw image bytes (only if checkbox ticked)
 
 | File | Purpose |
 | --- | --- |
-| `app/api/backup/backupTables.ts` | Pure-JS tar.gz builder/parser (Node `zlib` only, no npm deps) |
+| `app/api/backup/tarClient.ts` | Pure tar builder/parser + types (no Node deps) + browser gzip via `CompressionStream`. Safe to import from client or server. |
+| `app/api/backup/backupTables.ts` | Re-exports the pure parts from `tarClient.ts`; also holds the server-only Node `zlib` `gzipBuffer` / `gunzipBuffer` (used by import to decompress uploaded archives) |
 | `app/api/backup/requireUser.ts` | Auth gate — 401 if no session, returns `{ userId }` |
-| `app/api/backup/export/route.ts` | `GET` streams NDJSON progress → emits a one-time token; `POST { token }` returns raw `.tar.gz` binary |
-| `app/api/backup/import/route.ts` | `POST` — raw `.tar.gz` body, upserts rows + re-uploads files |
+| `app/api/backup/export/route.ts` | `GET` — metadata only: `{ tables, files }` (rows + storage file paths). Never touches Storage bytes. |
+| `app/api/backup/import-init/route.ts` | `POST` — issues a signed upload URL + token for the `backups-tmp` bucket (also ensures the bucket exists) |
+| `app/api/backup/import/route.ts` | `POST { path }` — downloads the archive from `backups-tmp` (server-to-Supabase), processes it, deletes the temp file |
 | `app/sdk/BackupSDK.ts` | Client helpers: `exportWithProgress`, `importArchive`, `downloadBlob` |
 | `hooks/useDbBackupModal.ts` | Zustand store: `isOpen / onOpen / onClose` |
 | `hooks/useDbBackup.ts` | All export/import state and progress |
@@ -39,54 +41,98 @@ storage/images/<path>               # raw image bytes (only if checkbox ticked)
 
 <br/>
 
+## Why export and import never send big payloads through the Vercel function
+
+Both directions used to route file bytes **through** the Next.js API route (server downloads from Supabase → packs into function memory → streams back / server reads request body → parses). That hit two independent platform ceilings that no amount of chunking or `maxDuration` tuning can move:
+
+- **Vercel function execution time** — hard-capped (`maxDuration`, 60s here). Time spent downloading/uploading storage bytes inside the function counts against this.
+- **Vercel function request/response body size** — a separate, lower-level platform cap (~4.5MB) enforced in front of the function itself. No Next.js config (`middlewareClientMaxBodySize` is not a real option and is silently ignored) can raise this.
+
+**The fix used throughout this feature: never put file bytes in the Vercel function's request or response body.** Both directions instead move bytes directly between the **browser** and **Supabase Storage**, and only use the Vercel function for small, fast metadata/DB work:
+
+- **Export** — server returns rows + file paths (tiny JSON). Browser downloads each file straight from Supabase's public CDN and assembles the `.tar.gz` locally.
+- **Import** — browser uploads the `.tar.gz` straight to a private `backups-tmp` Supabase Storage bucket via `uploadToSignedUrl` (URL + token issued by the server via `import-init`, but the actual bytes never pass through the function). Server then downloads the complete file **from Supabase** (server-to-Supabase, not client-to-Vercel) and processes it in one go.
+
+If a future change reintroduces "the export/import times out" or "413 payload too large," check whether file bytes have been routed back through the API route body before reaching for chunking — chunking only delays the ceiling, it doesn't remove it. The fix is always to keep bytes off the Vercel request/response path entirely.
+
+<br/>
+
 ## Export flow
 
-### Step 1 — Manifest (pre-flight)
-
 ```
-GET /api/backup/manifest?includeImages=true
-→ { fileCount, totalBytes, estimatedMs, shouldSplit, splitIdx }
+GET /api/backup/export?includeImages=true
+→ { tables: { "19_songs": [...], ... }, files: [{ bucket, path, contentType }, ...] }
 ```
 
-Fetches real byte sizes from Supabase Storage, estimates download time at ~8 MB/s + 40 ms/file overhead. If the estimate exceeds 50 s (`SPLIT_THRESHOLD_MS`), `shouldSplit: true` and an initial `splitIdx` (rough first-chunk size guess) are returned.
+One fast request. `BackupSDK.ts`'s `exportWithProgress()`:
 
-### Step 2 — Dynamic chunking
+1. Fetches the metadata above.
+2. Packs each `<table>.json` into a tar buffer (via `addTarEntry` from `tarClient.ts`).
+3. Downloads every file directly from `getSupabasePublicUrl(bucket, path)` — a small concurrency pool (5 at a time), reporting progress per completed file.
+4. Writes `storage-content-types.json` (MIME type per file, so import knows what content-type to re-upload with).
+5. Finalizes the tar and gzips it in the browser (`gzipBufferClient` — built-in `CompressionStream("gzip")`, zero deps), producing one `.tar.gz` Blob.
 
-Each chunk is two HTTP requests — an NDJSON stream for progress, then a binary fetch for the file:
-
-```
-GET /api/backup/export?includeImages=true[&from=N&to=M&chunk=K&includeTables=false]
-
-  {"type":"progress","done":1,"total":57}
-  ...
-  {"type":"timing","elapsedMs":42300,"filesProcessed":57}   ← real wall time
-  {"type":"done","fileName":"19_backup-2026-06-19-part1.tar.gz","token":"..."}
-
-POST /api/backup/export  { token }
-  → raw application/gzip binary → browser downloads
-```
-
-After each chunk completes, the `timing` event tells the client the **actual** elapsed milliseconds and how many files were processed. The client divides to get real `ms/file`, then computes how many files the next chunk can safely process within the 55 s budget (`BUDGET_MS`):
+Always a **single archive** — no splitting, no chunk math, no connection-speed probing. The output is a standard gzip stream, byte-compatible with what the server's `gunzipBuffer` expects on import.
 
 ```
-msPerFile      = elapsedMs / filesProcessed   // measured from last chunk
-nextChunkSize  = floor(55_000 / msPerFile)    // files the next chunk can handle
+ Browser (BackupSDK.exportWithProgress)              Vercel function              Supabase
+┌──────────────────────────────────┐          ┌───────────────────────┐     ┌───────────────┐
+│                                   │  GET     │                       │     │               │
+│  1. request metadata ────────────┼─────────▶│ /api/backup/export    │     │   Postgres    │
+│                                   │◀─────────┼─ { tables, files }    │◀────┼─  (rows only) │
+│                                   │  (tiny,   │  (no Storage bytes)   │     │               │
+│                                   │   fast)   └───────────────────────┘     └───────────────┘
+│                                   │
+│  2. for each file in `files`:     │  GET (direct, public CDN — no Vercel involved)
+│     fetch(getSupabasePublicUrl)  ─┼───────────────────────────────────────▶┌───────────────┐
+│     addTarEntry(...)          ◀───┼───────────────────────────────────────┤ Storage bucket│
+│     (concurrency pool of 5)       │                                       │ songs/images  │
+│                                   │                                       └───────────────┘
+│  3. finalizeTar() + gzipBufferClient()                                                     │
+│     → single 19_backup-<date>.tar.gz Blob                                                  │
+│                                   │
+│  4. downloadBlob() → saved to disk│
+└──────────────────────────────────┘
+
+Vercel function never touches a song/image byte — only small JSON (rows + paths).
 ```
-
-This means chunk sizes adapt to real Supabase Storage throughput — a user on a slow connection automatically gets smaller chunks; a fast connection may finish in a single chunk even if the manifest predicted a split.
-
-Chunks run **sequentially** — progress resets between each one, the button label shows "Exporting part N…"
-
-**Chunk 1** = all 4 table JSON files + `storage-content-types.json` + files `[0, splitIdx)`
-**Chunk 2+** = files `[from, to)` only — no JSON (chunk 1 already has them)
-
-Progress is counted in **files** (tables + storage objects), not bytes.
 
 <br/>
 
 ## Import flow
 
-**Import one or both archives** — if the export split into two parts, import both (order doesn't matter, results are merged in the UI). Upload a single `19_backup-<date>.tar.gz` from the import section.
+Upload a single `19_backup-<date>.tar.gz` from the import section.
+
+```
+ Browser (BackupSDK.importArchive)                Vercel function                Supabase
+┌──────────────────────────────────┐        ┌─────────────────────────┐    ┌──────────────────┐
+│                                   │  POST  │                         │    │                  │
+│ 1. request a signed upload URL ──┼───────▶│ /api/backup/import-init │───▶│ createSignedUploadUrl
+│                                   │◀───────┼─ { path, token }        │    │ (backups-tmp,     │
+│                                   │        └─────────────────────────┘    │  service role)     │
+│                                   │                                       └──────────────────┘
+│ 2. uploadToSignedUrl(path, token, file)                                                        │
+│    (direct PUT, browser → Supabase — never enters the Vercel function body,                    │
+│     so its ~4.5MB request-body cap never applies no matter how large the archive is)            │
+│    ───────────────────────────────────────────────────────────────────▶┌──────────────────┐    │
+│                                                                          │ backups-tmp       │    │
+│                                                                          │ bucket (private)  │    │
+│                                                                          └──────────────────┘    │
+│                                   │                                                              │
+│ 3. tell server where it landed   │  POST                                                        │
+│    { path } ──────────────────────┼──────▶┌─────────────────────┐                               │
+│                                   │        │ /api/backup/import  │  download(path) ──▶ backups-tmp
+│                                   │        │  gunzipBuffer()      │◀───────────────────           │
+│                                   │        │  parseTar()          │                               │
+│                                   │        │  upsert rows ────────┼──▶ Postgres (19_songs, ...)   │
+│                                   │        │  upload files ───────┼──▶ songs / images buckets     │
+│                                   │        │  remove(path) ───────┼──▶ backups-tmp (cleanup)       │
+│  NDJSON progress + done/error  ◀──┼────────┤                      │                               │
+│                                   │        └─────────────────────┘                               │
+└──────────────────────────────────┘
+```
+
+**Server-side processing** (step 3 above): `gunzipBuffer` → `parseTar` → for each table JSON, `upsert` rows scoped to the session user; for each `storage/<bucket>/<path>` entry, re-upload via `supabaseAdmin.storage.from(bucket).upload(path, data, { contentType, upsert: true })` — content type comes from `storage-content-types.json` in the archive. The temp file in `backups-tmp` is deleted once downloaded.
 
 Import behavior is **append + override on conflict** — nothing is ever deleted:
 
@@ -99,7 +145,7 @@ Import behavior is **append + override on conflict** — nothing is ever deleted
 | Storage file is new | **Uploaded** |
 | Storage file not in backup | **Untouched** |
 
-The JSON files inside the archive are the restore source for tables. `storage-content-types.json` tells the import route what MIME type to use when re-uploading each file — without it files would be uploaded as `application/octet-stream`.
+**Error reporting:** the import stream tracks a `currentStage` label (e.g. `restoring table "19_songs"`, `uploading songs/foo.mp3`) and, on any failure, sends `{ type: "error", message, name, code, details, hint, stage }` — `code`/`details`/`hint` are the real Postgres/Supabase error fields, not just a generic message. The modal shows this directly instead of a hardcoded "Import failed." If you see a bare, undetailed failure again, check that the route's `try/catch` around the whole stream body is still intact — that's what makes error reporting possible at all.
 
 <br/>
 
@@ -114,14 +160,22 @@ The JSON files inside the archive are the restore source for tables. `storage-co
 
 ## tar.gz implementation
 
-No external package — built with Node's built-in `zlib` module only. Tar logic lives in `backupTables.ts`:
+No external package. Tar logic is split across two files by **where it needs to run**:
+
+**`tarClient.ts`** — pure `Buffer` math + the Web `CompressionStream` API, no Node-only imports. Safe to import from client components (used by the browser to build the export archive) or server routes alike:
 
 - `buildTarHeader()` — 512-byte POSIX ustar header with checksum
 - `buildLongNameEntry()` — GNU `././@LongLink` extension for entry names > 100 chars
 - `addTarEntry(chunks, name, data)` — appends header + data + padding to a `Buffer[]`
 - `finalizeTar(chunks)` — concatenates + two 512-byte zero end-of-archive blocks
 - `parseTar(buf)` — reads entries back; handles GNU long-name extension
-- `gzipBuffer / gunzipBuffer` — `zlib.gzip` / `zlib.gunzip` promisified
+- `gzipBufferClient(bytes)` — browser gzip via `CompressionStream("gzip")`; output is a standard gzip stream, byte-compatible with the server's `gunzipBuffer`
+
+**`backupTables.ts`** — re-exports everything above (so existing `from "../backupTables"` imports keep working) plus the **server-only** Node `zlib` helpers:
+
+- `gzipBuffer` / `gunzipBuffer` — `zlib.gzip` / `zlib.gunzip` promisified. Only `gunzipBuffer` is actually used (import route decompresses uploaded archives); `gzipBuffer` is kept for symmetry/potential server-side use.
+
+**Do not import `zlib` (directly or transitively) from any file that gets bundled for the client** — it will break the client build. If tar logic needs to be reused client-side again, extend `tarClient.ts`, not `backupTables.ts`.
 
 <br/>
 
