@@ -114,10 +114,20 @@ export async function exportWithProgress(opts: {
   return { archives: [{ fileName, blob }] }
 }
 
+// Must match TMP_BUCKET_SIZE_LIMIT in app/api/backup/import-init/route.ts — kept in sync manually
+// since bucket config lives server-side but the client needs the number for a precise error message.
+const TMP_BUCKET_SIZE_LIMIT_BYTES = 1024 * 1024 * 1024 // 1gb
+
 export async function importArchive(
   file: File,
   onProgress: (done: number, total: number, label: string) => void,
 ): Promise<ImportResult> {
+  if (file.size > TMP_BUCKET_SIZE_LIMIT_BYTES) {
+    const limitMb = Math.round(TMP_BUCKET_SIZE_LIMIT_BYTES / (1024 * 1024))
+    const fileMb = (file.size / (1024 * 1024)).toFixed(1)
+    throw new Error(`Archive is ${fileMb}MB, which exceeds the ${limitMb}MB import limit.`)
+  }
+
   // 1. Get a signed upload URL and upload the archive directly to Supabase — this bypasses the
   //    Vercel function's request body size cap (~4.5MB) since the bytes never pass through our API.
   onProgress(0, 0, "Uploading archive…")
@@ -132,7 +142,13 @@ export async function importArchive(
     .from("backups-tmp")
     .uploadToSignedUrl(path, token, file, { contentType: "application/gzip" })
   if (uploadError) {
-    throw new Error(`Archive upload failed: ${uploadError.message}`)
+    const limitMb = Math.round(TMP_BUCKET_SIZE_LIMIT_BYTES / (1024 * 1024))
+    const isSizeError = /size|exceed/i.test(uploadError.message)
+    throw new Error(
+      isSizeError
+        ? `Archive upload failed: exceeds the ${limitMb}MB import limit (file is ${(file.size / (1024 * 1024)).toFixed(1)}MB).`
+        : `Archive upload failed: ${uploadError.message}`,
+    )
   }
 
   // 2. Tell the server where to find it — server downloads from Supabase and processes it.
