@@ -8,6 +8,7 @@ import { AiOutlineArrowDown, AiOutlineArrowUp, AiOutlineDelete } from "react-ico
 
 import AddToPlaylistButton from "@/components/AddToPlaylistButton"
 import Button from "@/components/Button"
+import DeleteSongButton from "@/components/DeleteSongButton"
 import Input from "@/components/Input"
 import LikeButton from "@/components/LikeButton"
 import MediaItem from "@/components/MediaItem"
@@ -247,11 +248,12 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
         {songs.map((item, index) => (
           <div key={item.song.id} className="flex items-center gap-x-4 rounded-md bg-elevated/60 border border-white/5 p-2 transition hover:border-neon/20">
             <div className="flex-1">
-              <MediaItem onClick={id => onPlay(id)} data={item.song} />
+              <MediaItem onClick={id => onPlay(id)} data={item.song} size={48} />
             </div>
             <div className="flex items-center gap-x-3">
               <AddToPlaylistButton song={item.song} />
               <LikeButton songId={item.song.id} />
+              <DeleteSongButton song={item.song} />
               {canManage ? (
                 <>
                   <button

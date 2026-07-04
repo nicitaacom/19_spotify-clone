@@ -9,6 +9,7 @@ import useLoadImage from "@/hooks/useLoadImage"
 import { Song } from "@/types"
 
 import AddToPlaylistButton from "./AddToPlaylistButton"
+import DeleteSongButton from "./DeleteSongButton"
 import LikeButton from "./LikeButton"
 import PlayButton from "./PlayButton"
 
@@ -57,7 +58,6 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
           sizes="(min-width: 1280px) 14vw, (min-width: 1024px) 20vw, (min-width: 640px) 25vw, 50vw"
           alt={data.title}
           priority={priority}
-          quality={90}
         />
 
         {/* Gradient overlay */}
@@ -86,6 +86,13 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
               onClick={onAddToPlaylist}
               size={14}
               className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-neutral-200 backdrop-blur-sm transition hover:text-white"
+            />
+          </span>
+          <span onClick={e => e.stopPropagation()}>
+            <DeleteSongButton
+              song={data}
+              size={14}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-neutral-200 backdrop-blur-sm transition hover:text-red-400"
             />
           </span>
         </div>

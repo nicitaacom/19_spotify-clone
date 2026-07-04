@@ -2,6 +2,7 @@
 
 import { Song } from "@/types"
 import AddToPlaylistButton from "@/components/AddToPlaylistButton"
+import DeleteSongButton from "@/components/DeleteSongButton"
 import MediaItem from "@/components/MediaItem"
 import LikeButton from "@/components/LikeButton"
 import useOnPlay from "@/hooks/useOnPlay"
@@ -38,6 +39,7 @@ const SearchContent: React.FC<SearchContentProps> = ({ songs }) => {
           </div>
           <AddToPlaylistButton song={song} />
           <LikeButton songId={song.id} />
+          <DeleteSongButton song={song} />
         </div>
       ))}
     </div>
