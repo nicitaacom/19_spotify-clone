@@ -13,7 +13,7 @@ import useLoadImage from "@/hooks/useLoadImage"
 import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
 import useEditSongModal from "@/hooks/useEditSongModal"
 import Button from "@/components/Button"
-import Image from "next/image"
+import CoverImage from "@/components/CoverImage"
 
 interface MySongsContentProps {
   songs: Song[]
@@ -52,8 +52,8 @@ function SongRow({ song, onDelete, onUpdate }: { song: Song; onDelete: (id: stri
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-white/5 bg-elevated/60 p-3 transition hover:border-neon/20 hover:bg-elevated">
       <div className="relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg">
-        <Image
-          src={imagePath || "/images/liked.png"}
+        <CoverImage
+          src={imagePath}
           alt={song.title}
           fill
           sizes="56px"

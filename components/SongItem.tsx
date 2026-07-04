@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import { KeyboardEvent } from "react"
 import { AiOutlineLoading3Quarters } from "react-icons/ai"
 import { twMerge } from "tailwind-merge"
@@ -8,6 +7,7 @@ import { twMerge } from "tailwind-merge"
 import useLoadImage from "@/hooks/useLoadImage"
 import useOwnerStore from "@/hooks/useOwnerStore"
 import { Song } from "@/types"
+import CoverImage from "@/components/CoverImage"
 
 import AddToPlaylistButton from "./AddToPlaylistButton"
 import DeleteSongButton from "./DeleteSongButton"
@@ -53,9 +53,9 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
 
       {/* Image */}
       <div className="relative aspect-[4/3] w-full overflow-hidden">
-        <Image
+        <CoverImage
           className="object-cover transition duration-300 group-hover:scale-105"
-          src={imagePath || "/images/liked.png"}
+          src={imagePath}
           fill
           sizes="(min-width: 1280px) 14vw, (min-width: 1024px) 20vw, (min-width: 640px) 25vw, 50vw"
           alt={data.title}

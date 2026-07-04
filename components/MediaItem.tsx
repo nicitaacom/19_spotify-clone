@@ -1,11 +1,11 @@
 "use client"
 
-import Image from "next/image"
 import { twMerge } from "tailwind-merge"
 
 import useLoadImage from "@/hooks/useLoadImage"
 import { Song } from "@/types"
 import usePlayer from "@/hooks/usePlayer"
+import CoverImage from "@/components/CoverImage"
 
 interface MediaItemProps {
   data: Song
@@ -56,10 +56,10 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48 }) => {
         overflow-hidden
       ">
       <div style={{ width: size, height: size }} className="relative shrink-0 overflow-hidden rounded-md">
-        <Image
+        <CoverImage
           fill
           sizes={`${size * 2}px`}
-          src={imageUrl || "/images/liked.png"}
+          src={imageUrl}
           alt="MediaItem"
           className="object-cover"
           loading="eager"

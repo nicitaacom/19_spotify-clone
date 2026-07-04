@@ -1,7 +1,7 @@
-import Image from "next/image"
 import Link from "next/link"
 
 import PlaylistVisibilityBadge from "@/components/PlaylistVisibilityBadge"
+import CoverImage from "@/components/CoverImage"
 import { PlaylistSummary } from "@/types"
 import { getSupabasePublicUrl } from "@/libs/helpers"
 
@@ -11,7 +11,7 @@ interface PlaylistCardProps {
 }
 
 const PlaylistCard: React.FC<PlaylistCardProps> = ({ playlist, showVisibility = false }) => {
-  const coverUrl = getSupabasePublicUrl("images", playlist.cover_image_path) ?? "/images/liked.png"
+  const coverUrl = getSupabasePublicUrl("images", playlist.cover_image_path)
   const authorName = playlist.author.full_name || playlist.author.username
 
   return (
@@ -19,7 +19,7 @@ const PlaylistCard: React.FC<PlaylistCardProps> = ({ playlist, showVisibility = 
       href={`/playlists/${playlist.slug}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-white/5 bg-surface shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition duration-200 hover:border-neon/20 hover:bg-elevated">
       <div className="relative aspect-square w-full overflow-hidden">
-        <Image className="object-cover transition duration-300 group-hover:scale-105" fill sizes="(min-width: 1024px) 16vw, (min-width: 640px) 25vw, 50vw" src={coverUrl} alt={playlist.title} />
+        <CoverImage className="object-cover transition duration-300 group-hover:scale-105" fill sizes="(min-width: 1024px) 16vw, (min-width: 640px) 25vw, 50vw" src={coverUrl} alt={playlist.title} />
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/20 to-transparent" />
         {showVisibility && (
           <div className="absolute left-2 top-2">
