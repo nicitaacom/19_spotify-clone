@@ -524,7 +524,7 @@ END $$;
 -- 🖼️ OBJECT-LEVEL POLICIES FOR BUCKET: images
 -- =====================================================
 -- SELECT: everyone
--- INSERT: authenticated users only
+-- INSERT: only owner(s)
 -- UPDATE: only owner (auth.uid() = owner)
 -- DELETE: only owner
 
