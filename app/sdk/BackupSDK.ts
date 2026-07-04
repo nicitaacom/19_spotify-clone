@@ -142,13 +142,10 @@ export async function importArchive(
     .from("backups-tmp")
     .uploadToSignedUrl(path, token, file, { contentType: "application/gzip" })
   if (uploadError) {
-    const limitMb = Math.round(TMP_BUCKET_SIZE_LIMIT_BYTES / (1024 * 1024))
-    const isSizeError = /size|exceed/i.test(uploadError.message)
-    throw new Error(
-      isSizeError
-        ? `Archive upload failed: exceeds the ${limitMb}MB import limit (file is ${(file.size / (1024 * 1024)).toFixed(1)}MB).`
-        : `Archive upload failed: ${uploadError.message}`,
-    )
+    // Never guess the cause from the error text — show exactly what Supabase reported. The
+    // upfront file.size check above is the only place a size-limit message is ever asserted,
+    // and only when it's actually true.
+    throw new Error(`Archive upload failed: ${uploadError.message}`)
   }
 
   // 2. Tell the server where to find it — server downloads from Supabase and processes it.
