@@ -1,0 +1,1 @@
+export const SUPABASE_FREE_TIER_LIMIT_BYTES = 5 * 1024 * 1024 * 1024

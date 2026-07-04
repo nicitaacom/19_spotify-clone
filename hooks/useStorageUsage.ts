@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react"
 
-import getStorageUsageAction, { SUPABASE_FREE_TIER_LIMIT_BYTES } from "@/actions/getStorageUsageAction"
+import getStorageUsageAction from "@/actions/getStorageUsageAction"
+import { SUPABASE_FREE_TIER_LIMIT_BYTES } from "@/consts/storage"
 
 export const useStorageUsage = () => {
   const [isSkeleton, setIsSkeleton] = useState(false)

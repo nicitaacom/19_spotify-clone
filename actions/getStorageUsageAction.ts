@@ -1,8 +1,7 @@
 "use server"
 
 import { createServerComponentClient } from "@/libs/supabaseServer"
-
-export const SUPABASE_FREE_TIER_LIMIT_BYTES = 5 * 1024 * 1024 * 1024
+import { SUPABASE_FREE_TIER_LIMIT_BYTES } from "@/consts/storage"
 
 const getStorageUsageAction = async (): Promise<{ usedBytes: number; limitBytes: number } | string> => {
   const supabase = await createServerComponentClient()
