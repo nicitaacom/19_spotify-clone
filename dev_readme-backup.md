@@ -32,8 +32,9 @@ storage/images/<path>               # raw image bytes (only if checkbox ticked)
 | `app/api/backup/backupTables.ts` | Re-exports the pure parts from `tarClient.ts`; also holds the server-only Node `zlib` `gzipBuffer` / `gunzipBuffer` (used by import to decompress uploaded archives) |
 | `app/api/backup/requireUser.ts` | Auth gate — 401 if no session, returns `{ userId }` |
 | `app/api/backup/export/route.ts` | `GET` — metadata only: `{ tables, files }` (rows + storage file paths). Never touches Storage bytes. |
-| `app/api/backup/import-init/route.ts` | `POST` — issues a signed upload URL + token for the `backups-tmp` bucket (also ensures the bucket exists with an explicit 1GB `fileSizeLimit` — Supabase's own default without one is 50MB, easily exceeded by a real backup) |
-| `app/api/backup/import/route.ts` | `POST { path }` — downloads the archive from `backups-tmp` (server-to-Supabase), processes it, deletes the temp file |
+| `app/api/backup/import-init/route.ts` | `POST { chunkCount }` — issues one signed upload URL per chunk for the `backups-tmp` bucket (also ensures the bucket exists with a 45MB `fileSizeLimit`, matching the per-chunk size) |
+| `app/api/backup/import-finalize/route.ts` | `POST { uploadId, chunkPaths }` — downloads every uploaded chunk and concatenates them into one reassembled archive, then deletes the chunks |
+| `app/api/backup/import/route.ts` | `POST { path, cursor }` — downloads the reassembled archive from `backups-tmp` (server-to-Supabase), processes it in resumable, budgeted steps, deletes the temp file once done |
 | `app/sdk/BackupSDK.ts` | Client helpers: `exportWithProgress`, `importArchive`, `downloadBlob` |
 | `hooks/useDbBackupModal.ts` | Zustand store: `isOpen / onOpen / onClose` |
 | `hooks/useDbBackup.ts` | All export/import state and progress |
@@ -101,42 +102,65 @@ Vercel function never touches a song/image byte — only small JSON (rows + path
 
 ## Import flow
 
-Upload a single `19_backup-<date>.tar.gz` from the import section.
+Upload a single `19_backup-<date>.tar.gz` from the import section. The archive is uploaded in
+chunks (Supabase's 50MB global upload limit — see "Hard ceiling" below) and processed in resumable
+steps (Vercel's 60s function execution limit), so both hard ceilings apply to individual requests,
+never to the whole archive or the whole import.
 
 ```
- Browser (BackupSDK.importArchive)                Vercel function                Supabase
-┌──────────────────────────────────┐        ┌─────────────────────────┐    ┌──────────────────┐
-│                                   │  POST  │                         │    │                  │
-│ 1. request a signed upload URL ──┼───────▶│ /api/backup/import-init │───▶│ createSignedUploadUrl
-│                                   │◀───────┼─ { path, token }        │    │ (backups-tmp,     │
-│                                   │        └─────────────────────────┘    │  service role)     │
-│                                   │                                       └──────────────────┘
-│ 2. XHR PUT to signedUrl, multipart body (direct upload, browser → Supabase — never enters       │
-│    the Vercel function body, so its ~4.5MB request-body cap never applies no matter how         │
-│    large the archive is). Uses XHR (not fetch) so upload.onprogress gives real byte progress.   │
-│    ───────────────────────────────────────────────────────────────────▶┌──────────────────┐    │
-│                                                                          │ backups-tmp       │    │
-│                                                                          │ bucket (private)  │    │
-│                                                                          └──────────────────┘    │
-│                                   │                                                              │
-│ 3. tell server where it landed   │  POST                                                        │
-│    { path } ──────────────────────┼──────▶┌─────────────────────┐                               │
-│                                   │        │ /api/backup/import  │  download(path) ──▶ backups-tmp
-│                                   │        │  gunzipBuffer()      │◀───────────────────           │
-│                                   │        │  parseTar()          │                               │
-│                                   │        │  upsert rows ────────┼──▶ Postgres (19_songs, ...)   │
-│                                   │        │  upload files ───────┼──▶ songs / images buckets     │
-│                                   │        │  remove(path) ───────┼──▶ backups-tmp (cleanup)       │
-│  NDJSON progress + done/error  ◀──┼────────┤                      │                               │
-│                                   │        └─────────────────────┘                               │
-└──────────────────────────────────┘
+ Browser (BackupSDK.importArchive)                    Vercel function                    Supabase
+┌────────────────────────────────────┐        ┌───────────────────────────┐    ┌──────────────────┐
+│ 1. slice file into ≤40MB chunks     │  POST  │                           │    │                  │
+│    request N signed upload URLs ───┼───────▶│ /api/backup/import-init   │───▶│ createSignedUploadUrl
+│                                     │◀───────┼─ { uploadId, chunkPaths,  │    │ ×N (backups-tmp,  │
+│                                     │        │    signedUrls }           │    │  service role)     │
+│                                     │        └───────────────────────────┘    └──────────────────┘
+│ 2. XHR PUT each chunk in turn, multipart body (direct upload, browser → Supabase — never enters   │
+│    the Vercel function body, and each chunk stays under Supabase's 50MB global limit). Uses XHR   │
+│    (not fetch) so upload.onprogress gives real byte progress, summed across all chunks.           │
+│    ─────────────────────────────────────────────────────────────────────▶┌──────────────────┐     │
+│                                                                            │ backups-tmp       │     │
+│                                                                            │ chunk-0 … chunk-N │     │
+│                                                                            └──────────────────┘     │
+│                                     │                                                               │
+│ 3. tell server all chunks landed   │  POST                                                         │
+│    { uploadId, chunkPaths } ────────┼──────▶┌────────────────────────────┐                          │
+│                                     │        │ /api/backup/import-finalize│  download each chunk ──▶│
+│                                     │        │  Buffer.concat() in order   │◀── backups-tmp          │
+│                                     │◀───────┼─ { path }                   │  upload reassembled.tar.gz
+│                                     │        │  remove(chunkPaths) ────────┼──▶ backups-tmp (cleanup)│
+│                                     │        └────────────────────────────┘                          │
+│                                     │                                                                │
+│ 4. process, resuming with a cursor │  POST (repeated until "done")                                  │
+│    { path, cursor } ─────────────────┼──────▶┌─────────────────────┐                                │
+│                                     │        │ /api/backup/import  │  download(path) ──▶ backups-tmp │
+│                                     │        │  gunzipBuffer()      │◀───────────────────             │
+│                                     │        │  parseTar()          │                                │
+│                                     │        │  upsert rows ────────┼──▶ Postgres (19_songs, ...)    │
+│                                     │        │  upload files ───────┼──▶ songs / images buckets      │
+│                                     │        │  (budget check before each row batch / file upload;   │
+│                                     │        │   over budget → emit "continue" + cursor, stop here)  │
+│                                     │        │  remove(path) on done/error ─▶ backups-tmp (cleanup)   │
+│  NDJSON progress/continue/done/error◀────────┤                      │                                │
+│                                     │        └─────────────────────┘                                │
+└────────────────────────────────────┘
 ```
 
-**Server-side processing** (step 3 above): `gunzipBuffer` → `parseTar` → for each table JSON, `upsert` rows scoped to the session user; for each `storage/<bucket>/<path>` entry, re-upload via `supabaseAdmin.storage.from(bucket).upload(path, data, { contentType, upsert: true })` — content type comes from `storage-content-types.json` in the archive. The temp file in `backups-tmp` is deleted once downloaded.
+**Server-side processing** (step 4 above): `gunzipBuffer` → `parseTar` → resume from the cursor —
+for each remaining table, `upsert` rows scoped to the session user; for each remaining
+`storage/<bucket>/<path>` entry, re-upload via `supabaseAdmin.storage.from(bucket).upload(path, data, { contentType, upsert: true })`
+— content type comes from `storage-content-types.json` in the archive. The elapsed time since the
+call started is checked **before every individual row batch and before every individual file
+upload** (never only between whole tables); if the 55s budget is exceeded, the route emits
+`{ type: "continue", cursor }` and closes the stream — the client immediately calls `/api/backup/import`
+again with that cursor, and every call re-downloads and re-parses the archive from scratch (cheap
+buffer work, bounded by the total archive size cap) before resuming the actual DB/Storage work at
+the cursor's position. The reassembled archive in `backups-tmp` is deleted once the final `done` or
+an `error` message is sent.
 
-**Max archive size:** 1GB, set explicitly via `fileSizeLimit` on the `backups-tmp` bucket in `import-init/route.ts` (`TMP_BUCKET_SIZE_LIMIT`). Without an explicit limit, Supabase falls back to a project-wide default (50MB on most plans) — too small for a real music-library backup, and the resulting error ("The object exceeded the maximum allowed size") doesn't even state the actual number. `BackupSDK.ts` mirrors the same byte value (`TMP_BUCKET_SIZE_LIMIT_BYTES`, kept in sync manually) to check file size client-side upfront and produce a precise error instead of relying on Supabase's vague message. If this limit ever needs to change, update it in **both** places.
+**Max archive size:** each chunk stays under 40MB client-side (`CHUNK_SIZE_BYTES` in `BackupSDK.ts`), with the `backups-tmp` bucket's `fileSizeLimit` set to 45MB (`TMP_BUCKET_SIZE_LIMIT` in `import-init/route.ts`) as a second safety net just above the client target. The **total** archive size is capped at 2GB (`MAX_TOTAL_SIZE_BYTES` in `BackupSDK.ts`, checked before slicing) — 50 chunks at 40MB each, matching `MAX_CHUNK_COUNT` in `import-init/route.ts`. If any of these numbers change, update them in **all three** places.
 
-**Hard ceiling this project cannot exceed on the Free plan: 50MB, and it is NOT editable from code.** Supabase Storage enforces a **project-wide "Global file size limit"** (Dashboard → Storage → Settings) on top of any per-bucket `fileSizeLimit` — the smaller of the two always wins, no matter what `createBucket`/`updateBucket` sets. On the Free plan this global limit is **fixed at 50MB and the input is disabled in the dashboard** (screenshot: [`public/docs/no-way-to-edit-upload-size.png`](public/docs/no-way-to-edit-upload-size.png)) — raising it requires upgrading to Supabase Pro (configurable up to 500GB). This is a billing/plan constraint, not a bug — do not re-investigate a 413 "Payload too large" / "exceeded the maximum allowed size" as a code issue unless the project has actually been upgraded past Free. The 1GB `TMP_BUCKET_SIZE_LIMIT` above only matters once the plan allows it; until then the real cap is 50MB regardless of what the bucket config says.
+**Hard ceiling this project cannot exceed on the Free plan: 50MB per upload request, and it is NOT editable from code.** Supabase Storage enforces a **project-wide "Global file size limit"** (Dashboard → Storage → Settings) on top of any per-bucket `fileSizeLimit` — the smaller of the two always wins, no matter what `createBucket`/`updateBucket` sets. On the Free plan this global limit is **fixed at 50MB and the input is disabled in the dashboard** (screenshot: [`public/docs/no-way-to-edit-upload-size.png`](public/docs/no-way-to-edit-upload-size.png)) — raising it requires upgrading to Supabase Pro (configurable up to 500GB). This is a billing/plan constraint, not a bug — do not re-investigate a 413 "Payload too large" / "exceeded the maximum allowed size" as a code issue unless the project has actually been upgraded past Free. This is exactly why import chunks each upload to begin with: chunking works within the 50MB ceiling instead of ignoring it.
 
 Import behavior is **append + override on conflict** — nothing is ever deleted:
 
@@ -170,6 +194,8 @@ This feature went through several wrong turns before landing on the architecture
 6. **Chasing the 413 "Payload too large" as a code bug after already setting `fileSizeLimit: "1gb"`.** Even with the per-bucket limit raised in code, uploads over 50MB still 413'd. **Wrong assumption:** that any remaining size error must mean the code-side limit isn't applied correctly. **Actual cause:** Supabase's Free-plan **project-wide** "Global file size limit" is hard-fixed at 50MB and the dashboard control is disabled — see the "Hard ceiling" note above and the screenshot. No `createBucket`/`updateBucket` call can override it; it requires a Supabase Pro upgrade. Stop checking bucket config for this specific error once the plan is confirmed to still be Free.
 
 7. **Sidebar cover images rendering blank:** first suspected as a URL-encoding regression (`getSupabasePublicUrl`'s manual `encodeURIComponent` per path segment vs. the old SDK's `getPublicUrl`). Ruled out because `/my-songs` rendered the *same* `image_path` correctly at the same time the sidebar showed blank — if the URL were wrong it would fail everywhere. **Actual root cause:** a CSS/layout regression in `MediaItem.tsx` (commit `668cc8f`) that swapped a working `fill`-inside-a-sized-`relative`-container pattern for fixed `width`/`height` + inline `style`, which collapsed the rendered `<img>` box. Fixed by restoring `fill` (matching the still-working `MySongsContent` pattern) with `sizes={size * 2}px` for a sharp (non-blurry) source. A **second, separate** issue remains open: some covers still show a real broken-image icon (genuine 404 — file missing/never uploaded), not a layout bug — root cause not yet found, see the open item below.
+
+8. **Import: fixing the 50MB upload ceiling alone (chunking) without also fixing processing time.** After chunking uploads to stay under Supabase's global 50MB limit, a large enough archive could still exceed the Vercel 60s function limit **during processing** — `import/route.ts`'s table-upsert-then-file-reupload loop had no time-budget check anywhere in it, so it was a second, independent problem that chunking the upload alone did not touch. **Wrong assumption:** that the 50MB limit and the 60s limit were the same problem, or that solving one would solve the other. **Fixed by** making import a three-step, resumable pipeline: `import-init` issues one signed URL per ≤40MB chunk, `import-finalize` reassembles the uploaded chunks into one archive, and `import` processes it in a loop, checking elapsed time **before every individual row batch and every individual file upload** (not just between whole tables) and returning a `{ type: "continue", cursor }` message the client echoes back on the next call. This is deliberately different from Failed Iteration #1's mistake: bytes never route through the Vercel function body during upload (chunks go browser→Supabase directly via signed URLs), and the budget is checked at a fine enough grain that the worst-case overrun is bounded to "one file's upload time," not "however long an entire unchecked loop takes."
 
 <br/>
 
