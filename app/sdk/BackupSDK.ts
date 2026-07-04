@@ -1,124 +1,32 @@
-export interface ManifestResult {
-  fileCount: number
-  totalBytes: number
-  estimatedMs: number
-  shouldSplit: boolean
-  splitIdx: number | null
-}
+import { getSupabasePublicUrl } from "@/libs/helpers"
+import {
+  BACKUP_TABLES,
+  BackupFileRef,
+  addTarEntry,
+  finalizeTar,
+  gzipBufferClient,
+} from "@/app/api/backup/tarClient"
 
 export interface ImportResult {
   tables: { table: string; rows: number; skipped: number }[]
   buckets: { bucket: string; files: number; failed: number }[]
 }
 
-export async function getManifest(includeImages: boolean, bytesPerMs?: number): Promise<ManifestResult> {
-  const params = new URLSearchParams({ includeImages: String(includeImages) })
-  if (bytesPerMs) params.set("bytesPerMs", String(bytesPerMs))
-
-  const res = await fetch(`/api/backup/manifest?${params}`)
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body?.error ?? `Manifest failed (${res.status})`)
-  }
-  return res.json()
+interface ExportManifest {
+  tables: Record<string, unknown[]>
+  files: BackupFileRef[]
 }
 
-// How long to spend probing the connection before using whatever was measured so far.
-const SPEED_TEST_DURATION_MS = 5_000
-// Fallback throughput (bytes/ms) if the probe fails entirely — matches the server's default.
-const FALLBACK_BYTES_PER_MS = 8_000
+// How many storage files to download from Supabase at once. The browser fetches directly from the
+// public CDN, so there is no Vercel timeout to respect — this is purely a throughput/politeness knob.
+const DOWNLOAD_CONCURRENCY = 5
 
-/** Repeatedly downloads a fixed-size payload for ~5s to measure real client download throughput. */
-export async function measureConnectionSpeed(): Promise<number> {
-  const startMs = performance.now()
-  let totalBytes = 0
-
-  try {
-    while (performance.now() - startMs < SPEED_TEST_DURATION_MS) {
-      const res = await fetch("/api/backup/speed-test", { cache: "no-store" })
-      if (!res.ok) break
-      const buf = await res.arrayBuffer()
-      totalBytes += buf.byteLength
-    }
-  } catch {
-    // Fall through to whatever was measured (or the fallback if nothing succeeded)
-  }
-
-  const elapsedMs = performance.now() - startMs
-  const bytesPerMs = totalBytes > 0 && elapsedMs > 0 ? totalBytes / elapsedMs : FALLBACK_BYTES_PER_MS
-
-  // Clamp to a sane range: 10 KB/s .. 500 MB/s
-  return Math.min(Math.max(bytesPerMs, 10), 500_000)
-}
-
-// Budget per chunk: leave 5s headroom below the 60s Vercel limit
-const BUDGET_MS = 55_000
-// Conservative initial guess when we have no timing data yet
-const INITIAL_MS_PER_FILE = 800
-
-interface ChunkResult {
-  fileName: string
-  blob: Blob
-  /** Actual ms spent downloading files (from the server's timing event) */
-  elapsedMs: number
-  filesProcessed: number
-  /** Absolute file index the server actually reached — may be short of the requested `to` */
-  nextFrom: number
-  /** True if the server hit its internal time budget and stopped before finishing the requested range */
-  isStoppedEarly: boolean
-}
-
-async function fetchChunk(
-  params: URLSearchParams,
-  onProgress: (done: number, total: number) => void,
-): Promise<ChunkResult> {
-  const res = await fetch(`/api/backup/export?${params}`)
-  if (!res.ok || !res.body) throw new Error(`Export request failed (${res.status})`)
-
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ""
-  let timing: { elapsedMs: number; filesProcessed: number } | null = null
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-
-    const lines = buffer.split("\n")
-    buffer = lines.pop() ?? ""
-
-    for (const line of lines) {
-      if (!line.trim()) continue
-      const msg = JSON.parse(line)
-      if (msg.type === "progress") {
-        onProgress(msg.done, msg.total)
-      } else if (msg.type === "timing") {
-        timing = { elapsedMs: msg.elapsedMs, filesProcessed: msg.filesProcessed }
-      } else if (msg.type === "done") {
-        const dlRes = await fetch("/api/backup/export", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: msg.token }),
-        })
-        if (!dlRes.ok) throw new Error(`Archive fetch failed (${dlRes.status})`)
-        return {
-          fileName: msg.fileName,
-          blob: await dlRes.blob(),
-          elapsedMs: timing?.elapsedMs ?? BUDGET_MS,
-          filesProcessed: timing?.filesProcessed ?? 1,
-          nextFrom: msg.nextFrom,
-          isStoppedEarly: Boolean(msg.isStoppedEarly),
-        }
-      } else if (msg.type === "error") {
-        throw new Error(msg.message)
-      }
-    }
-  }
-
-  throw new Error("Export stream ended without a done message")
-}
-
+/**
+ * Export the user's data entirely in the browser: fetch backup metadata (table rows + file paths)
+ * from the app server, download each storage file directly from Supabase's public CDN, and assemble
+ * a single .tar.gz locally. The app server never touches Storage bytes, so there is no 60s function
+ * timeout regardless of library size.
+ */
 export async function exportWithProgress(opts: {
   includeImages: boolean
   onProgress: (done: number, total: number) => void
@@ -126,85 +34,75 @@ export async function exportWithProgress(opts: {
 }): Promise<{ archives: { fileName: string; blob: Blob }[] }> {
   const { includeImages, onProgress, onPhase } = opts
 
-  onPhase?.("Testing connection speed…", 0, null)
-  const bytesPerMs = await measureConnectionSpeed()
+  onPhase?.("Exporting…", 1, 1)
 
-  const manifest = await getManifest(includeImages, bytesPerMs)
-  const totalFiles = manifest.fileCount
-  const archives: { fileName: string; blob: Blob }[] = []
+  // 1. Fetch metadata only (rows + file list) — always fast, never times out.
+  const params = new URLSearchParams({ includeImages: String(includeImages) })
+  const metaRes = await fetch(`/api/backup/export?${params}`)
+  if (!metaRes.ok) {
+    const body = await metaRes.json().catch(() => ({}))
+    throw new Error(body?.error ?? `Export failed (${metaRes.status})`)
+  }
+  const { tables, files }: ExportManifest = await metaRes.json()
 
-  const avgBytesPerFile = totalFiles > 0 ? manifest.totalBytes / totalFiles : 0
-  let msPerFile = avgBytesPerFile > 0 ? avgBytesPerFile / bytesPerMs : INITIAL_MS_PER_FILE
+  const total = BACKUP_TABLES.length + files.length
+  let done = 0
+  onProgress(done, total)
 
-  let from = 0
-  let chunkNum = 1
-  let to: number
+  const tarChunks: Buffer[] = []
+  const contentTypes: Record<string, string> = {}
 
-  if (!manifest.shouldSplit) {
-    onPhase?.("Exporting…", 1, 1)
-    const params = new URLSearchParams({ includeImages: String(includeImages) })
-    const result = await fetchChunk(params, onProgress)
-    archives.push({ fileName: result.fileName, blob: result.blob })
-
-    // The manifest's estimate can be wrong — if the server still had to stop
-    // early even on the "no split needed" path, fall through into the same
-    // chunked loop below to pick up the remaining files instead of returning
-    // a truncated archive as if it were complete.
-    if (!result.isStoppedEarly) return { archives }
-
-    if (result.filesProcessed > 0) msPerFile = result.elapsedMs / result.filesProcessed
-    from = result.nextFrom
-    chunkNum = 2
-    to = Math.min(from + Math.max(1, Math.ceil(Math.floor(BUDGET_MS / msPerFile) / 2)), totalFiles)
-  } else {
-    // ── Dynamic chunking ─────────────────────────────────────────────────────
-    // Chunk 1: use the manifest's initial splitIdx (sized off the measured
-    // connection speed) as the upper bound. After chunk 1 completes we know the
-    // real ms/file and recompute all subsequent chunk sizes so they each stay
-    // within BUDGET_MS.
-    to = Math.min(manifest.splitIdx ?? Math.max(1, Math.floor(BUDGET_MS / msPerFile)), totalFiles)
+  // 2. Pack table JSON.
+  for (const table of BACKUP_TABLES) {
+    addTarEntry(tarChunks, `${table}.json`, Buffer.from(JSON.stringify(tables[table] ?? []), "utf8"))
+    done++
+    onProgress(done, total)
   }
 
-  while (from < totalFiles) {
-    const isFirst = chunkNum === 1
-    // We don't know total chunks yet on first iteration — pass null
-    onPhase?.(`Exporting part ${chunkNum}…`, chunkNum, null)
-    onProgress(0, to - from + (isFirst ? BACKUP_TABLES_COUNT : 0))
+  // 3. Download storage files directly from Supabase (small concurrency pool) and pack them.
+  //    Results are collected then appended in original order so the archive layout is stable.
+  const packed: Array<{ file: BackupFileRef; buf: Buffer | null }> = new Array(files.length)
+  let nextIdx = 0
 
-    const params = new URLSearchParams({
-      includeImages: String(includeImages),
-      from: String(from),
-      to: String(to),
-      chunk: String(chunkNum),
-      includeTables: String(isFirst),
-    })
-
-    const result = await fetchChunk(params, onProgress)
-    archives.push({ fileName: result.fileName, blob: result.blob })
-
-    // Calibrate: compute real ms/file from this chunk's timing
-    if (result.filesProcessed > 0) {
-      msPerFile = result.elapsedMs / result.filesProcessed
+  async function worker() {
+    while (nextIdx < files.length) {
+      const i = nextIdx++
+      const file = files[i]
+      const url = getSupabasePublicUrl(file.bucket, file.path)
+      let buf: Buffer | null = null
+      if (url) {
+        try {
+          const res = await fetch(url)
+          if (res.ok) buf = Buffer.from(await res.arrayBuffer())
+        } catch {
+          // Missing/failed file — skip it (buf stays null), same as the old server path did on error.
+        }
+      }
+      packed[i] = { file, buf }
+      done++
+      onProgress(done, total)
     }
-
-    // Advance from the server's actual stopping point, not the requested `to` —
-    // if the server ran out of its time budget it may have processed fewer files
-    // than asked, and the next request must pick up exactly where it left off.
-    from = result.nextFrom
-    chunkNum++
-
-    // How many files can the next chunk safely handle? If the server just stopped
-    // early, be more conservative than the raw estimate so the next chunk doesn't
-    // immediately hit the same wall.
-    const nextChunkSize = Math.max(1, Math.floor(BUDGET_MS / msPerFile))
-    to = Math.min(from + (result.isStoppedEarly ? Math.ceil(nextChunkSize / 2) : nextChunkSize), totalFiles)
   }
 
-  return { archives }
-}
+  await Promise.all(Array.from({ length: Math.min(DOWNLOAD_CONCURRENCY, files.length || 1) }, worker))
 
-// Keep BACKUP_TABLES length accessible on the client for progress display
-const BACKUP_TABLES_COUNT = 4
+  for (const { file, buf } of packed) {
+    if (!buf) continue
+    addTarEntry(tarChunks, `storage/${file.bucket}/${file.path}`, buf)
+    contentTypes[`${file.bucket}/${file.path}`] = file.contentType
+  }
+
+  addTarEntry(tarChunks, "storage-content-types.json", Buffer.from(JSON.stringify(contentTypes), "utf8"))
+
+  // 4. Finalize + gzip in the browser (CompressionStream) → single archive.
+  const tarBuf = finalizeTar(tarChunks)
+  const gz = await gzipBufferClient(new Uint8Array(tarBuf))
+  const date = new Date().toISOString().slice(0, 10)
+  const fileName = `19_backup-${date}.tar.gz`
+  const blob = new Blob([gz], { type: "application/gzip" })
+
+  return { archives: [{ fileName, blob }] }
+}
 
 export async function importArchive(
   file: File,
