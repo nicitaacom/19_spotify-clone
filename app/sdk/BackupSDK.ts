@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js"
 import { getSupabasePublicUrl } from "@/libs/helpers"
 import {
   BACKUP_TABLES,
@@ -8,14 +7,37 @@ import {
   gzipBufferClient,
 } from "@/app/api/backup/tarClient"
 
-// Anon-key client used only for `uploadToSignedUrl` — the signed URL/token themselves are the
-// authorization (issued by /api/backup/import-init using the service role), so no user session is
-// needed here. Using the SDK method (rather than a hand-rolled fetch) guarantees the exact
-// multipart protocol Supabase's signed-upload endpoint expects.
-const supabaseStorageClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-)
+/**
+ * Upload a file to a Supabase signed upload URL with real progress events, using the same
+ * multipart shape as the Supabase SDK's `uploadToSignedUrl` (a `cacheControl` field + the file
+ * appended under an empty-string key) — but via XHR so we get `upload.onprogress` instead of a
+ * single opaque await with no feedback until the whole upload finishes.
+ */
+function uploadToSignedUrlWithProgress(
+  signedUrl: string,
+  file: File,
+  onProgress: (loaded: number, total: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open("PUT", signedUrl)
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable) onProgress(e.loaded, e.total)
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve()
+      } else {
+        reject(new Error(`Archive upload failed (${xhr.status}): ${xhr.responseText || xhr.statusText}`))
+      }
+    }
+    xhr.onerror = () => reject(new Error("Archive upload failed: network error"))
+    const formData = new FormData()
+    formData.append("cacheControl", "3600")
+    formData.append("", file)
+    xhr.send(formData)
+  })
+}
 
 export interface ImportResult {
   tables: { table: string; rows: number; skipped: number }[]
@@ -120,7 +142,7 @@ const TMP_BUCKET_SIZE_LIMIT_BYTES = 1024 * 1024 * 1024 // 1gb
 
 export async function importArchive(
   file: File,
-  onProgress: (done: number, total: number, label: string) => void,
+  onProgress: (done: number, total: number, label: string, phase: "uploading" | "processing") => void,
 ): Promise<ImportResult> {
   if (file.size > TMP_BUCKET_SIZE_LIMIT_BYTES) {
     const limitMb = Math.round(TMP_BUCKET_SIZE_LIMIT_BYTES / (1024 * 1024))
@@ -130,23 +152,16 @@ export async function importArchive(
 
   // 1. Get a signed upload URL and upload the archive directly to Supabase — this bypasses the
   //    Vercel function's request body size cap (~4.5MB) since the bytes never pass through our API.
-  onProgress(0, 0, "Uploading archive…")
   const initRes = await fetch("/api/backup/import-init", { method: "POST" })
   if (!initRes.ok) {
     const body = await initRes.json().catch(() => ({}))
     throw new Error(body?.error ?? `Failed to start import (${initRes.status})`)
   }
-  const { path, token } = await initRes.json()
+  const { path, signedUrl } = await initRes.json()
 
-  const { error: uploadError } = await supabaseStorageClient.storage
-    .from("backups-tmp")
-    .uploadToSignedUrl(path, token, file, { contentType: "application/gzip" })
-  if (uploadError) {
-    // Never guess the cause from the error text — show exactly what Supabase reported. The
-    // upfront file.size check above is the only place a size-limit message is ever asserted,
-    // and only when it's actually true.
-    throw new Error(`Archive upload failed: ${uploadError.message}`)
-  }
+  await uploadToSignedUrlWithProgress(signedUrl, file, (loaded, total) => {
+    onProgress(loaded, total, `Uploading archive… ${Math.round((loaded / total) * 100)}%`, "uploading")
+  })
 
   // 2. Tell the server where to find it — server downloads from Supabase and processes it.
   const res = await fetch("/api/backup/import", {
@@ -176,7 +191,7 @@ export async function importArchive(
       if (!line.trim()) continue
       const msg = JSON.parse(line)
       if (msg.type === "progress") {
-        onProgress(msg.done, msg.total, msg.label ?? "")
+        onProgress(msg.done, msg.total, msg.label ?? "", "processing")
       } else if (msg.type === "done") {
         return { tables: msg.tables, buckets: msg.buckets }
       } else if (msg.type === "error") {

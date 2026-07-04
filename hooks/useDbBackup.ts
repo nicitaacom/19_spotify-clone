@@ -84,7 +84,8 @@ export function useDbBackup() {
     try {
       for (let i = 0; i < files.length; i++) {
         if (files.length > 1) setImportLabel(`Archive ${i + 1} of ${files.length}…`)
-        const result = await importArchive(files[i], (done, total, label) => {
+        const result = await importArchive(files[i], (done, total, label, phase) => {
+          setImportPhase(phase)
           setImportDone(done)
           setImportTotal(total)
           setImportLabel(label)

@@ -148,9 +148,11 @@ const DbBackupModal = () => {
               </div>
               <div className="flex items-center justify-between gap-x-2">
                 <p className="text-xs text-neutral-400 truncate">{backup.importLabel}</p>
-                <p className="text-xs text-neutral-500 shrink-0">
-                  {backup.importDone} / {backup.importTotal}
-                </p>
+                {backup.importPhase === "processing" && (
+                  <p className="text-xs text-neutral-500 shrink-0">
+                    {backup.importDone} / {backup.importTotal}
+                  </p>
+                )}
               </div>
             </div>
           )}
