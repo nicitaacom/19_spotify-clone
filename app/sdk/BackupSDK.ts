@@ -28,7 +28,16 @@ function uploadToSignedUrlWithProgress(
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve()
       } else {
-        reject(new Error(`Archive upload failed (${xhr.status}): ${xhr.responseText || xhr.statusText}`))
+        // Supabase's error body is JSON (e.g. {"statusCode":"413","error":"...","message":"..."}) —
+        // parse it for a human-readable message instead of dumping the raw JSON string to the user.
+        let message = xhr.responseText || xhr.statusText
+        try {
+          const body = JSON.parse(xhr.responseText)
+          if (body?.message) message = body.message
+        } catch {
+          // Not JSON — fall back to the raw text as-is.
+        }
+        reject(new Error(`Archive upload failed: ${message}`))
       }
     }
     xhr.onerror = () => reject(new Error("Archive upload failed: network error"))
