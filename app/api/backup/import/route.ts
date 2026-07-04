@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { requireUser } from "../requireUser"
-import { BACKUP_TABLES, parseTar, gunzipBuffer } from "../backupTables"
+import { BACKUP_TABLES, parseTar, gunzipBuffer } from "@/app/features/backup/backupTables"
 import { NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"

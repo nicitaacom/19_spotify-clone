@@ -3,9 +3,9 @@
 import { useRef } from "react"
 import { FiDownload, FiUpload, FiCheckCircle, FiAlertCircle } from "react-icons/fi"
 
-import Modal from "./Modal"
-import useDbBackupModal from "@/hooks/useDbBackupModal"
-import { useDbBackup } from "@/hooks/useDbBackup"
+import Modal from "@/components/Modal"
+import useDbBackupModal from "./useDbBackupModal"
+import { useDbBackup } from "./useDbBackup"
 
 const DbBackupModal = () => {
   const modal = useDbBackupModal()

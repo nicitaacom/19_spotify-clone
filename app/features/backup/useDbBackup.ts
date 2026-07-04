@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import { toast } from "react-hot-toast"
-import { exportWithProgress, exportTables, importTables, importArchive, downloadBlob, ImportResult, TablesImportResult } from "@/app/sdk/BackupSDK"
+import { exportWithProgress, exportTables, importTables, importArchive, downloadBlob, ImportResult, TablesImportResult } from "./BackupSDK"
 
 type ExportPhase = "idle" | "exporting" | "done" | "error"
 type ImportPhase = "idle" | "uploading" | "processing" | "done" | "error"

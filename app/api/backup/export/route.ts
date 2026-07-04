@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { requireUser } from "../requireUser"
-import { BACKUP_TABLES, BackupFileRef } from "../backupTables"
+import { BACKUP_TABLES, BackupFileRef } from "@/app/features/backup/backupTables"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -11,7 +11,7 @@ export const maxDuration = 60
 // Returns backup METADATA ONLY — table rows + a list of storage file paths. This route never
 // touches Storage bytes, so it always returns well under the platform timeout regardless of how
 // large the user's library is. The browser downloads each file directly from Supabase's public
-// CDN and assembles the .tar.gz locally (see app/sdk/BackupSDK.ts), keeping the Vercel function
+// CDN and assembles the .tar.gz locally (see app/features/backup/BackupSDK.ts), keeping the Vercel function
 // out of the byte path entirely.
 //
 // Response: { tables: Record<table, rows[]>, files: BackupFileRef[] }

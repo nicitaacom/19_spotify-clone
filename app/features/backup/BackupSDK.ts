@@ -7,8 +7,8 @@ import {
   parseTar,
   gzipBufferClient,
   gunzipBufferClient,
-} from "@/app/api/backup/tarClient"
-import { toCsv, parseCsv } from "@/app/api/backup/csvClient"
+} from "./tarClient"
+import { toCsv, parseCsv } from "./csvClient"
 
 /**
  * Upload a chunk to a Supabase signed upload URL with real progress events, using the same

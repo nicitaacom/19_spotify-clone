@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { requireUser } from "../requireUser"
-import { BACKUP_TABLES, BackupTable } from "../backupTables"
+import { BACKUP_TABLES, BackupTable } from "@/app/features/backup/backupTables"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -21,7 +21,7 @@ const NUMERIC_COLUMNS: Record<BackupTable, string[]> = {
 //
 // Returns every backed-up table's rows for the session user, as JSON — always small, never
 // touches Storage bytes. The browser converts each table to CSV and packs them into one
-// .tar.gz (see app/sdk/BackupSDK.ts's exportTables).
+// .tar.gz (see app/features/backup/BackupSDK.ts's exportTables).
 //
 // Response: { tables: Record<table, rows[]> }
 export async function GET() {

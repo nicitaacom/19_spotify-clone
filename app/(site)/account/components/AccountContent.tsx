@@ -7,7 +7,7 @@ import { FiDownload } from "react-icons/fi"
 import { useUser } from "@/hooks/useUser"
 import Button from "@/components/Button"
 import { postData } from "@/libs/helpers"
-import useDbBackupModal from "@/hooks/useDbBackupModal"
+import useDbBackupModal from "@/app/features/backup/useDbBackupModal"
 import StorageUsageBar from "@/components/StorageUsageBar"
 
 const AccountContent = () => {

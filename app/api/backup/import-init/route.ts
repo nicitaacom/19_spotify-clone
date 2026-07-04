@@ -9,7 +9,7 @@ const TMP_BUCKET = "backups-tmp"
 // cannot be raised from code (see dev_readme-backup.md). The archive is uploaded in chunks to stay
 // under that ceiling, so the bucket limit only needs to cover one chunk, not the whole archive.
 const TMP_BUCKET_SIZE_LIMIT = "45mb"
-// Matches MAX_TOTAL_SIZE_BYTES / CHUNK_SIZE_BYTES in app/sdk/BackupSDK.ts — kept in sync manually.
+// Matches MAX_TOTAL_SIZE_BYTES / CHUNK_SIZE_BYTES in app/features/backup/BackupSDK.ts — kept in sync manually.
 const MAX_CHUNK_COUNT = 50
 
 // POST /api/backup/import-init  { chunkCount }
