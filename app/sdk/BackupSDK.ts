@@ -11,13 +11,44 @@ export interface ImportResult {
   buckets: { bucket: string; files: number; failed: number }[]
 }
 
-export async function getManifest(includeImages: boolean): Promise<ManifestResult> {
-  const res = await fetch(`/api/backup/manifest?includeImages=${includeImages}`)
+export async function getManifest(includeImages: boolean, bytesPerMs?: number): Promise<ManifestResult> {
+  const params = new URLSearchParams({ includeImages: String(includeImages) })
+  if (bytesPerMs) params.set("bytesPerMs", String(bytesPerMs))
+
+  const res = await fetch(`/api/backup/manifest?${params}`)
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new Error(body?.error ?? `Manifest failed (${res.status})`)
   }
   return res.json()
+}
+
+// How long to spend probing the connection before using whatever was measured so far.
+const SPEED_TEST_DURATION_MS = 5_000
+// Fallback throughput (bytes/ms) if the probe fails entirely — matches the server's default.
+const FALLBACK_BYTES_PER_MS = 8_000
+
+/** Repeatedly downloads a fixed-size payload for ~5s to measure real client download throughput. */
+export async function measureConnectionSpeed(): Promise<number> {
+  const startMs = performance.now()
+  let totalBytes = 0
+
+  try {
+    while (performance.now() - startMs < SPEED_TEST_DURATION_MS) {
+      const res = await fetch("/api/backup/speed-test", { cache: "no-store" })
+      if (!res.ok) break
+      const buf = await res.arrayBuffer()
+      totalBytes += buf.byteLength
+    }
+  } catch {
+    // Fall through to whatever was measured (or the fallback if nothing succeeded)
+  }
+
+  const elapsedMs = performance.now() - startMs
+  const bytesPerMs = totalBytes > 0 && elapsedMs > 0 ? totalBytes / elapsedMs : FALLBACK_BYTES_PER_MS
+
+  // Clamp to a sane range: 10 KB/s .. 500 MB/s
+  return Math.min(Math.max(bytesPerMs, 10), 500_000)
 }
 
 // Budget per chunk: leave 5s headroom below the 60s Vercel limit

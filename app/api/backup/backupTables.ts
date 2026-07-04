@@ -22,9 +22,10 @@ export interface BackupFileRef {
   contentType: string
 }
 
-export function estimateExportMs(files: BackupFileRef[]): number {
+export function estimateExportMs(files: BackupFileRef[], bytesPerMs?: number): number {
   const totalBytes = files.reduce((sum, f) => sum + f.size, 0)
-  return Math.ceil(totalBytes / THROUGHPUT_BYTES_PER_MS + files.length * OVERHEAD_MS_PER_FILE)
+  const throughput = bytesPerMs && bytesPerMs > 0 ? bytesPerMs : THROUGHPUT_BYTES_PER_MS
+  return Math.ceil(totalBytes / throughput + files.length * OVERHEAD_MS_PER_FILE)
 }
 
 export function splitRefsByHalf(files: BackupFileRef[]): { splitIdx: number } {
