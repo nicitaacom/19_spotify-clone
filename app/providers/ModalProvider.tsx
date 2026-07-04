@@ -8,6 +8,7 @@ import DbBackupModal from "@/app/features/backup/DbBackupModal"
 import EditSongModal from "../../components/EditSongModal"
 import SearchModal from "../../components/SearchModal"
 import UploadModal from "../../components/UploadModal"
+import { AreYouSureModalsProvider } from "../../components/modals/AreYouSureModalsProvider"
 
 export default function ModalProvider() {
   const [isMounted, setIsMounted] = useState(false)
@@ -29,6 +30,7 @@ export default function ModalProvider() {
       <DbBackupModal />
       <EditSongModal />
       <UploadModal />
+      <AreYouSureModalsProvider />
     </>
   )
 }

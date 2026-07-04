@@ -7,6 +7,7 @@ import { FiTrash2 } from "react-icons/fi"
 import { twMerge } from "tailwind-merge"
 
 import { Song } from "@/types"
+import { useAreYouSureModals } from "@/store/modals/useAreYouSureModals"
 
 interface DeleteSongButtonProps {
   song: Song
@@ -18,11 +19,13 @@ interface DeleteSongButtonProps {
 
 const DeleteSongButton: React.FC<DeleteSongButtonProps> = ({ song, className, iconClassName, size = 15, onDeleted }) => {
   const router = useRouter()
+  const { openModal } = useAreYouSureModals()
 
   const handleDelete = async (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
 
-    if (!confirm(`Delete "${song.title}"? This cannot be undone.`)) return
+    const confirmed = await openModal("areYouSureDeleteSong", { title: song.title })
+    if (!confirmed) return
 
     const response = await fetch(`/api/songs/${song.id}/delete`, { method: "DELETE" })
 

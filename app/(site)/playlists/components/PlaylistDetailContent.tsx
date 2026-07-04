@@ -16,6 +16,7 @@ import PlaylistVisibilityBadge from "@/components/PlaylistVisibilityBadge"
 import useOnPlay from "@/hooks/useOnPlay"
 import useOwnerStore from "@/hooks/useOwnerStore"
 import { PlaylistDetail, PlaylistSongWithSong, PlaylistVisibility } from "@/types"
+import { useAreYouSureModals } from "@/store/modals/useAreYouSureModals"
 
 interface PlaylistDetailContentProps {
   canManage: boolean
@@ -32,6 +33,7 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
   const router = useRouter()
   const { supabaseClient } = useSessionContext()
   const { isOwner } = useOwnerStore()
+  const { openModal } = useAreYouSureModals()
 
   const [title, setTitle] = useState(playlist.title)
   const [description, setDescription] = useState(playlist.description ?? "")
@@ -116,7 +118,7 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
   }
 
   const handleDeletePlaylist = async () => {
-    const shouldDelete = window.confirm(`Delete "${playlist.title}"?`)
+    const shouldDelete = await openModal("areYouSureDeletePlaylist", { title: playlist.title })
 
     if (!shouldDelete) {
       return

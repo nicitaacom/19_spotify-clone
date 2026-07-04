@@ -24,7 +24,6 @@ export function useDbBackup() {
   const [tablesImportLabel, setTablesImportLabel] = useState("")
   const [tablesImportResult, setTablesImportResult] = useState<TablesImportResult | null>(null)
   const [tablesImportError, setTablesImportError] = useState<string | null>(null)
-  const tablesImportFileRef = useRef<HTMLInputElement | null>(null)
 
   // Files export state
   const [filesExportPhase, setFilesExportPhase] = useState<FilesExportPhase>("idle")
@@ -40,7 +39,6 @@ export function useDbBackup() {
   const [filesImportLabel, setFilesImportLabel] = useState("")
   const [filesImportResult, setFilesImportResult] = useState<FilesImportResult | null>(null)
   const [filesImportError, setFilesImportError] = useState<string | null>(null)
-  const filesImportFileRef = useRef<HTMLInputElement | null>(null)
 
   // "Taking longer than usual" watchdog: bump lastProgressRef on every progress event; a 1s ticker
   // flips isStalled on once nothing has advanced for STALL_THRESHOLD_MS, and back off on the next
@@ -154,8 +152,6 @@ export function useDbBackup() {
       const message = err?.message ?? "Files import failed"
       setFilesImportError(message)
       toast.error(message)
-    } finally {
-      if (filesImportFileRef.current) filesImportFileRef.current.value = ""
     }
   }
 
@@ -186,8 +182,6 @@ export function useDbBackup() {
       const message = err?.message ?? "Tables import failed"
       setTablesImportError(message)
       toast.error(message)
-    } finally {
-      if (tablesImportFileRef.current) tablesImportFileRef.current.value = ""
     }
   }
 
@@ -202,7 +196,6 @@ export function useDbBackup() {
     setTablesImportLabel("")
     setTablesImportResult(null)
     setTablesImportError(null)
-    if (tablesImportFileRef.current) tablesImportFileRef.current.value = ""
     setFilesExportPhase("idle")
     setFilesExportDone(0)
     setFilesExportTotal(0)
@@ -213,7 +206,6 @@ export function useDbBackup() {
     setFilesImportLabel("")
     setFilesImportResult(null)
     setFilesImportError(null)
-    if (filesImportFileRef.current) filesImportFileRef.current.value = ""
   }
 
   const tablesExportProgress = tablesExportTotal > 0 ? Math.round((tablesExportDone / tablesExportTotal) * 100) : 0
@@ -234,11 +226,11 @@ export function useDbBackup() {
     isBusy, isStalled, activeLabel,
     tablesExportPhase, tablesExportProgress, tablesExportDone, tablesExportTotal, tablesExportError, startExportTables,
     tablesImportPhase, tablesImportProgress, tablesImportDone, tablesImportTotal, tablesImportLabel,
-    tablesImportResult, tablesImportError, tablesImportFileRef, startImportTables,
+    tablesImportResult, tablesImportError, startImportTables,
     filesExportPhase, filesExportProgress, filesExportDone, filesExportTotal, filesExportError,
     includeImagesFiles, setIncludeImagesFiles, startExportFiles,
     filesImportPhase, filesImportProgress, filesImportDone, filesImportTotal, filesImportLabel,
-    filesImportResult, filesImportError, filesImportFileRef, startImportFiles,
+    filesImportResult, filesImportError, startImportFiles,
     reset,
   }
 }

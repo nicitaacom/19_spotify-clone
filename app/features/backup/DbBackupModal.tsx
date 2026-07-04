@@ -1,33 +1,41 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useState } from "react"
 import { FiDownload, FiUpload, FiCheckCircle, FiAlertCircle, FiClock } from "react-icons/fi"
 
-import Modal from "@/components/Modal"
+import { ModalContainer } from "./ModalContainer"
 import useDbBackupModal from "./useDbBackupModal"
 import { useDbBackup } from "./useDbBackup"
+
+type BackupMode = "tables" | "files"
+
+// TEMP: force the "taking longer than usual" notice on so its look can be verified. Remove this and
+// go back to `backup.isStalled` once confirmed.
+const FORCE_SHOW_STALL_NOTICE = true
 
 const DbBackupModal = () => {
   const modal = useDbBackupModal()
   const backup = useDbBackup()
-  const tablesFileInputRef = useRef<HTMLInputElement>(null)
-  const filesFileInputRef = useRef<HTMLInputElement>(null)
+  const [mode, setMode] = useState<BackupMode>("tables")
+  const tablesInputRef = useRef<HTMLInputElement>(null)
+  const filesInputRef = useRef<HTMLInputElement>(null)
 
-  const onChange = (open: boolean) => {
-    if (!open) {
-      backup.reset()
-      modal.onClose()
-    }
+  const handleClose = () => {
+    backup.reset()
+    modal.onClose()
   }
 
+  // Kick off the import, then clear the input so re-selecting the same file fires onChange again.
   const handleTablesFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files?.length) backup.startImportTables(files)
+    e.target.value = ""
   }
 
   const handleFilesFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files?.length) backup.startImportFiles(files)
+    e.target.value = ""
   }
 
   const isExportingTables = backup.tablesExportPhase === "exporting"
@@ -35,17 +43,51 @@ const DbBackupModal = () => {
   const isExportingFiles = backup.filesExportPhase === "exporting"
   const isImportingFiles = backup.filesImportPhase === "importing"
   const isBusy = isExportingTables || isImportingTables || isExportingFiles || isImportingFiles
+  const showStallNotice = FORCE_SHOW_STALL_NOTICE || backup.isStalled
 
   return (
-    <Modal
+    <ModalContainer
       isOpen={modal.isOpen}
-      onChange={onChange}
-      title="My Data Backup"
+      onClose={handleClose}
+      label="My Data Backup"
       description="Back up your rows and your files separately — each has its own export and import."
-      contentClassName="md:max-w-[520px]">
-      <div className="flex flex-col gap-y-6 pb-2">
+      closeOnBackdrop={!isBusy}>
+      <div className="flex flex-col gap-y-4 min-h-0">
+
+        {/* Mode switch — pick which backup to work with; only that card renders, so the modal never
+            has to hold both at once (which is what used to overflow it). */}
+        <div className="flex gap-x-2 rounded-lg border border-white/10 bg-elevated/40 p-1">
+          {([
+            { value: "tables", label: "Tables (rows)" },
+            { value: "files", label: "Files (storage)" },
+          ] as const).map(option => {
+            const isActive = mode === option.value
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setMode(option.value)}
+                disabled={isBusy}
+                aria-pressed={isActive}
+                className={`
+                  flex-1 rounded-md px-3 py-2 text-sm font-semibold transition
+                  disabled:cursor-not-allowed disabled:opacity-50
+                  ${isActive
+                    ? "border border-neon bg-neon/15 text-neon shadow-neon-sm"
+                    : "border border-transparent text-neutral-400 hover:text-neutral-200"}
+                `}>
+                {option.label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* The selected card. Given a bounded height so it scrolls INSIDE the modal instead of
+            pushing content past the modal border. */}
+        <div className="flex flex-col overflow-y-auto pr-1 max-h-[60dvh] md:max-h-[calc(85vh-230px)]">
 
         {/* ═══ Tables (rows / CSV) ═══ */}
+        {mode === "tables" && (
         <section className="flex flex-col gap-y-4 rounded-xl border border-white/10 bg-elevated/30 p-4">
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Tables (rows)</h3>
@@ -103,10 +145,7 @@ const DbBackupModal = () => {
           <div className="flex flex-col gap-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Import</p>
             <input
-              ref={el => {
-                tablesFileInputRef.current = el
-                backup.tablesImportFileRef.current = el
-              }}
+              ref={tablesInputRef}
               type="file"
               accept=".csv,.tar.gz,.gz,.tgz"
               multiple
@@ -116,7 +155,7 @@ const DbBackupModal = () => {
 
             <button
               type="button"
-              onClick={() => tablesFileInputRef.current?.click()}
+              onClick={() => tablesInputRef.current?.click()}
               disabled={isBusy}
               className="
                 flex items-center justify-center gap-x-2
@@ -171,8 +210,10 @@ const DbBackupModal = () => {
             )}
           </div>
         </section>
+        )}
 
         {/* ═══ Files (storage) ═══ */}
+        {mode === "files" && (
         <section className="flex flex-col gap-y-4 rounded-xl border border-white/10 bg-elevated/30 p-4">
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Files (storage)</h3>
@@ -247,10 +288,7 @@ const DbBackupModal = () => {
           <div className="flex flex-col gap-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">Import</p>
             <input
-              ref={el => {
-                filesFileInputRef.current = el
-                backup.filesImportFileRef.current = el
-              }}
+              ref={filesInputRef}
               type="file"
               accept=".tar.gz,.gz,.tgz"
               className="hidden"
@@ -259,7 +297,7 @@ const DbBackupModal = () => {
 
             <button
               type="button"
-              onClick={() => filesFileInputRef.current?.click()}
+              onClick={() => filesInputRef.current?.click()}
               disabled={isBusy}
               className="
                 flex items-center justify-center gap-x-2
@@ -314,11 +352,14 @@ const DbBackupModal = () => {
             )}
           </div>
         </section>
+        )}
+        </div>
 
-        {/* "Taking longer than usual" notice — shown when a running operation hasn't advanced for a while. */}
-        {backup.isStalled && (
-          <div className="flex items-start gap-x-2 rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-300">
-            <FiClock size={14} className="mt-0.5 shrink-0" />
+        {/* "Taking longer than usual" notice — pinned below the scroll area (not inside it), so it
+            appears without scrolling and never grows the modal. */}
+        {showStallNotice && (
+          <div className="flex items-start gap-x-2 rounded-md border border-amber-400/30 bg-amber-400/10 p-2.5 text-xs text-amber-300">
+            <FiClock size={13} className="mt-0.5 shrink-0" />
             <span className="break-words">
               Taking longer than usual{backup.activeLabel ? ` — still ${backup.activeLabel}` : ""}. A large library or a slow
               connection can cause this; leave this open while it finishes.
@@ -326,12 +367,12 @@ const DbBackupModal = () => {
           </div>
         )}
 
-        <p className="text-sm text-neutral-400">
+        <p className="text-xs text-neutral-400">
           Import merges data — existing rows and files are <span className="text-white">replaced</span>, nothing is deleted.
           Import tables before files so restored files are recognized as yours.
         </p>
       </div>
-    </Modal>
+    </ModalContainer>
   )
 }
 
