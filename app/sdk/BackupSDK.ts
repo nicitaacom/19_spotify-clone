@@ -118,7 +118,7 @@ export async function exportWithProgress(opts: {
     const isFirst = chunkNum === 1
     // We don't know total chunks yet on first iteration — pass null
     onPhase?.(`Exporting part ${chunkNum}…`, chunkNum, null)
-    onProgress(0, to - from + (isFirst ? BACKUP_TABLES.length : 0))
+    onProgress(0, to - from + (isFirst ? BACKUP_TABLES_COUNT : 0))
 
     const params = new URLSearchParams({
       includeImages: String(includeImages),

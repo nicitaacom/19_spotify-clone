@@ -36,7 +36,7 @@ export async function POST(req: Request) {
   const entries = parseTar(tarBuf)
 
   // Count total work units for progress: tables + storage files
-  const storageEntries = [...entries.keys()].filter(k => k.startsWith("storage/"))
+  const storageEntries = Array.from(entries.keys()).filter(k => k.startsWith("storage/"))
   const total = BACKUP_TABLES.length + storageEntries.length
 
   const encoder = new TextEncoder()
