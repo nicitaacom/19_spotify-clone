@@ -11,6 +11,7 @@ const DbBackupModal = () => {
   const modal = useDbBackupModal()
   const backup = useDbBackup()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const tablesFileInputRef = useRef<HTMLInputElement>(null)
 
   const onChange = (open: boolean) => {
     if (!open) {
@@ -24,8 +25,16 @@ const DbBackupModal = () => {
     if (files?.length) backup.startImport(files)
   }
 
+  const handleTablesFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files?.length) backup.startImportTables(files)
+  }
+
+  const isExportingTables = backup.tablesExportPhase === "exporting"
+  const isImportingTables = backup.tablesImportPhase === "importing"
   const isExporting = backup.exportPhase === "exporting"
   const isImporting = backup.importPhase === "uploading" || backup.importPhase === "processing"
+  const isBusy = isExporting || isImporting || isExportingTables || isImportingTables
 
   return (
     <Modal
@@ -60,7 +69,7 @@ const DbBackupModal = () => {
 
           <button
             onClick={backup.startExport}
-            disabled={isExporting || isImporting}
+            disabled={isBusy}
             className="
               flex items-center justify-center gap-x-2
               w-full rounded-md bg-neon px-4 py-2.5
@@ -111,7 +120,7 @@ const DbBackupModal = () => {
 
           <button
             onClick={backup.startExportTables}
-            disabled={isExporting || isImporting || backup.tablesExportPhase === "exporting"}
+            disabled={isBusy}
             className="
               flex items-center justify-center gap-x-2
               w-full rounded-md border border-neon/30 bg-elevated px-4 py-2.5
@@ -121,10 +130,10 @@ const DbBackupModal = () => {
               transition
             ">
             <FiDownload size={15} />
-            {backup.tablesExportPhase === "exporting" ? "Exporting tables…" : "Export tables as CSV"}
+            {isExportingTables ? "Exporting tables…" : "Export tables as CSV"}
           </button>
 
-          {backup.tablesExportPhase === "exporting" && (
+          {isExportingTables && (
             <div className="flex flex-col gap-y-1.5">
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-elevated">
                 <div
@@ -151,6 +160,74 @@ const DbBackupModal = () => {
               <span className="break-words">{backup.tablesExportError ?? "Tables export failed."}</span>
             </div>
           )}
+
+          <input
+            ref={el => {
+              tablesFileInputRef.current = el
+              backup.tablesImportFileRef.current = el
+            }}
+            type="file"
+            accept=".csv,.tar.gz,.gz,.tgz"
+            multiple
+            className="hidden"
+            onChange={handleTablesFileChange}
+          />
+
+          <button
+            type="button"
+            onClick={() => tablesFileInputRef.current?.click()}
+            disabled={isBusy}
+            className="
+              flex items-center justify-center gap-x-2
+              w-full rounded-md border border-neon/30 bg-elevated px-4 py-2.5
+              text-sm font-semibold text-neon
+              hover:border-neon/60 hover:bg-elevated/80
+              disabled:cursor-not-allowed disabled:opacity-50
+              transition
+            ">
+            <FiUpload size={15} />
+            {isImportingTables ? "Importing tables…" : "Import tables (.csv or .tar.gz)…"}
+          </button>
+
+          {isImportingTables && (
+            <div className="flex flex-col gap-y-1.5">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-elevated">
+                <div
+                  style={{ width: `${backup.tablesImportProgress}%` }}
+                  className="h-full rounded-full bg-neon shadow-neon-sm transition-all duration-200"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-x-2">
+                <p className="text-xs text-neutral-400 truncate">{backup.tablesImportLabel}</p>
+                <p className="text-xs text-neutral-500 shrink-0">
+                  {backup.tablesImportDone} / {backup.tablesImportTotal}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {backup.tablesImportResult && backup.tablesImportPhase === "done" && (
+            <div className="flex flex-col gap-y-1 rounded-md border border-white/10 bg-elevated/50 p-3">
+              {backup.tablesImportResult.tables.map(table => (
+                <div key={table.table} className="flex items-center gap-x-2 text-xs text-neutral-300">
+                  <FiCheckCircle size={12} className="shrink-0 text-neon" />
+                  <span>
+                    <span className="font-mono text-white">{table.table}</span>
+                    {" → "}
+                    {table.rows} rows
+                    {table.skipped > 0 && <span className="text-neutral-500"> ({table.skipped} skipped)</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {backup.tablesImportPhase === "error" && (
+            <div className="flex items-start gap-x-2 text-sm text-red-400">
+              <FiAlertCircle size={14} className="mt-0.5 shrink-0" />
+              <span className="break-words">{backup.tablesImportError ?? "Tables import failed."}</span>
+            </div>
+          )}
         </section>
 
         <div className="border-t border-white/10" />
@@ -174,7 +251,7 @@ const DbBackupModal = () => {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            disabled={isImporting || isExporting}
+            disabled={isBusy}
             className="
               flex items-center justify-center gap-x-2
               w-full rounded-md border border-neon/30 bg-elevated px-4 py-2.5

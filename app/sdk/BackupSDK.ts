@@ -4,9 +4,11 @@ import {
   BackupFileRef,
   addTarEntry,
   finalizeTar,
+  parseTar,
   gzipBufferClient,
+  gunzipBufferClient,
 } from "@/app/api/backup/tarClient"
-import { toCsv } from "@/app/api/backup/csvClient"
+import { toCsv, parseCsv } from "@/app/api/backup/csvClient"
 
 /**
  * Upload a chunk to a Supabase signed upload URL with real progress events, using the same
@@ -209,6 +211,115 @@ export async function exportTables(onProgress: (done: number, total: number) => 
   const blob = new Blob([gz], { type: "application/gzip" })
 
   return { fileName, blob }
+}
+
+export interface TablesImportResult {
+  tables: { table: string; rows: number; skipped: number }[]
+}
+
+const ROW_BATCH_SIZE = 500
+
+/** True for a .tar.gz / .gz archive (by extension), false for a loose .csv file. */
+function isArchiveFile(file: File): boolean {
+  return file.name.endsWith(".tar.gz") || file.name.endsWith(".gz") || file.name.endsWith(".tgz")
+}
+
+/**
+ * Collect `<table>.csv` text keyed by table name from one input file — either a .tar.gz archive
+ * (decompressed + parsed in the browser) or a single loose .csv (whose table is read from its
+ * filename). Archive bytes never reach a server function.
+ */
+async function readCsvEntries(file: File): Promise<Record<string, string>> {
+  if (!isArchiveFile(file)) {
+    const table = file.name.replace(/\.csv$/i, "")
+    return { [table]: await file.text() }
+  }
+
+  let tarBytes: Uint8Array
+  try {
+    tarBytes = await gunzipBufferClient(new Uint8Array(await file.arrayBuffer()))
+  } catch (error: any) {
+    throw new Error(`${file.name} is not a valid .tar.gz archive: ${error?.message ?? String(error)}`)
+  }
+
+  const entries = parseTar(Buffer.from(tarBytes))
+  const csvEntries: Record<string, string> = {}
+  for (const [name, buf] of Array.from(entries)) {
+    if (name.endsWith(".csv")) csvEntries[name.replace(/\.csv$/i, "")] = buf.toString("utf8")
+  }
+  return csvEntries
+}
+
+/**
+ * Import table rows from CSV files — either .tar.gz archives (from exportTables) or loose .csv
+ * files. Multiple inputs are merged; a partial set is fine (only the tables present are imported).
+ * Rows are parsed in the browser and POSTed to /api/backup/rows in ≤500-row batches, in FK-safe
+ * order (BACKUP_TABLES). The server scopes rows to the session user and returns real counts.
+ */
+export async function importTables(
+  files: File[],
+  onProgress: (done: number, total: number, label: string) => void,
+): Promise<TablesImportResult> {
+  // Gather CSV text per table across all inputs (later files override earlier ones for a table).
+  const csvByTable: Record<string, string> = {}
+  for (const file of files) {
+    const entries = await readCsvEntries(file)
+    Object.assign(csvByTable, entries)
+  }
+
+  const tablesToImport = BACKUP_TABLES.filter(table => csvByTable[table] !== undefined)
+  if (tablesToImport.length === 0) {
+    throw new Error("No table CSV files found — expected files like 19_songs.csv, either loose or inside a .tar.gz archive.")
+  }
+
+  const results: TablesImportResult = { tables: [] }
+  let done = 0
+  onProgress(done, tablesToImport.length, "Restoring tables…")
+
+  for (const table of tablesToImport) {
+    onProgress(done, tablesToImport.length, `Restoring ${table}…`)
+
+    let rows: Record<string, string | null>[]
+    try {
+      rows = parseCsv(csvByTable[table])
+    } catch (error: any) {
+      throw new Error(`Failed to parse ${table}.csv: ${error?.message ?? String(error)}`)
+    }
+
+    let importedRows = 0
+    let skippedRows = 0
+
+    for (let start = 0; start < rows.length; start += ROW_BATCH_SIZE) {
+      const batch = rows.slice(start, start + ROW_BATCH_SIZE)
+      const res = await fetch("/api/backup/rows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ table, rows: batch }),
+      })
+      if (!res.ok) {
+        const responseText = await res.text().catch(() => "")
+        let message: string | undefined
+        try {
+          const body = JSON.parse(responseText)
+          message = [body?.error, body?.code ? `(code: ${body.code})` : null, body?.details, body?.hint ? `Hint: ${body.hint}` : null]
+            .filter(Boolean)
+            .join(" — ")
+        } catch {
+          message = responseText || undefined
+        }
+        throw new Error(`Failed to import ${table} (${res.status})${message ? `: ${message}` : ""}`)
+      }
+      const { rows: rowsUpserted, skipped } = await res.json()
+      importedRows += rowsUpserted
+      skippedRows += skipped
+    }
+
+    results.tables.push({ table, rows: importedRows, skipped: skippedRows })
+    done++
+    onProgress(done, tablesToImport.length, `Restored ${table}`)
+  }
+
+  return results
 }
 
 // Supabase's project-wide "Global file size limit" is hard-fixed at 50MB on the Free plan and

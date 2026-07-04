@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react"
 import { toast } from "react-hot-toast"
-import { exportWithProgress, exportTables, importArchive, downloadBlob, ImportResult } from "@/app/sdk/BackupSDK"
+import { exportWithProgress, exportTables, importTables, importArchive, downloadBlob, ImportResult, TablesImportResult } from "@/app/sdk/BackupSDK"
 
 type ExportPhase = "idle" | "exporting" | "done" | "error"
 type ImportPhase = "idle" | "uploading" | "processing" | "done" | "error"
 type TablesExportPhase = "idle" | "exporting" | "done" | "error"
+type TablesImportPhase = "idle" | "importing" | "done" | "error"
 
 export function useDbBackup() {
   // Export state
@@ -20,6 +21,15 @@ export function useDbBackup() {
   const [tablesExportTotal, setTablesExportTotal] = useState(0)
   const [tablesExportError, setTablesExportError] = useState<string | null>(null)
 
+  // Tables import state
+  const [tablesImportPhase, setTablesImportPhase] = useState<TablesImportPhase>("idle")
+  const [tablesImportDone, setTablesImportDone] = useState(0)
+  const [tablesImportTotal, setTablesImportTotal] = useState(0)
+  const [tablesImportLabel, setTablesImportLabel] = useState("")
+  const [tablesImportResult, setTablesImportResult] = useState<TablesImportResult | null>(null)
+  const [tablesImportError, setTablesImportError] = useState<string | null>(null)
+  const tablesImportFileRef = useRef<HTMLInputElement | null>(null)
+
   // Import state
   const [importPhase, setImportPhase] = useState<ImportPhase>("idle")
   const [importDone, setImportDone] = useState(0)
@@ -33,7 +43,12 @@ export function useDbBackup() {
 
   const exportProgress = exportTotal > 0 ? Math.round((exportDone / exportTotal) * 100) : 0
 
-  const isBusy = exportPhase === "exporting" || importPhase === "uploading" || importPhase === "processing"
+  const isBusy =
+    exportPhase === "exporting" ||
+    tablesExportPhase === "exporting" ||
+    tablesImportPhase === "importing" ||
+    importPhase === "uploading" ||
+    importPhase === "processing"
 
   useEffect(() => {
     if (!isBusy) return
@@ -99,6 +114,36 @@ export function useDbBackup() {
     }
   }
 
+  async function startImportTables(files: FileList) {
+    if (!files.length) return
+    setTablesImportPhase("importing")
+    setTablesImportDone(0)
+    setTablesImportTotal(0)
+    setTablesImportLabel("Reading files…")
+    setTablesImportResult(null)
+    setTablesImportError(null)
+
+    try {
+      const result = await importTables(Array.from(files), (done, total, label) => {
+        setTablesImportDone(done)
+        setTablesImportTotal(total)
+        setTablesImportLabel(label)
+      })
+      setTablesImportResult(result)
+      setTablesImportPhase("done")
+
+      const totalRows = result.tables.reduce((sum, table) => sum + table.rows, 0)
+      toast.success(`Restored ${totalRows} rows across ${result.tables.length} tables.`)
+    } catch (err: any) {
+      setTablesImportPhase("error")
+      const message = err?.message ?? "Tables import failed"
+      setTablesImportError(message)
+      toast.error(message)
+    } finally {
+      if (tablesImportFileRef.current) tablesImportFileRef.current.value = ""
+    }
+  }
+
   async function startImport(files: FileList) {
     if (!files.length) return
     setImportPhase("uploading")
@@ -154,6 +199,13 @@ export function useDbBackup() {
     setTablesExportDone(0)
     setTablesExportTotal(0)
     setTablesExportError(null)
+    setTablesImportPhase("idle")
+    setTablesImportDone(0)
+    setTablesImportTotal(0)
+    setTablesImportLabel("")
+    setTablesImportResult(null)
+    setTablesImportError(null)
+    if (tablesImportFileRef.current) tablesImportFileRef.current.value = ""
     setImportPhase("idle")
     setImportDone(0)
     setImportTotal(0)
@@ -164,11 +216,14 @@ export function useDbBackup() {
   }
 
   const tablesExportProgress = tablesExportTotal > 0 ? Math.round((tablesExportDone / tablesExportTotal) * 100) : 0
+  const tablesImportProgress = tablesImportTotal > 0 ? Math.round((tablesImportDone / tablesImportTotal) * 100) : 0
 
   return {
     exportPhase, exportProgress, exportDone, exportTotal, exportLabel,
     includeImages, setIncludeImages, startExport,
     tablesExportPhase, tablesExportProgress, tablesExportDone, tablesExportTotal, tablesExportError, startExportTables,
+    tablesImportPhase, tablesImportProgress, tablesImportDone, tablesImportTotal, tablesImportLabel,
+    tablesImportResult, tablesImportError, tablesImportFileRef, startImportTables,
     importPhase, importProgress, importDone, importTotal, importLabel,
     importResult, importError, importFileRef, startImport,
     reset,

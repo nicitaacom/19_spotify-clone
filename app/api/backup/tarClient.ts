@@ -144,3 +144,15 @@ export async function gzipBufferClient(input: Uint8Array): Promise<Uint8Array> {
   const compressed = await new Response(stream).arrayBuffer()
   return new Uint8Array(compressed)
 }
+
+/**
+ * Decompress a gzip buffer in the browser using the built-in DecompressionStream Web API (zero
+ * deps). The counterpart to gzipBufferClient — reads .tar.gz archives client-side so archive
+ * bytes never reach a server function (see dev_readme-backup.md for why).
+ */
+export async function gunzipBufferClient(input: Uint8Array): Promise<Uint8Array> {
+  const ds = new DecompressionStream("gzip")
+  const stream = new Response(input).body!.pipeThrough(ds)
+  const decompressed = await new Response(stream).arrayBuffer()
+  return new Uint8Array(decompressed)
+}
