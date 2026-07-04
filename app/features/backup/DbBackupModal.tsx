@@ -32,9 +32,10 @@ const DbBackupModal = () => {
 
   const isExportingTables = backup.tablesExportPhase === "exporting"
   const isImportingTables = backup.tablesImportPhase === "importing"
+  const isExportingFiles = backup.filesExportPhase === "exporting"
   const isExporting = backup.exportPhase === "exporting"
   const isImporting = backup.importPhase === "uploading" || backup.importPhase === "processing"
-  const isBusy = isExporting || isImporting || isExportingTables || isImportingTables
+  const isBusy = isExporting || isImporting || isExportingTables || isImportingTables || isExportingFiles
 
   return (
     <Modal
@@ -226,6 +227,73 @@ const DbBackupModal = () => {
             <div className="flex items-start gap-x-2 text-sm text-red-400">
               <FiAlertCircle size={14} className="mt-0.5 shrink-0" />
               <span className="break-words">{backup.tablesImportError ?? "Tables import failed."}</span>
+            </div>
+          )}
+        </section>
+
+        <div className="border-t border-white/10" />
+
+        {/* ── Files section ── */}
+        <section className="flex flex-col gap-y-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-400">Files</h3>
+
+          <label className="flex cursor-pointer items-center gap-x-3 select-none">
+            <div className="relative flex items-center">
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={backup.includeImagesFiles}
+                onChange={e => backup.setIncludeImagesFiles(e.target.checked)}
+                disabled={isBusy}
+              />
+              <div className="h-4 w-4 rounded border border-white/20 bg-elevated peer-checked:border-neon peer-checked:bg-neon/20 transition-colors" />
+              {backup.includeImagesFiles && (
+                <FiCheckCircle size={10} className="absolute left-[3px] text-neon pointer-events-none" />
+              )}
+            </div>
+            <span className="text-sm text-neutral-300">Include cover images</span>
+          </label>
+
+          <button
+            onClick={backup.startExportFiles}
+            disabled={isBusy}
+            className="
+              flex items-center justify-center gap-x-2
+              w-full rounded-md border border-neon/30 bg-elevated px-4 py-2.5
+              text-sm font-semibold text-neon
+              hover:border-neon/60 hover:bg-elevated/80
+              disabled:cursor-not-allowed disabled:opacity-50
+              transition
+            ">
+            <FiDownload size={15} />
+            {isExportingFiles ? "Exporting files…" : "Export files as archive"}
+          </button>
+
+          {isExportingFiles && (
+            <div className="flex flex-col gap-y-1.5">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-elevated">
+                <div
+                  style={{ width: `${backup.filesExportProgress}%` }}
+                  className="h-full rounded-full bg-neon shadow-neon-sm transition-all duration-200"
+                />
+              </div>
+              <p className="text-xs text-neutral-400 text-right">
+                {backup.filesExportDone} / {backup.filesExportTotal} files
+              </p>
+            </div>
+          )}
+
+          {backup.filesExportPhase === "done" && (
+            <div className="flex items-center gap-x-2 text-sm text-neon">
+              <FiCheckCircle size={14} />
+              <span>Files archive downloaded — check your downloads folder.</span>
+            </div>
+          )}
+
+          {backup.filesExportPhase === "error" && (
+            <div className="flex items-start gap-x-2 text-sm text-red-400">
+              <FiAlertCircle size={14} className="mt-0.5 shrink-0" />
+              <span className="break-words">{backup.filesExportError ?? "Files export failed."}</span>
             </div>
           )}
         </section>

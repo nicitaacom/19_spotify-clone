@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react"
 import { toast } from "react-hot-toast"
-import { exportWithProgress, exportTables, importTables, importArchive, downloadBlob, ImportResult, TablesImportResult } from "./BackupSDK"
+import { exportWithProgress, exportTables, exportFiles, importTables, importArchive, downloadBlob, ImportResult, TablesImportResult } from "./BackupSDK"
 
 type ExportPhase = "idle" | "exporting" | "done" | "error"
 type ImportPhase = "idle" | "uploading" | "processing" | "done" | "error"
 type TablesExportPhase = "idle" | "exporting" | "done" | "error"
 type TablesImportPhase = "idle" | "importing" | "done" | "error"
+type FilesExportPhase = "idle" | "exporting" | "done" | "error"
 
 export function useDbBackup() {
   // Export state
@@ -30,6 +31,13 @@ export function useDbBackup() {
   const [tablesImportError, setTablesImportError] = useState<string | null>(null)
   const tablesImportFileRef = useRef<HTMLInputElement | null>(null)
 
+  // Files export state
+  const [filesExportPhase, setFilesExportPhase] = useState<FilesExportPhase>("idle")
+  const [filesExportDone, setFilesExportDone] = useState(0)
+  const [filesExportTotal, setFilesExportTotal] = useState(0)
+  const [filesExportError, setFilesExportError] = useState<string | null>(null)
+  const [includeImagesFiles, setIncludeImagesFiles] = useState(true)
+
   // Import state
   const [importPhase, setImportPhase] = useState<ImportPhase>("idle")
   const [importDone, setImportDone] = useState(0)
@@ -47,6 +55,7 @@ export function useDbBackup() {
     exportPhase === "exporting" ||
     tablesExportPhase === "exporting" ||
     tablesImportPhase === "importing" ||
+    filesExportPhase === "exporting" ||
     importPhase === "uploading" ||
     importPhase === "processing"
 
@@ -110,6 +119,28 @@ export function useDbBackup() {
       setTablesExportPhase("error")
       const message = err?.message ?? "Tables export failed"
       setTablesExportError(message)
+      toast.error(message)
+    }
+  }
+
+  async function startExportFiles() {
+    setFilesExportPhase("exporting")
+    setFilesExportDone(0)
+    setFilesExportTotal(0)
+    setFilesExportError(null)
+
+    try {
+      const { fileName, blob } = await exportFiles(includeImagesFiles, (done, total) => {
+        setFilesExportDone(done)
+        setFilesExportTotal(total)
+      })
+      downloadBlob(blob, fileName)
+      toast.success("Files backup downloaded!")
+      setFilesExportPhase("done")
+    } catch (err: any) {
+      setFilesExportPhase("error")
+      const message = err?.message ?? "Files export failed"
+      setFilesExportError(message)
       toast.error(message)
     }
   }
@@ -206,6 +237,10 @@ export function useDbBackup() {
     setTablesImportResult(null)
     setTablesImportError(null)
     if (tablesImportFileRef.current) tablesImportFileRef.current.value = ""
+    setFilesExportPhase("idle")
+    setFilesExportDone(0)
+    setFilesExportTotal(0)
+    setFilesExportError(null)
     setImportPhase("idle")
     setImportDone(0)
     setImportTotal(0)
@@ -217,6 +252,7 @@ export function useDbBackup() {
 
   const tablesExportProgress = tablesExportTotal > 0 ? Math.round((tablesExportDone / tablesExportTotal) * 100) : 0
   const tablesImportProgress = tablesImportTotal > 0 ? Math.round((tablesImportDone / tablesImportTotal) * 100) : 0
+  const filesExportProgress = filesExportTotal > 0 ? Math.round((filesExportDone / filesExportTotal) * 100) : 0
 
   return {
     exportPhase, exportProgress, exportDone, exportTotal, exportLabel,
@@ -224,6 +260,8 @@ export function useDbBackup() {
     tablesExportPhase, tablesExportProgress, tablesExportDone, tablesExportTotal, tablesExportError, startExportTables,
     tablesImportPhase, tablesImportProgress, tablesImportDone, tablesImportTotal, tablesImportLabel,
     tablesImportResult, tablesImportError, tablesImportFileRef, startImportTables,
+    filesExportPhase, filesExportProgress, filesExportDone, filesExportTotal, filesExportError,
+    includeImagesFiles, setIncludeImagesFiles, startExportFiles,
     importPhase, importProgress, importDone, importTotal, importLabel,
     importResult, importError, importFileRef, startImport,
     reset,

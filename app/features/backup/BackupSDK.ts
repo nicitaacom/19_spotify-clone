@@ -322,6 +322,73 @@ export async function importTables(
   return results
 }
 
+/**
+ * Export the user's storage files only (song audio + optionally cover images) as one .tar.gz,
+ * entirely in the browser: fetch the file list from the server, download each file directly from
+ * Supabase's public CDN, and pack them locally. The app server never touches Storage bytes, so
+ * there is no 60s function timeout regardless of library size. Kept separate from table export so
+ * a files backup never has to fetch or pack table rows.
+ */
+export async function exportFiles(
+  includeImages: boolean,
+  onProgress: (done: number, total: number) => void,
+): Promise<{ fileName: string; blob: Blob }> {
+  const params = new URLSearchParams({ includeImages: String(includeImages) })
+  const filesRes = await fetch(`/api/backup/files?${params}`)
+  if (!filesRes.ok) {
+    const body = await filesRes.json().catch(() => ({}))
+    throw new Error(body?.error ?? `Failed to fetch file list (${filesRes.status})`)
+  }
+  const { files }: { files: BackupFileRef[] } = await filesRes.json()
+
+  let done = 0
+  onProgress(done, files.length)
+
+  // Download storage files directly from Supabase (small concurrency pool). Results are collected
+  // then packed in original order so the archive layout is stable.
+  const packed: Array<{ file: BackupFileRef; buf: Buffer | null }> = new Array(files.length)
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < files.length) {
+      const index = nextIndex++
+      const file = files[index]
+      const url = getSupabasePublicUrl(file.bucket, file.path)
+      let buf: Buffer | null = null
+      if (url) {
+        try {
+          const res = await fetch(url)
+          if (res.ok) buf = Buffer.from(await res.arrayBuffer())
+        } catch {
+          // Missing/failed file — skip it (buf stays null) rather than aborting the whole export.
+        }
+      }
+      packed[index] = { file, buf }
+      done++
+      onProgress(done, files.length)
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(DOWNLOAD_CONCURRENCY, files.length || 1) }, worker))
+
+  const tarChunks: Buffer[] = []
+  const contentTypes: Record<string, string> = {}
+  for (const { file, buf } of packed) {
+    if (!buf) continue
+    addTarEntry(tarChunks, `storage/${file.bucket}/${file.path}`, buf)
+    contentTypes[`${file.bucket}/${file.path}`] = file.contentType
+  }
+  addTarEntry(tarChunks, "storage-content-types.json", Buffer.from(JSON.stringify(contentTypes), "utf8"))
+
+  const tarBuf = finalizeTar(tarChunks)
+  const gz = await gzipBufferClient(new Uint8Array(tarBuf))
+  const date = new Date().toISOString().slice(0, 10)
+  const fileName = `19_backup-files-${date}.tar.gz`
+  const blob = new Blob([gz], { type: "application/gzip" })
+
+  return { fileName, blob }
+}
+
 // Supabase's project-wide "Global file size limit" is hard-fixed at 50MB on the Free plan and
 // cannot be raised from code (see dev_readme-backup.md). Each chunk stays comfortably under that,
 // leaving headroom for multipart overhead. Must match MAX_CHUNK_COUNT in import-init/route.ts —
