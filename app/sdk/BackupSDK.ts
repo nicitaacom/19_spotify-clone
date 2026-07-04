@@ -8,14 +8,14 @@ import {
 } from "@/app/api/backup/tarClient"
 
 /**
- * Upload a file to a Supabase signed upload URL with real progress events, using the same
- * multipart shape as the Supabase SDK's `uploadToSignedUrl` (a `cacheControl` field + the file
+ * Upload a chunk to a Supabase signed upload URL with real progress events, using the same
+ * multipart shape as the Supabase SDK's `uploadToSignedUrl` (a `cacheControl` field + the chunk
  * appended under an empty-string key) — but via XHR so we get `upload.onprogress` instead of a
  * single opaque await with no feedback until the whole upload finishes.
  */
 function uploadToSignedUrlWithProgress(
   signedUrl: string,
-  file: File,
+  chunk: Blob,
   onProgress: (loaded: number, total: number) => void,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -43,9 +43,41 @@ function uploadToSignedUrlWithProgress(
     xhr.onerror = () => reject(new Error("Archive upload failed: network error"))
     const formData = new FormData()
     formData.append("cacheControl", "3600")
-    formData.append("", file)
+    formData.append("", chunk)
     xhr.send(formData)
   })
+}
+
+/**
+ * Read an NDJSON stream response body line by line, calling `onMessage` for each parsed JSON
+ * object as it arrives. Shared by every import route that streams `{type: "..."}` progress
+ * messages, so the line-buffering logic exists in exactly one place.
+ */
+async function readNdjsonStream(response: Response, onMessage: (message: any) => void): Promise<void> {
+  const reader = response.body!.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    const lines = buffer.split("\n")
+    buffer = lines.pop() ?? ""
+
+    for (const line of lines) {
+      if (!line.trim()) continue
+      onMessage(JSON.parse(line))
+    }
+  }
+}
+
+function throwFromErrorMessage(msg: any): never {
+  const parts = [msg.stage ? `[${msg.stage}]` : null, msg.message ?? "Import failed", msg.code ? `(code: ${msg.code})` : null, msg.details, msg.hint ? `Hint: ${msg.hint}` : null]
+  const detailedError = new Error(parts.filter(Boolean).join(" — "))
+  detailedError.name = msg.name ?? "ImportError"
+  throw detailedError
 }
 
 export interface ImportResult {
@@ -145,74 +177,117 @@ export async function exportWithProgress(opts: {
   return { archives: [{ fileName, blob }] }
 }
 
-// Must match TMP_BUCKET_SIZE_LIMIT in app/api/backup/import-init/route.ts — kept in sync manually
-// since bucket config lives server-side but the client needs the number for a precise error message.
-const TMP_BUCKET_SIZE_LIMIT_BYTES = 1024 * 1024 * 1024 // 1gb
+// Supabase's project-wide "Global file size limit" is hard-fixed at 50MB on the Free plan and
+// cannot be raised from code (see dev_readme-backup.md). Each chunk stays comfortably under that,
+// leaving headroom for multipart overhead. Must match MAX_CHUNK_COUNT in import-init/route.ts —
+// kept in sync manually since bucket/chunk config lives server-side but the client needs the exact
+// numbers to slice the file and produce a precise error message.
+const CHUNK_SIZE_BYTES = 40 * 1024 * 1024 // 40mb
+const MAX_TOTAL_SIZE_BYTES = 2 * 1024 * 1024 * 1024 // 2gb — 50 chunks at 40MB each
+
+type ImportCursor = {
+  stage: "tables" | "storage"
+  tableIndex: number
+  rowOffset: number
+  entryIndex: number
+  tableResults: { table: string; rows: number; skipped: number }[]
+  bucketStats: Record<string, { files: number; failed: number }>
+}
+
+function sliceIntoChunks(file: File): Blob[] {
+  const chunks: Blob[] = []
+  for (let start = 0; start < file.size; start += CHUNK_SIZE_BYTES) {
+    chunks.push(file.slice(start, start + CHUNK_SIZE_BYTES))
+  }
+  return chunks
+}
 
 export async function importArchive(
   file: File,
   onProgress: (done: number, total: number, label: string, phase: "uploading" | "processing") => void,
 ): Promise<ImportResult> {
-  if (file.size > TMP_BUCKET_SIZE_LIMIT_BYTES) {
-    const limitMb = Math.round(TMP_BUCKET_SIZE_LIMIT_BYTES / (1024 * 1024))
+  if (file.size > MAX_TOTAL_SIZE_BYTES) {
+    const limitMb = Math.round(MAX_TOTAL_SIZE_BYTES / (1024 * 1024))
     const fileMb = (file.size / (1024 * 1024)).toFixed(1)
     throw new Error(`Archive is ${fileMb}MB, which exceeds the ${limitMb}MB import limit.`)
   }
 
-  // 1. Get a signed upload URL and upload the archive directly to Supabase — this bypasses the
-  //    Vercel function's request body size cap (~4.5MB) since the bytes never pass through our API.
-  const initRes = await fetch("/api/backup/import-init", { method: "POST" })
+  const chunks = sliceIntoChunks(file)
+
+  // 1. Ask for one signed upload URL per chunk — this bypasses both the Vercel function's request
+  //    body size cap (~4.5MB) and Supabase's 50MB global upload limit, since each chunk is its own
+  //    small upload and the bytes never pass through our API.
+  const initRes = await fetch("/api/backup/import-init", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chunkCount: chunks.length }),
+  })
   if (!initRes.ok) {
     const body = await initRes.json().catch(() => ({}))
     throw new Error(body?.error ?? `Failed to start import (${initRes.status})`)
   }
-  const { path, signedUrl } = await initRes.json()
+  const { uploadId, chunkPaths, signedUrls } = await initRes.json()
 
-  await uploadToSignedUrlWithProgress(signedUrl, file, (loaded, total) => {
-    onProgress(loaded, total, `Uploading archive… ${Math.round((loaded / total) * 100)}%`, "uploading")
-  })
+  // 2. Upload each chunk in turn, reporting one smooth 0-100% progress bar across all of them.
+  let uploadedBytes = 0
+  for (let index = 0; index < chunks.length; index++) {
+    await uploadToSignedUrlWithProgress(signedUrls[index], chunks[index], loaded => {
+      const overallLoaded = uploadedBytes + loaded
+      onProgress(overallLoaded, file.size, `Uploading archive… ${Math.round((overallLoaded / file.size) * 100)}%`, "uploading")
+    })
+    uploadedBytes += chunks[index].size
+  }
 
-  // 2. Tell the server where to find it — server downloads from Supabase and processes it.
-  const res = await fetch("/api/backup/import", {
+  // 3. Tell the server to reassemble the uploaded chunks into one archive.
+  const finalizeRes = await fetch("/api/backup/import-finalize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path }),
+    body: JSON.stringify({ uploadId, chunkPaths }),
   })
-
-  if (!res.ok || !res.body) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body?.error ?? `Import failed (${res.status})`)
+  if (!finalizeRes.ok) {
+    const body = await finalizeRes.json().catch(() => ({}))
+    throw new Error(body?.error ?? `Failed to finalize import (${finalizeRes.status})`)
   }
+  const { path } = await finalizeRes.json()
 
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ""
+  // 4. Process the archive, resuming with a cursor until a "done" message arrives — each call is
+  //    budgeted server-side to stay well under the Vercel function's 60s execution limit.
+  let cursor: ImportCursor = { stage: "tables", tableIndex: 0, rowOffset: 0, entryIndex: 0, tableResults: [], bucketStats: {} }
 
   while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
+    const res = await fetch("/api/backup/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, cursor }),
+    })
+    if (!res.ok || !res.body) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body?.error ?? `Import failed (${res.status})`)
+    }
 
-    const lines = buffer.split("\n")
-    buffer = lines.pop() ?? ""
+    let result: ImportResult | null = null
+    let nextCursor: ImportCursor | null = null
 
-    for (const line of lines) {
-      if (!line.trim()) continue
-      const msg = JSON.parse(line)
+    await readNdjsonStream(res, msg => {
       if (msg.type === "progress") {
         onProgress(msg.done, msg.total, msg.label ?? "", "processing")
+      } else if (msg.type === "continue") {
+        nextCursor = msg.cursor
+        onProgress(msg.done, msg.total, "Processing…", "processing")
       } else if (msg.type === "done") {
-        return { tables: msg.tables, buckets: msg.buckets }
+        result = { tables: msg.tables, buckets: msg.buckets }
       } else if (msg.type === "error") {
-        const parts = [msg.stage ? `[${msg.stage}]` : null, msg.message ?? "Import failed", msg.code ? `(code: ${msg.code})` : null, msg.details, msg.hint ? `Hint: ${msg.hint}` : null]
-        const detailedError = new Error(parts.filter(Boolean).join(" — "))
-        detailedError.name = msg.name ?? "ImportError"
-        throw detailedError
+        throwFromErrorMessage(msg)
       }
-    }
-  }
+    })
 
-  throw new Error("Import stream ended without a done message")
+    if (result) return result
+    if (nextCursor) {
+      cursor = nextCursor
+      continue
+    }
+    throw new Error("Import stream ended without a done or continue message")
+  }
 }
 
 export function downloadBlob(blob: Blob, fileName: string) {
