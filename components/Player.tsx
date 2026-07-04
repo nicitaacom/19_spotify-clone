@@ -100,8 +100,8 @@ const Player = () => {
           group/progress
         ">
         <div
-          className="relative h-full bg-neon shadow-neon-sm transition-all duration-300"
-          style={{ width: `${progress * 100}%` }}>
+          style={{ width: `${progress * 100}%` }}
+          className="relative h-full bg-neon shadow-neon-sm transition-all duration-300">
           <div
             className="
               absolute

@@ -55,7 +55,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48 }) => {
         rounded-md
         overflow-hidden
       ">
-      <div className="relative shrink-0 overflow-hidden rounded-md" style={{ width: size, height: size }}>
+      <div style={{ width: size, height: size }} className="relative shrink-0 overflow-hidden rounded-md">
         <Image
           style={{ width: size, height: size }}
           width={size * 4}

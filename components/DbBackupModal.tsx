@@ -78,8 +78,8 @@ const DbBackupModal = () => {
             <div className="flex flex-col gap-y-1.5">
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-elevated">
                 <div
-                  className="h-full rounded-full bg-neon shadow-neon-sm transition-all duration-200"
                   style={{ width: `${backup.exportProgress}%` }}
+                  className="h-full rounded-full bg-neon shadow-neon-sm transition-all duration-200"
                 />
               </div>
               <p className="text-xs text-neutral-400 text-right">
@@ -142,8 +142,8 @@ const DbBackupModal = () => {
             <div className="flex flex-col gap-y-1.5">
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-elevated">
                 <div
-                  className="h-full rounded-full bg-neon shadow-neon-sm transition-all duration-200"
                   style={{ width: `${backup.importProgress}%` }}
+                  className="h-full rounded-full bg-neon shadow-neon-sm transition-all duration-200"
                 />
               </div>
               <div className="flex items-center justify-between gap-x-2">
