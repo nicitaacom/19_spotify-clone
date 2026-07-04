@@ -23,42 +23,37 @@ type ImportCursor = {
   bucketStats: Record<string, { files: number; failed: number }>
 }
 
-// POST /api/backup/import  { chunkPaths, cursor }
+// POST /api/backup/import  { path, cursor }
 //
-// `chunkPaths` are the ≤40MB chunks the browser uploaded via import-init's signed URLs. Called
-// repeatedly by the client, echoing back the cursor from the previous call's "continue" message,
-// until a "done" or "error" message arrives. Every call downloads all chunks fresh and concatenates
-// them in memory (server-to-Supabase downloads have no 50MB limit — only uploads do, which is why
-// the archive is never reassembled into one Storage object) then resumes the actual row upserts /
-// file uploads from the cursor — the elapsed-time budget is checked before every individual row
-// batch and before every individual file upload, never only between whole tables, so no single
-// unbounded unit of work (e.g. one large file's upload) can blow past the budget from inside itself.
+// `path` points to the reassembled .tar.gz built by import-finalize. Called repeatedly by the
+// client, echoing back the cursor from the previous call's "continue" message, until a "done" or
+// "error" message arrives. Every call downloads and re-parses the whole archive (cheap buffer work,
+// bounded by the total archive size cap) then resumes the actual row upserts / file uploads from
+// the cursor — the elapsed-time budget is checked before every individual row batch and before
+// every individual file upload, never only between whole tables, so no single unbounded unit of
+// work (e.g. one large file's upload) can blow past the budget from inside itself.
 export async function POST(req: Request) {
-  const { chunkPaths, cursor } = (await req.json().catch(() => ({}))) as { chunkPaths?: string[]; cursor?: ImportCursor }
-  if (!Array.isArray(chunkPaths) || chunkPaths.length === 0 || !cursor) {
-    return NextResponse.json({ error: "Missing chunkPaths or cursor" }, { status: 400 })
+  const { path, cursor } = (await req.json().catch(() => ({}))) as { path?: string; cursor?: ImportCursor }
+  if (!path || typeof path !== "string" || !cursor) {
+    return NextResponse.json({ error: "Missing path or cursor" }, { status: 400 })
   }
 
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
   const { userId } = auth
 
-  if (chunkPaths.some(chunkPath => typeof chunkPath !== "string" || !chunkPath.startsWith(`${userId}/`))) {
+  if (!path.startsWith(`${userId}/`)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const chunkBuffers: Buffer[] = []
-  for (const chunkPath of chunkPaths) {
-    const { data, error } = await supabaseAdmin.storage.from(TMP_BUCKET).download(chunkPath)
-    if (error || !data) {
-      return NextResponse.json({ error: error?.message ?? `Failed to download chunk ${chunkPath}` }, { status: 400 })
-    }
-    chunkBuffers.push(Buffer.from(await data.arrayBuffer()))
+  const { data: gzData, error: downloadError } = await supabaseAdmin.storage.from(TMP_BUCKET).download(path)
+  if (downloadError || !gzData) {
+    return NextResponse.json({ error: downloadError?.message ?? "Failed to fetch reassembled archive" }, { status: 400 })
   }
 
   let tarBuf: Buffer
   try {
-    tarBuf = await gunzipBuffer(Buffer.concat(chunkBuffers))
+    tarBuf = await gunzipBuffer(Buffer.from(await gzData.arrayBuffer()))
   } catch (error: any) {
     return NextResponse.json({ error: `Invalid archive (gunzip failed): ${error?.message}` }, { status: 400 })
   }
@@ -206,7 +201,7 @@ export async function POST(req: Request) {
         const bucketResults: BucketResult[] = Object.entries(bucketStats).map(([bucket, stat]) => ({ bucket, ...stat }))
         send({ type: "done", tables: tableResults, buckets: bucketResults })
         controller.close()
-        supabaseAdmin.storage.from(TMP_BUCKET).remove(chunkPaths).catch(() => {})
+        supabaseAdmin.storage.from(TMP_BUCKET).remove([path]).catch(() => {})
       } catch (error: any) {
         send({
           type: "error",
@@ -218,7 +213,7 @@ export async function POST(req: Request) {
           stage: currentStage,
         })
         controller.close()
-        supabaseAdmin.storage.from(TMP_BUCKET).remove(chunkPaths).catch(() => {})
+        supabaseAdmin.storage.from(TMP_BUCKET).remove([path]).catch(() => {})
       }
     },
   })
