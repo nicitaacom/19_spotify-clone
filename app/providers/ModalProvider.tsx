@@ -6,6 +6,7 @@ import AddToPlaylistModal from "../../components/AddToPlaylistModal"
 import CreatePlaylistModal from "../../components/CreatePlaylistModal"
 import DbBackupModal from "../../components/DbBackupModal"
 import EditSongModal from "../../components/EditSongModal"
+import SearchModal from "../../components/SearchModal"
 import UploadModal from "../../components/UploadModal"
 
 export default function ModalProvider() {
@@ -21,6 +22,7 @@ export default function ModalProvider() {
 
   return (
     <>
+      <SearchModal />
       <AuthModal />
       <CreatePlaylistModal />
       <AddToPlaylistModal />
