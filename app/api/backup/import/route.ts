@@ -10,7 +10,6 @@ const TMP_BUCKET = "backups-tmp"
 // Leaves headroom below the 60s maxDuration so a call always has time to emit a "continue" message
 // and close the stream cleanly, even for slow requests.
 const REQUEST_BUDGET_MS = 55_000
-const ROW_BATCH_SIZE = 500
 
 type TableResult = { table: string; rows: number; skipped: number }
 type BucketResult = { bucket: string; files: number; failed: number }
@@ -24,7 +23,7 @@ type ImportCursor = {
   bucketStats: Record<string, { files: number; failed: number }>
 }
 
-// POST /api/backup/import-process  { path, cursor }
+// POST /api/backup/import  { path, cursor }
 //
 // `path` points to the reassembled .tar.gz built by import-finalize. Called repeatedly by the
 // client, echoing back the cursor from the previous call's "continue" message, until a "done" or
