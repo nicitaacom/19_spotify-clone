@@ -13,7 +13,7 @@ import SidebarItem from "./SidebarItem"
 import Library from "./Library"
 import { Song } from "@/types"
 import usePlayer from "@/hooks/usePlayer"
-import useOwnerStore from "@/hooks/useOwnerStore"
+import { useSyncOwnerStore } from "@/hooks/useSyncOwnerStore"
 
 interface SidebarProps {
   children: React.ReactNode
@@ -25,7 +25,7 @@ const Sidebar: React.FC<SidebarProps> = ({ children, songs, isOwner }) => {
   const pathname = usePathname()
   const player = usePlayer()
 
-  useOwnerStore.getState().setIsOwner(isOwner)
+  useSyncOwnerStore(isOwner)
 
   const routes = useMemo(
     () => [

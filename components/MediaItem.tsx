@@ -13,7 +13,7 @@ interface MediaItemProps {
   size?: number
 }
 
-const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 128 }) => {
+const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48 }) => {
   const player = usePlayer()
   const imageUrl = useLoadImage(data)
 
@@ -57,7 +57,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 128 }) => {
       ">
       <div className="relative shrink-0 overflow-hidden rounded-md" style={{ width: size, height: size }}>
         <Image
-          style={{ width: "64px", height: "64px" }}
+          style={{ width: size, height: size }}
           width={size * 4}
           height={size * 4}
           src={imageUrl || "/images/liked.png"}
