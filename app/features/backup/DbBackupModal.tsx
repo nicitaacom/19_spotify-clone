@@ -9,10 +9,6 @@ import { useDbBackup } from "./useDbBackup"
 
 type BackupMode = "tables" | "files"
 
-// TEMP: force the "taking longer than usual" notice on so its look can be verified. Remove this and
-// go back to `backup.isStalled` once confirmed.
-const FORCE_SHOW_STALL_NOTICE = true
-
 const DbBackupModal = () => {
   const modal = useDbBackupModal()
   const backup = useDbBackup()
@@ -43,7 +39,7 @@ const DbBackupModal = () => {
   const isExportingFiles = backup.filesExportPhase === "exporting"
   const isImportingFiles = backup.filesImportPhase === "importing"
   const isBusy = isExportingTables || isImportingTables || isExportingFiles || isImportingFiles
-  const showStallNotice = FORCE_SHOW_STALL_NOTICE || backup.isStalled
+  const showStallNotice = backup.isStalled
 
   return (
     <ModalContainer
@@ -82,9 +78,10 @@ const DbBackupModal = () => {
           })}
         </div>
 
-        {/* The selected card. Given a bounded height so it scrolls INSIDE the modal instead of
-            pushing content past the modal border. */}
-        <div className="flex flex-col overflow-y-auto pr-1 max-h-[60dvh] md:max-h-[calc(85vh-230px)]">
+        {/* The selected card. A fixed min-height keeps the modal the same size on both tabs (the
+            Files card is a checkbox-row taller than Tables), and a bounded max-height makes it
+            scroll INSIDE the modal instead of pushing content past the modal border. */}
+        <div className="flex flex-col overflow-y-auto pr-1 min-h-[420px] max-h-[60dvh] md:max-h-[calc(85vh-230px)]">
 
         {/* ═══ Tables (rows / CSV) ═══ */}
         {mode === "tables" && (
