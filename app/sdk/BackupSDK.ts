@@ -252,8 +252,14 @@ export async function importArchive(
       body: JSON.stringify({ chunkPaths, cursor }),
     })
     if (!res.ok || !res.body) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(body?.error ?? `Import failed (${res.status})`)
+      const responseText = await res.text().catch(() => "")
+      let message: string | undefined
+      try {
+        message = JSON.parse(responseText)?.error
+      } catch {
+        message = responseText || undefined
+      }
+      throw new Error(`Import failed (${res.status})${message ? `: ${message}` : ""}`)
     }
 
     let result: ImportResult | null = null
