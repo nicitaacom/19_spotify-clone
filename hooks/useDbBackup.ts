@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react"
 import { toast } from "react-hot-toast"
-import { exportWithProgress, importArchive, downloadBlob, ImportResult } from "@/app/sdk/BackupSDK"
+import { exportWithProgress, exportTables, importArchive, downloadBlob, ImportResult } from "@/app/sdk/BackupSDK"
 
 type ExportPhase = "idle" | "exporting" | "done" | "error"
 type ImportPhase = "idle" | "uploading" | "processing" | "done" | "error"
+type TablesExportPhase = "idle" | "exporting" | "done" | "error"
 
 export function useDbBackup() {
   // Export state
@@ -12,6 +13,12 @@ export function useDbBackup() {
   const [exportTotal, setExportTotal] = useState(0)
   const [exportLabel, setExportLabel] = useState("Exporting…")
   const [includeImages, setIncludeImages] = useState(true)
+
+  // Tables export state
+  const [tablesExportPhase, setTablesExportPhase] = useState<TablesExportPhase>("idle")
+  const [tablesExportDone, setTablesExportDone] = useState(0)
+  const [tablesExportTotal, setTablesExportTotal] = useState(0)
+  const [tablesExportError, setTablesExportError] = useState<string | null>(null)
 
   // Import state
   const [importPhase, setImportPhase] = useState<ImportPhase>("idle")
@@ -70,6 +77,28 @@ export function useDbBackup() {
     }
   }
 
+  async function startExportTables() {
+    setTablesExportPhase("exporting")
+    setTablesExportDone(0)
+    setTablesExportTotal(0)
+    setTablesExportError(null)
+
+    try {
+      const { fileName, blob } = await exportTables((done, total) => {
+        setTablesExportDone(done)
+        setTablesExportTotal(total)
+      })
+      downloadBlob(blob, fileName)
+      toast.success("Tables backup downloaded!")
+      setTablesExportPhase("done")
+    } catch (err: any) {
+      setTablesExportPhase("error")
+      const message = err?.message ?? "Tables export failed"
+      setTablesExportError(message)
+      toast.error(message)
+    }
+  }
+
   async function startImport(files: FileList) {
     if (!files.length) return
     setImportPhase("uploading")
@@ -121,6 +150,10 @@ export function useDbBackup() {
     setExportDone(0)
     setExportTotal(0)
     setExportLabel("Exporting…")
+    setTablesExportPhase("idle")
+    setTablesExportDone(0)
+    setTablesExportTotal(0)
+    setTablesExportError(null)
     setImportPhase("idle")
     setImportDone(0)
     setImportTotal(0)
@@ -130,9 +163,12 @@ export function useDbBackup() {
     if (importFileRef.current) importFileRef.current.value = ""
   }
 
+  const tablesExportProgress = tablesExportTotal > 0 ? Math.round((tablesExportDone / tablesExportTotal) * 100) : 0
+
   return {
     exportPhase, exportProgress, exportDone, exportTotal, exportLabel,
     includeImages, setIncludeImages, startExport,
+    tablesExportPhase, tablesExportProgress, tablesExportDone, tablesExportTotal, tablesExportError, startExportTables,
     importPhase, importProgress, importDone, importTotal, importLabel,
     importResult, importError, importFileRef, startImport,
     reset,

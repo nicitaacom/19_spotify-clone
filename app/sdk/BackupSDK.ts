@@ -6,6 +6,7 @@ import {
   finalizeTar,
   gzipBufferClient,
 } from "@/app/api/backup/tarClient"
+import { toCsv } from "@/app/api/backup/csvClient"
 
 /**
  * Upload a chunk to a Supabase signed upload URL with real progress events, using the same
@@ -175,6 +176,39 @@ export async function exportWithProgress(opts: {
   const blob = new Blob([gz], { type: "application/gzip" })
 
   return { archives: [{ fileName, blob }] }
+}
+
+/**
+ * Export the user's table rows only (no storage files) as one .tar.gz containing a .csv per
+ * table. Kept separate from file export so a table-only backup never has to touch Storage or
+ * wait on file downloads — see dev_readme-backup.md for why tables and files are split.
+ */
+export async function exportTables(onProgress: (done: number, total: number) => void): Promise<{ fileName: string; blob: Blob }> {
+  const rowsRes = await fetch("/api/backup/rows")
+  if (!rowsRes.ok) {
+    const body = await rowsRes.json().catch(() => ({}))
+    throw new Error(body?.error ?? `Failed to fetch table rows (${rowsRes.status})`)
+  }
+  const { tables }: { tables: Record<string, Record<string, unknown>[]> } = await rowsRes.json()
+
+  const tarChunks: Buffer[] = []
+  let done = 0
+  onProgress(done, BACKUP_TABLES.length)
+
+  for (const table of BACKUP_TABLES) {
+    const csv = toCsv(tables[table] ?? [])
+    addTarEntry(tarChunks, `${table}.csv`, Buffer.from(csv, "utf8"))
+    done++
+    onProgress(done, BACKUP_TABLES.length)
+  }
+
+  const tarBuf = finalizeTar(tarChunks)
+  const gz = await gzipBufferClient(new Uint8Array(tarBuf))
+  const date = new Date().toISOString().slice(0, 10)
+  const fileName = `19_backup-tables-${date}.tar.gz`
+  const blob = new Blob([gz], { type: "application/gzip" })
+
+  return { fileName, blob }
 }
 
 // Supabase's project-wide "Global file size limit" is hard-fixed at 50MB on the Free plan and

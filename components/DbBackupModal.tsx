@@ -105,6 +105,56 @@ const DbBackupModal = () => {
 
         <div className="border-t border-white/10" />
 
+        {/* ── Tables section ── */}
+        <section className="flex flex-col gap-y-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-400">Tables</h3>
+
+          <button
+            onClick={backup.startExportTables}
+            disabled={isExporting || isImporting || backup.tablesExportPhase === "exporting"}
+            className="
+              flex items-center justify-center gap-x-2
+              w-full rounded-md border border-neon/30 bg-elevated px-4 py-2.5
+              text-sm font-semibold text-neon
+              hover:border-neon/60 hover:bg-elevated/80
+              disabled:cursor-not-allowed disabled:opacity-50
+              transition
+            ">
+            <FiDownload size={15} />
+            {backup.tablesExportPhase === "exporting" ? "Exporting tables…" : "Export tables as CSV"}
+          </button>
+
+          {backup.tablesExportPhase === "exporting" && (
+            <div className="flex flex-col gap-y-1.5">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-elevated">
+                <div
+                  style={{ width: `${backup.tablesExportProgress}%` }}
+                  className="h-full rounded-full bg-neon shadow-neon-sm transition-all duration-200"
+                />
+              </div>
+              <p className="text-xs text-neutral-400 text-right">
+                {backup.tablesExportDone} / {backup.tablesExportTotal} tables
+              </p>
+            </div>
+          )}
+
+          {backup.tablesExportPhase === "done" && (
+            <div className="flex items-center gap-x-2 text-sm text-neon">
+              <FiCheckCircle size={14} />
+              <span>Tables archive downloaded — check your downloads folder.</span>
+            </div>
+          )}
+
+          {backup.tablesExportPhase === "error" && (
+            <div className="flex items-start gap-x-2 text-sm text-red-400">
+              <FiAlertCircle size={14} className="mt-0.5 shrink-0" />
+              <span className="break-words">{backup.tablesExportError ?? "Tables export failed."}</span>
+            </div>
+          )}
+        </section>
+
+        <div className="border-t border-white/10" />
+
         {/* ── Import section ── */}
         <section className="flex flex-col gap-y-3">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-400">Import</h3>
