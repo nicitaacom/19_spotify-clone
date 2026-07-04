@@ -284,7 +284,7 @@ const URL_BATCH_SIZE = 100
 /**
  * Import storage files from a .tar.gz archive — entirely client-side. The browser decompresses and
  * parses the archive locally (no server ever sees the archive bytes, which is what avoids the Vercel
- * out-of-memory / 60s ceilings — see dev_readme-backup.md's Failed iteration #9/#10), asks the server
+ * out-of-memory / 60s ceilings — see dev_readme-backup.md's Failed iteration #9), asks the server
  * for a signed upload URL per file (issued only for paths the user owns), then PUTs each file's bytes
  * straight to Supabase Storage. Backward-compatible with old combined archives: non-storage entries
  * (table .json / .csv) are simply ignored.
