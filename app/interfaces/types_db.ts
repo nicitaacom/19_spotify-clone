@@ -192,45 +192,6 @@ export interface Database {
         }
         Relationships: []
       }
-      users: {
-        Row: { avatar_url: string | null; billing_address: Json | null; full_name: string | null; id: string; payment_method: Json | null }
-        Insert: { avatar_url?: string | null; billing_address?: Json | null; full_name?: string | null; id: string; payment_method?: Json | null }
-        Update: { avatar_url?: string | null; billing_address?: Json | null; full_name?: string | null; id?: string; payment_method?: Json | null }
-        Relationships: []
-      }
-      utm_stats: {
-        Row: {
-          id: string
-          created_at: string
-          user_id: string
-          source: string | null
-          medium: string | null
-          campaign: string | null
-          url: string | null
-          user_agent: string | null
-        }
-        Insert: {
-          id?: string
-          created_at?: string
-          user_id: string
-          source?: string | null
-          medium?: string | null
-          campaign?: string | null
-          url?: string | null
-          user_agent?: string | null
-        }
-        Update: {
-          id?: string
-          created_at?: string
-          user_id?: string
-          source?: string | null
-          medium?: string | null
-          campaign?: string | null
-          url?: string | null
-          user_agent?: string | null
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
