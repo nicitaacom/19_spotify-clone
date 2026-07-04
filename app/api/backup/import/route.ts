@@ -15,7 +15,7 @@ type TableResult = { table: string; rows: number; skipped: number }
 type BucketResult = { bucket: string; files: number; failed: number }
 
 type ImportCursor = {
-  stage: "tables" | "storage"
+  stage: "download" | "tables" | "storage"
   tableIndex: number
   rowOffset: number
   entryIndex: number
@@ -47,26 +47,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
-  const chunkBuffers: Buffer[] = []
-  for (const chunkPath of chunkPaths) {
-    const { data, error } = await supabaseAdmin.storage.from(TMP_BUCKET).download(chunkPath)
-    if (error || !data) {
-      return NextResponse.json({ error: error?.message ?? `Failed to download chunk ${chunkPath}` }, { status: 400 })
-    }
-    chunkBuffers.push(Buffer.from(await data.arrayBuffer()))
-  }
-
-  let tarBuf: Buffer
-  try {
-    tarBuf = await gunzipBuffer(Buffer.concat(chunkBuffers))
-  } catch (error: any) {
-    return NextResponse.json({ error: `Invalid archive (gunzip failed): ${error?.message}` }, { status: 400 })
-  }
-
-  const entries = parseTar(tarBuf)
-  const storageEntries = Array.from(entries.keys()).filter(key => key.startsWith("storage/"))
-  const total = BACKUP_TABLES.length + storageEntries.length
-
   const encoder = new TextEncoder()
   const startedAt = Date.now()
   const overBudget = () => Date.now() - startedAt > REQUEST_BUDGET_MS
@@ -77,7 +57,7 @@ export async function POST(req: Request) {
 
       const tableResults: TableResult[] = [...cursor.tableResults]
       const bucketStats: Record<string, { files: number; failed: number }> = { ...cursor.bucketStats }
-      let currentStage = "resuming import"
+      let currentStage = "downloading uploaded chunks"
 
       const doneCount = () => {
         const tablesDone = tableResults.length
@@ -86,8 +66,42 @@ export async function POST(req: Request) {
       }
 
       try {
+        // ── Download + reassemble the uploaded chunks (in memory, never as a Storage upload) ──
+        // Budget-checked before every individual chunk download, same as the table/storage stages
+        // below, so a large number of chunks can't blow past the time budget from inside one
+        // uncounted loop — if the budget is hit here, the client sees this as ordinary "continue"
+        // progress and simply calls again, re-downloading from the start (cheap, no partial state
+        // to track for this stage).
+        const chunkBuffers: Buffer[] = []
+        for (let chunkIndex = 0; chunkIndex < chunkPaths.length; chunkIndex++) {
+          if (overBudget()) {
+            send({
+              type: "continue",
+              cursor: { stage: "download", tableIndex: 0, rowOffset: 0, entryIndex: 0, tableResults: [], bucketStats: {} },
+              done: 0,
+              total: 1,
+            })
+            controller.close()
+            return
+          }
+          send({ type: "progress", done: chunkIndex, total: chunkPaths.length, label: `Downloading chunk ${chunkIndex + 1} of ${chunkPaths.length}…` })
+          const { data, error } = await supabaseAdmin.storage.from(TMP_BUCKET).download(chunkPaths[chunkIndex])
+          if (error || !data) throw new Error(error?.message ?? `Failed to download chunk ${chunkPaths[chunkIndex]}`)
+          chunkBuffers.push(Buffer.from(await data.arrayBuffer()))
+        }
+
+        currentStage = "decompressing archive"
+        const tarBuf = await gunzipBuffer(Buffer.concat(chunkBuffers))
+
+        const entries = parseTar(tarBuf)
+        const storageEntries = Array.from(entries.keys()).filter(key => key.startsWith("storage/"))
+        const total = BACKUP_TABLES.length + storageEntries.length
+
         // ── Restore table rows ───────────────────────────────────────────────
-        if (cursor.stage === "tables") {
+        // A resumed "download" cursor always restarts the whole import (download is cheap to
+        // redo and isn't resumable itself — see above), so it takes the same path as starting
+        // fresh: process every table from the beginning.
+        if (cursor.stage === "download" || cursor.stage === "tables") {
           for (let tableIndex = cursor.tableIndex; tableIndex < BACKUP_TABLES.length; tableIndex++) {
             const table = BACKUP_TABLES[tableIndex]
             currentStage = `restoring table "${table}"`
