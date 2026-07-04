@@ -92,9 +92,11 @@ BEGIN
         ON public."19_songs" FOR SELECT USING (true);
     END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_songs' AND policyname = 'Allow users to insert their own songs') THEN
-        CREATE POLICY "Allow users to insert their own songs"
-        ON public."19_songs" FOR INSERT WITH CHECK (auth.uid() = user_id);
+    -- Only the owner(s) may insert songs
+    DROP POLICY IF EXISTS "Allow users to insert their own songs" ON public."19_songs";
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_songs' AND policyname = 'Allow owner to insert songs') THEN
+        CREATE POLICY "Allow owner to insert songs"
+        ON public."19_songs" FOR INSERT WITH CHECK (auth.uid() IN ('c6e11b7a-e905-4c06-9f3a-4ae710e09ccb'));
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = '19_songs' AND policyname = 'Allow users to update their own songs') THEN
@@ -534,10 +536,11 @@ BEGIN
       FOR SELECT USING (bucket_id = 'images');
   END IF;
 
-  -- INSERT
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Allow authenticated insert on images') THEN
-    CREATE POLICY "Allow authenticated insert on images" ON storage.objects
-      FOR INSERT WITH CHECK (bucket_id = 'images' AND auth.role() = 'authenticated');
+  -- INSERT: only owner(s)
+  DROP POLICY IF EXISTS "Allow authenticated insert on images" ON storage.objects;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Allow owner insert on images') THEN
+    CREATE POLICY "Allow owner insert on images" ON storage.objects
+      FOR INSERT WITH CHECK (bucket_id = 'images' AND auth.uid() IN ('c6e11b7a-e905-4c06-9f3a-4ae710e09ccb'));
   END IF;
 
   -- UPDATE
@@ -559,7 +562,7 @@ END $$;
 -- 🎵 OBJECT-LEVEL POLICIES FOR BUCKET: songs
 -- =====================================================
 -- SELECT: everyone
--- INSERT: authenticated users only (MIME type enforced by bucket)
+-- INSERT: only owner(s) (MIME type enforced by bucket)
 -- UPDATE: only owner (auth.uid() = owner)
 -- DELETE: only owner
 
@@ -571,10 +574,11 @@ BEGIN
       FOR SELECT USING (bucket_id = 'songs');
   END IF;
 
-  -- INSERT
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Allow authenticated insert on songs') THEN
-    CREATE POLICY "Allow authenticated insert on songs" ON storage.objects
-      FOR INSERT WITH CHECK (bucket_id = 'songs' AND auth.role() = 'authenticated');
+  -- INSERT: only owner(s)
+  DROP POLICY IF EXISTS "Allow authenticated insert on songs" ON storage.objects;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'objects' AND policyname = 'Allow owner insert on songs') THEN
+    CREATE POLICY "Allow owner insert on songs" ON storage.objects
+      FOR INSERT WITH CHECK (bucket_id = 'songs' AND auth.uid() IN ('c6e11b7a-e905-4c06-9f3a-4ae710e09ccb'));
   END IF;
 
   -- UPDATE
