@@ -36,6 +36,7 @@ For UI colors, theming, and visual patterns specifically, see [dev_readme-ui.md]
 12. NEVER fetch data if you can get it from state (exception if it's something massive, to avoid passing ~0.5MB of data in one API request).
 13. Absolutely no short variable names like `e`, `err`, or `idx` — use `error` or `index` instead (exception is `e` for event).
 14. ABSOLUTELY NO ANY FUNCTIONS IN DEPS.
+15. ALWAYS show error message error cause error name - NEVER show "error occured. try again" messages
 
 ### Plain-language wording
 
@@ -97,13 +98,13 @@ Favor:
 
 ### Functions and callbacks
 
-| prefix / suffix   | use                                            |
-| ------------------ | ----------------------------------------------- |
-| `handle`           | user interaction returned to a component       |
-| `Fn` suffix         | internal async logic inside hooks              |
-| `add` / `del`      | mutate array-like state or DB rows             |
-| `update` / `upd`   | patch or update data                           |
-| `refetch`          | re-run fetch logic and return it to component  |
+| prefix / suffix  | use                                           |
+| ---------------- | --------------------------------------------- |
+| `handle`         | user interaction returned to a component      |
+| `Fn` suffix      | internal async logic inside hooks             |
+| `add` / `del`    | mutate array-like state or DB rows            |
+| `update` / `upd` | patch or update data                          |
+| `refetch`        | re-run fetch logic and return it to component |
 
 ### Refs
 
@@ -414,7 +415,7 @@ try {
 ## SDK instantiation
 
 | approach                         | use when                               |
-| --------------------------------- | --------------------------------------- |
+| -------------------------------- | -------------------------------------- |
 | `useMemo(() => new MySDK(), [])` | SDK has internal state or is expensive |
 | `new MySDK()` outside component  | SDK is stateless and cheap             |
 
