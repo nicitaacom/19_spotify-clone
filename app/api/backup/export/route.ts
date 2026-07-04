@@ -6,6 +6,12 @@ import { BACKUP_TABLES, BackupFileRef, addTarEntry, finalizeTar, gzipBuffer } fr
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
 
+// Hard stop for in-request work, safely under the 60s function limit. The loop below
+// checks elapsed time before each file download and returns whatever it has packed so
+// far once this budget is spent — this is what actually prevents the timeout, since it
+// no longer depends on the client having guessed the right chunk size in advance.
+const SERVER_BUDGET_MS = 50_000
+
 // Short-lived in-memory store: token → built archive buffer (expires in 2 min, single-use)
 const archiveCache = new Map<string, { buf: Buffer; fileName: string; expiresAt: number }>()
 
@@ -47,6 +53,7 @@ export async function POST(req: Request) {
 //   { type:"timing", elapsedMs:N, filesProcessed:M }   ← actual wall time, lets client compute next chunk size
 //   { type:"done", token, fileName }
 export async function GET(req: Request) {
+  const requestStartMs = Date.now()
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
   const { userId } = auth
@@ -88,6 +95,7 @@ export async function GET(req: Request) {
     if (includeImages && song.image_path) allFiles.push({ bucket: "images", path: song.image_path, size: 0, contentType: "image/jpeg" })
   }
 
+  const rangeStart = from ?? 0
   const filesToProcess = (from !== null && to !== null) ? allFiles.slice(from, to) : allFiles
 
   // ── Stream NDJSON ──────────────────────────────────────────────────────────
@@ -102,6 +110,8 @@ export async function GET(req: Request) {
         const tarChunks: Buffer[] = []
         const contentTypes: Record<string, string> = {}
         let done = 0
+        let filesProcessed = 0
+        let isStoppedEarly = false
         const startMs = Date.now()
 
         // Tables JSON (first chunk only)
@@ -113,20 +123,28 @@ export async function GET(req: Request) {
           }
         }
 
-        // Storage files
+        // Storage files — bail out before the request risks hitting the platform's
+        // hard timeout. Whatever hasn't been packed yet is picked up by the next
+        // chunk request, starting from `nextFrom` reported in the "done" message.
         for (const file of filesToProcess) {
+          if (Date.now() - requestStartMs > SERVER_BUDGET_MS) {
+            isStoppedEarly = true
+            break
+          }
+
           const { data, error } = await supabaseAdmin.storage.from(file.bucket).download(file.path)
           if (!error && data) {
             const buf = Buffer.from(await data.arrayBuffer())
             addTarEntry(tarChunks, `storage/${file.bucket}/${file.path}`, buf)
             contentTypes[`${file.bucket}/${file.path}`] = file.contentType
           }
+          filesProcessed++
           done++
           send({ type: "progress", done, total })
         }
 
         // Emit actual wall time so the client can calibrate the next chunk size
-        send({ type: "timing", elapsedMs: Date.now() - startMs, filesProcessed: filesToProcess.length })
+        send({ type: "timing", elapsedMs: Date.now() - startMs, filesProcessed })
 
         if (includeTables) {
           addTarEntry(tarChunks, "storage-content-types.json", Buffer.from(JSON.stringify(contentTypes), "utf8"))
@@ -139,7 +157,10 @@ export async function GET(req: Request) {
         const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`
         archiveCache.set(token, { buf: gzBuf, fileName, expiresAt: Date.now() + 120_000 })
 
-        send({ type: "done", fileName, token })
+        // nextFrom tells the client exactly where this chunk actually stopped —
+        // it may be less than the originally requested `to` if we ran out of budget.
+        const nextFrom = rangeStart + filesProcessed
+        send({ type: "done", fileName, token, nextFrom, isStoppedEarly })
         controller.close()
       } catch (err: any) {
         send({ type: "error", message: err?.message ?? "Export failed" })

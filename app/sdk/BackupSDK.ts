@@ -62,6 +62,10 @@ interface ChunkResult {
   /** Actual ms spent downloading files (from the server's timing event) */
   elapsedMs: number
   filesProcessed: number
+  /** Absolute file index the server actually reached — may be short of the requested `to` */
+  nextFrom: number
+  /** True if the server hit its internal time budget and stopped before finishing the requested range */
+  isStoppedEarly: boolean
 }
 
 async function fetchChunk(
@@ -103,6 +107,8 @@ async function fetchChunk(
           blob: await dlRes.blob(),
           elapsedMs: timing?.elapsedMs ?? BUDGET_MS,
           filesProcessed: timing?.filesProcessed ?? 1,
+          nextFrom: msg.nextFrom,
+          isStoppedEarly: Boolean(msg.isStoppedEarly),
         }
       } else if (msg.type === "error") {
         throw new Error(msg.message)
@@ -127,28 +133,37 @@ export async function exportWithProgress(opts: {
   const totalFiles = manifest.fileCount
   const archives: { fileName: string; blob: Blob }[] = []
 
+  const avgBytesPerFile = totalFiles > 0 ? manifest.totalBytes / totalFiles : 0
+  let msPerFile = avgBytesPerFile > 0 ? avgBytesPerFile / bytesPerMs : INITIAL_MS_PER_FILE
+
+  let from = 0
+  let chunkNum = 1
+  let to: number
+
   if (!manifest.shouldSplit) {
     onPhase?.("Exporting…", 1, 1)
     const params = new URLSearchParams({ includeImages: String(includeImages) })
     const result = await fetchChunk(params, onProgress)
     archives.push({ fileName: result.fileName, blob: result.blob })
-    return { archives }
+
+    // The manifest's estimate can be wrong — if the server still had to stop
+    // early even on the "no split needed" path, fall through into the same
+    // chunked loop below to pick up the remaining files instead of returning
+    // a truncated archive as if it were complete.
+    if (!result.isStoppedEarly) return { archives }
+
+    if (result.filesProcessed > 0) msPerFile = result.elapsedMs / result.filesProcessed
+    from = result.nextFrom
+    chunkNum = 2
+    to = Math.min(from + Math.max(1, Math.ceil(Math.floor(BUDGET_MS / msPerFile) / 2)), totalFiles)
+  } else {
+    // ── Dynamic chunking ─────────────────────────────────────────────────────
+    // Chunk 1: use the manifest's initial splitIdx (sized off the measured
+    // connection speed) as the upper bound. After chunk 1 completes we know the
+    // real ms/file and recompute all subsequent chunk sizes so they each stay
+    // within BUDGET_MS.
+    to = Math.min(manifest.splitIdx ?? Math.max(1, Math.floor(BUDGET_MS / msPerFile)), totalFiles)
   }
-
-  // ── Dynamic chunking ───────────────────────────────────────────────────────
-  // Chunk 1: use the manifest's initial splitIdx (sized off the measured
-  // connection speed) as the upper bound. After chunk 1 completes we know the
-  // real ms/file and recompute all subsequent chunk sizes so they each stay
-  // within BUDGET_MS.
-
-  let from = 0
-  let chunkNum = 1
-  const avgBytesPerFile = totalFiles > 0 ? manifest.totalBytes / totalFiles : 0
-  let msPerFile = avgBytesPerFile > 0 ? avgBytesPerFile / bytesPerMs : INITIAL_MS_PER_FILE
-
-  // Initial upper bound from manifest (measured-throughput estimate), but capped to what fits in budget
-  let to = manifest.splitIdx ?? Math.max(1, Math.floor(BUDGET_MS / msPerFile))
-  to = Math.min(to, totalFiles)
 
   while (from < totalFiles) {
     const isFirst = chunkNum === 1
@@ -172,12 +187,17 @@ export async function exportWithProgress(opts: {
       msPerFile = result.elapsedMs / result.filesProcessed
     }
 
-    from = to
+    // Advance from the server's actual stopping point, not the requested `to` —
+    // if the server ran out of its time budget it may have processed fewer files
+    // than asked, and the next request must pick up exactly where it left off.
+    from = result.nextFrom
     chunkNum++
 
-    // How many files can the next chunk safely handle?
+    // How many files can the next chunk safely handle? If the server just stopped
+    // early, be more conservative than the raw estimate so the next chunk doesn't
+    // immediately hit the same wall.
     const nextChunkSize = Math.max(1, Math.floor(BUDGET_MS / msPerFile))
-    to = Math.min(from + nextChunkSize, totalFiles)
+    to = Math.min(from + (result.isStoppedEarly ? Math.ceil(nextChunkSize / 2) : nextChunkSize), totalFiles)
   }
 
   return { archives }
