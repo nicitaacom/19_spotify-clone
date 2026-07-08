@@ -1,3 +1,7 @@
+## Before that it was looking like this
+
+![19_spotify-clone](https://i.imgur.com/YyqXl2t.png)
+
 # Iframe Auth Flow
 
 When this app is opened with `?is_iframe=true`, auth actions should not open the embedded Supabase modal. Instead, they should open the production site in a new tab.
