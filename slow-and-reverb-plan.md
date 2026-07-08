@@ -379,3 +379,152 @@ Both containers must show clearly rounded corners (per `dev_readme-ui.md` card p
 - [ ] Badge renders as a neon `PRO` chip followed by muted `- free for all` text outside it, in all three locations.
 - [ ] Filename pill and waveform card both show rounded corners; waveform bars never touch a square edge.
 - [ ] `pnpm lint` passes.
+
+---
+
+## 11. Fix round 3 — pitch sounds wrong (reported 2026-07-08)
+
+> User report: enabling pitch produces garbled/wrong-octave audio; expected FL Studio-style transposition (e.g. −12 semitones = play C4 instead of C5). Two problems: the shifter DSP is mathematically broken, and the multiplier UX doesn't match the musical mental model.
+
+### 11.1 Root cause — `lib/pitchShifter.ts` DSP is broken
+
+1. **Negative delay times:** the saw modulation buffer spans −1…+1, so `delayTime` swings −0.1…+0.1 s; DelayNode clamps negatives to 0, so half of every grain does no shifting.
+2. **Ratio cancels out:** delay slope = sawSlope (1/grainSize) × modGain (grainSize/r) × playbackRate (r) = **exactly 1 s/s for every ratio** — the requested pitch has no effect, and a slope of 1 pushes the output rate toward 0 (near-frozen, garbled audio).
+3. **Opposite directions:** line 2 gets the *inverted* saw, so it pitches UP while line 1 pitches DOWN — a chorus of two wrong pitches.
+4. **Broken crossfades:** both fade envelopes are identical and in-phase (nothing masks the delay-ramp reset click), and they sum on top of a 0.5 base gain (gain oscillates 0.5–1.5 = overdrive).
+
+**Fix — rewrite as a faithful port of Chrome's `jungle.js` with exact ratio math:** `[x]`
+- Grain constants: `activeTime = 0.1 s`, `fadeTime = 0.05 s`; buffer length = activeTime (50% overlapped grains).
+- Two delay-ramp buffers, both 0…1 range (never negative): **shiftDown** ramp `0→1`, **shiftUp** ramp `1→0`.
+- Four looping mod sources (down×2, up×2) gated by two selector gains (`gateDown`/`gateUp`), feeding `modGain1/2 → delayN.delayTime`. Direction chosen per ratio.
+- **Exact ratio math:** output rate = 1 − d(delay)/dt. For ratio `r`: modGain amplitude `D = |1 − r| × activeTime` (r=0.5 → D=0.05 s; r=2 → D=0.1 s). Down-ramp for r<1, up-ramp for r>1.
+- Equal-power crossfades: `sqrt(x)` fade-in / `sqrt(1−x)` fade-out over `fadeTime`, base gain **0** (envelope is the whole gain); line 2's mod+fade sources offset by half a grain via `start(0, bufferDuration/2)`.
+- Keep the dry-bypass crossfade at `r ≈ 1` (zero artifacts when not shifting). Clamp r to [0.5, 2] (±12 st).
+
+### 11.2 UX — pitch in semitones, FL Studio-style `[x]`
+
+- Engine state `pitch: number` (0.5–1.5 multiplier) → **`pitchSemitones: number`** (integer −12…+12, step 1, **default 0**).
+- Shifter ratio = `2^(semitones/12)`, **independent of speed** — it transposes on top of speed's natural pitch (−12 st = one octave down, C5→C4). Delete all `pitch / speed` coupling: `setSpeed` no longer touches the shifter, `setPitchEnabled` no longer seeds pitch from speed, linked mode no longer mirrors speed into pitch.
+- Toggle OFF = bypass (ratio 1). Toggle ON at 0 st = also bypass (identical to linked — no audible jump on enable).
+- UI (`PitchToggleRow.tsx`): label `Pitch (+3 st)` / `(−12 st)` / `(0 st)`; slider −12…+12 step 1, `BiReset` resets to 0. Subtext when enabled: "Transposition in semitones (−12 = one octave down)".
+- `EffectsParams`: `pitch/pitchEnabled` → `pitchSemitones/pitchEnabled`; `buildEffectsGraph` computes the ratio; `renderOffline` passes through unchanged. Download filename pitch label becomes e.g. `pitch -12st`.
+
+### 11.3 Verification
+
+- [ ] Pitch ON, −12 st, speed 1.0: track plays at normal tempo exactly one octave lower (hum along — C5 content sounds at C4); no freezing, no garble, only mild granular shimmer.
+- [ ] Pitch ON, +12 st: octave up, same tempo.
+- [ ] Pitch ON, 0 st: audibly identical to toggle OFF (bypass).
+- [ ] Speed 0.8 + pitch −2 st: slowed track transposed 2 semitones further down; dragging speed does NOT change the transposition amount.
+- [ ] Toggling ON/OFF mid-play: no click, no position jump.
+- [ ] Export at −12 st matches the live preview.
+- [ ] `pnpm lint` / targeted `tsc` pass.
+
+---
+
+## 12. Round 4 — album art, pitch-reactive theme, resume bug, presets, footer, empty state (planned 2026-07-08, NOT yet implemented)
+
+> **Status: plan only — do not start implementing until the user approves.** Same standing rules: follow `dev_readme-ui.md`, one sub-item at a time with review pauses. Verified facts used below: `@keyframes kenburns` already exists at `app/globals.css:79` (user added it) but **no utility class triggers it yet**; globals.css also has a reduced-motion `animation: none !important` block which must keep winning. The drag-and-drop readme (`app/dev_readme-drag-and-drop.md`) is an SOP copied from another project — `useDragAndDropPost`, `useDrapAndDrop`, `ReactImageUploading`, and the `.image-upload` CSS class **do not exist in this repo**; we follow its *patterns*, not its imports.
+
+### 12.1 Album art from MP3 metadata + Ken Burns on low pitch — `[ ]`
+
+**Extract the embedded ID3 image (no new dependency):**
+- New `lib/id3AlbumArt.ts`: `extractAlbumArt(data: ArrayBuffer): Blob | null`. Parse the ID3v2 header (`"ID3"` magic, version, syncsafe tag size), walk frames, find `APIC` (v2.3/2.4) or `PIC` (v2.2), read text-encoding byte + MIME + picture-type + description, return the image bytes as a `Blob` with the frame's MIME type. Return `null` on anything unexpected — never throw. (~70 lines; handles the overwhelmingly common case; non-MP3 files simply get no art.)
+- **Detached-buffer gotcha (critical):** `loadFile` currently does `ctx.decodeAudioData(arrayBuffer)`, which **detaches** the ArrayBuffer. Extract art BEFORE decoding (or decode `arrayBuffer.slice(0)`), otherwise the parser reads a zero-length buffer.
+- Engine (`useSlowReverbEngine.ts`) additions: `albumArtUrl: string | null` created via `URL.createObjectURL(blob)` in `loadFile`; `URL.revokeObjectURL` on new file, `clear()`, and unmount.
+
+**Display (top-right):**
+- New `components/AlbumArt.tsx`, rendered by `SlowReverbEditor` only when `albumArtUrl` exists. Placement: the editor column's parent gets `relative`; the art sits `absolute right-6 top-6 hidden md:block` (hidden on mobile — the column is centered and narrow there). Card recipe: `w-28 h-28 rounded-xl border border-white/5 overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.5)]` wrapping an `<img className="w-full h-full object-cover">`.
+- **Ken Burns:** add to `tailwind.config.ts` `animation` extend: `kenburns: "kenburns 14s ease-in-out infinite"` (keyframes already live in globals.css — Tailwind's animation utility just emits the shorthand, so referencing them works). Apply `animate-kenburns` to the `<img>` when `pitchEnabled && pitchSemitones <= -1`. The wrapper's `overflow-hidden rounded-xl` clips the scale/translate. The existing reduced-motion block in globals.css already neutralizes it via `animation: none !important` — don't fight that.
+
+### 12.2 Pitch-reactive brightness (site background + art) — `[ ]`
+
+Single source of truth in `SlowReverbEditor`: `dim = pitchEnabled ? pitchSemitones / 12 : 0` (range −1…+1; 0 while linked).
+
+- **Website dim — full-screen overlay** (simplest way to affect "the whole website" including sidebar/player without filter/stacking-context side effects): `SlowReverbEditor` renders a `fixed inset-0 z-30 pointer-events-none transition-opacity duration-300` div:
+  - `dim < 0` (lower pitch → darker): `bg-black` with inline `style={{ opacity: Math.abs(dim) * 0.35 }}` → up to 35% black at −12 st.
+  - `dim > 0` (higher pitch → *slightly* lighter): `bg-white` with `opacity: dim * 0.06` → max 6% white at +12 st.
+  - `z-30` keeps it under toasts/modals; `pointer-events-none` keeps the page fully interactive. Unmounts with the editor (leaving the page removes the tint).
+- **Album art 1.5× more sensitive:** the overlay already dims the art by 1× (it covers the whole screen), so the `<img>` supplies only the extra 0.5× via its own filter: `style={{ filter: \`brightness(${1 + dim * (dim < 0 ? 0.175 : 0.03)})\` }}` with `transition: filter 300ms`. Net effect on the art ≈ 1.5× the site's brightness change in both directions.
+
+### 12.3 Fix: unpause restarts from 0 instead of resuming — `[ ]`
+
+**Root cause (found in `hooks/useSlowReverbEngine.ts`, confirms the exact symptom):** the pause path in `togglePlay` stores the position in `pausedOffsetSecRef`, then calls `stopCurrent()` → `src.stop()`. But **pause never bumps `generationRef`**, so when the stopped source's `onended` fires (async, after stop), its `generationRef.current !== gen` guard *passes* and it runs the natural-end path — which does `pausedOffsetSecRef.current = 0`, wiping the position that pause just saved. Unpause then plays from 0. (Seek-while-playing doesn't hit this because `playFromOffset` increments the generation before the stale `onended` can run.)
+
+This is the same class of bug as `dev_readme-player.md`'s rules — "a stale callback must never drive state" / "guard callbacks against firing in the wrong state" — applied to Web Audio instead of Howler.
+
+**Fix (belt and suspenders, both one-liners):**
+1. In `stopCurrent()`: `src.onended = null` **before** `src.stop()` — a manually stopped source must never run end-of-track logic. This is the authoritative fix and covers every stop path (pause, seek, new file, clear, unmount).
+2. In the pause branch of `togglePlay`: `generationRef.current++` before `stopCurrent()` — keeps the generation counter's contract honest ("every intentional stop invalidates outstanding callbacks") even if a future refactor reorders things.
+
+**Verify:** play to ~40%, pause, wait 2s, unpause → continues from the same spot (watch the time label); natural track end still resets to 0:00; seek/pause/unpause combinations don't drift.
+
+### 12.4 New presets (6, with separator) + squarer buttons — `[ ]`
+
+Replace the hardcoded slowed/nightcore pair with a data-driven list in `SlowReverbEditor.tsx` (Nightcore is removed):
+
+```ts
+const PRESETS = [
+  { id: "slowed",       label: "SLOWED&REVERB",       speed: 0.80, reverb: 40, pitchSt: 0,  bass: 5  },
+  { id: "super-slowed", label: "SUPER SLOWED&REVERB", speed: 0.70, reverb: 40, pitchSt: 0,  bass: 10 },
+  { id: "ultra-slowed", label: "ULTRA SLOWED&REVERB", speed: 0.60, reverb: 40, pitchSt: 0,  bass: 20 },
+  // ---- separator ----
+  { id: "preset-1",     label: "PRESET 1",            speed: 0.85, reverb: 60, pitchSt: -4, bass: 20 },
+  { id: "preset-2",     label: "PRESET 2",            speed: 0.80, reverb: 50, pitchSt: -6, bass: 30 },
+  { id: "preset-3",     label: "PRESET 3",            speed: 0.75, reverb: 40, pitchSt: -7, bass: 35 },
+] as const
+```
+
+- Engine: change `applyPreset(p: "slowed" | "nightcore")` to `applyPreset(preset: { speed; reverb; bass; pitchSt })` (or by id with the table in the hook — prefer passing the values; the hook stays dumb). It routes through the existing setters **plus** `setBass` and pitch: `pitchSt !== 0` → `setPitchEnabled(true)` + `setPitchSemitones(pitchSt)`; `pitchSt === 0` → `setPitchSemitones(0)` + `setPitchEnabled(false)` (bypass, keeps the pitch row clean).
+- Active state: a preset is active when speed, reverb, bass, pitchSemitones AND pitchEnabled all match its values (pitchEnabled expected = `pitchSt !== 0`). Compute, don't store (unchanged principle).
+- Layout: two rows of three buttons (`flex flex-wrap justify-center gap-2`), separated by a line: `<div className="border-t border-white/10 w-2/3 mx-auto my-1" />`. **Roundness reduced:** `rounded-full` → `rounded-md` on preset buttons only (Download button unchanged). Keep the existing active/inactive class recipes otherwise. Labels render as given (uppercase strings as-is).
+- Speed 0.60/0.70 are within the slider's existing 0.5–1.5 range — no range change needed.
+
+### 12.5 Footer line — `[ ]`
+
+At the bottom of the page content, always visible (both empty and loaded states) — put it in `page.tsx` below `<SlowReverbEditor />`:
+
+```
+<div className="border-t border-white/5 mt-8" />
+<p className="text-center text-neutral-500 text-xs py-6">
+  6$/mo ? WTF - Claude free + hermes (free xAI Grok trial) - WORK HARD
+</p>
+```
+
+Literal string exactly as written by the user (including `6$/mo ? WTF`). Separator = the hairline `border-t` above it.
+
+### 12.6 Empty state: 4-step guide — `[ ]`
+
+Below the `FileDropZone` card (inside the empty-state branch of `SlowReverbEditor`), a centered step list:
+
+- `STEP 1: Download song` — the words "Download song" are a hyperlink to `https://yt1z.io/en/video/FeKOxDT-XFQ`, `target="_blank" rel="noopener noreferrer"`, styled `text-neon hover:text-neon-strong underline underline-offset-2`.
+- `STEP 2: Upload song`
+- `STEP 3: Try different presets`
+- `STEP 4: Download song`
+
+Markup: `<ol>` with `flex flex-col gap-1.5 text-sm text-neutral-400 items-center mt-6`; the `STEP N:` prefix in `text-neutral-500 text-xs uppercase tracking-wide font-medium`. No numbers besides the prefixes.
+
+### 12.7 Empty state: whole-screen drag & drop — `[ ]`
+
+Follow the **patterns** of `app/dev_readme-drag-and-drop.md` (document-level detection, pointer-events dance, `relatedTarget === null` window-exit check, preventDefault-on-drop-or-the-browser-opens-the-file) but implement with plain DOM events for audio files — the readme's `useDragAndDropPost`/`ReactImageUploading`/`.image-upload` don't exist here and the lib is image-only.
+
+- New `hooks/useDocumentDrag.ts` (route-local): `useEffect` adding `dragenter`/`dragleave`/`drop`/`dragover` listeners on `document`; `isDragging = true` on first dragenter (only when `e.dataTransfer?.types.includes("Files")`); reset when `dragleave` has `e.relatedTarget === null` (genuine window exit — the readme's edge case) or on any drop. `dragover` calls `preventDefault()` so the window is a valid drop target.
+- New `components/FullScreenDropOverlay.tsx`: `fixed inset-0 z-[9999]`, `pointer-events-none` when idle → `pointer-events-auto` while `isDragging` (the readme's chicken-and-egg fix). Inner full-size div with `onDragOver={e => e.preventDefault()}` and `onDrop` that calls `e.preventDefault()` **first** (the readme's open-in-new-tab gotcha), then validates `file.type.startsWith("audio/")` (else `toast.error`) and calls `onFile`.
+- Hint panel while dragging: non-interactive (`pointer-events-none` — prevents the enter/leave flicker the readme documents) `absolute inset-8 rounded-xl border-2 border-dashed border-neon/50 bg-dark-base/80 backdrop-blur-sm flex items-center justify-center` with "Drop your audio file anywhere" (`.image-upload` doesn't exist in this repo — this dashed recipe matches `FileDropZone`'s style).
+- Mount the overlay from `SlowReverbEditor` **only in the empty state** (`buffer === null`); the existing `FileDropZone` card keeps its own scoped handlers (drops land on the overlay while it's active since it sits on top — no double handling).
+
+### 12.8 New/modified files summary
+
+New: `lib/id3AlbumArt.ts`, `components/AlbumArt.tsx`, `components/FullScreenDropOverlay.tsx`, `hooks/useDocumentDrag.ts` (all under `app/(site)/slow-and-reverb/`).
+Modified: `hooks/useSlowReverbEngine.ts` (albumArtUrl, resume fix, applyPreset signature), `components/SlowReverbEditor.tsx` (art, dim overlay, presets, steps, overlay mount), `app/(site)/slow-and-reverb/page.tsx` (footer), `tailwind.config.ts` (kenburns animation entry).
+
+### 12.9 Verification for this round
+
+- [ ] Upload an MP3 with embedded cover → art appears top-right (desktop); an MP3 without art / a WAV → no art, no errors.
+- [ ] Pitch −1 st or lower → art plays the ken-burns animation; −0/+ st or linked → static. Reduced-motion OS setting keeps it static.
+- [ ] Slide pitch −12…+12: page smoothly darkens (noticeably) / lightens (subtly); art visibly leads the change (~1.5×); UI stays clickable everywhere (overlay is pointer-transparent); toasts still visible above the tint.
+- [ ] Play → pause at ~44% → unpause: **continues from 44%** (the §12.3 bug). Natural end still resets to 0.
+- [ ] Six preset buttons in two rows with a separator, `rounded-md`; each sets its exact four values (check labels: e.g. PRESET 3 → 0.75x / 40% / −7 st / 35%); active highlight tracks all four + toggle state; changing any slider afterwards clears the highlight.
+- [ ] Footer line renders verbatim above nothing else, below everything, in both empty and loaded states.
+- [ ] Empty state shows STEP 1–4; STEP 1 link opens yt1z.io in a new tab.
+- [ ] Empty state: dragging a file anywhere over the window shows the full-screen dashed hint; dropping anywhere loads the file; dropping a non-audio file → error toast, no navigation to the file (preventDefault worked); after a file is loaded the full-screen overlay is gone (drops outside the editor do nothing).
+- [ ] `pnpm lint` + `tsc --noEmit` pass.
