@@ -38,11 +38,11 @@ Work top to bottom. Check off items as they are completed. **Stop after each num
 - [x] Verify: volume slider in the bottom player still works exactly as before.
 
 ### Step 2 — Audio engine (`lib/` + `hooks/useSlowReverbEngine.ts`)
-- [ ] `app/(site)/slow-and-reverb/lib/format.ts` — `formatTime(seconds): string` → `"m:ss"`.
-- [ ] `app/(site)/slow-and-reverb/lib/impulseResponse.ts` — `createImpulseResponse(ctx, seconds = 2.5, decay = 2.5)`.
-- [ ] `app/(site)/slow-and-reverb/lib/buildEffectsGraph.ts` — shared graph builder used by BOTH live playback and offline render.
-- [ ] `app/(site)/slow-and-reverb/hooks/useSlowReverbEngine.ts` — the full hook (API in §4).
-- [ ] Verify: no lint/type errors (`pnpm lint`); logic reviewed (UI comes later, so no manual playback test yet).
+- [x] `app/(site)/slow-and-reverb/lib/format.ts` — `formatTime(seconds): string` → `"m:ss"`.
+- [x] `app/(site)/slow-and-reverb/lib/impulseResponse.ts` — `createImpulseResponse(ctx, seconds = 2.5, decay = 2.5)`.
+- [x] `app/(site)/slow-and-reverb/lib/buildEffectsGraph.ts` — shared graph builder used by BOTH live playback and offline render.
+- [x] `app/(site)/slow-and-reverb/hooks/useSlowReverbEngine.ts` — the full hook (API in §4).
+- [x] Verify: no lint/type errors (targeted eslint + tsc on feature files pass; pre-existing project-wide issues ignored); logic reviewed (UI comes later, so no manual playback test yet).
 
 ### Step 3 — `Waveform.tsx`
 - [ ] `app/(site)/slow-and-reverb/components/Waveform.tsx` — canvas peaks, progress overlay, click/drag seek, play/pause overlay button, time row.
