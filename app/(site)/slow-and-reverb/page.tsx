@@ -27,8 +27,13 @@ export default function SlowAndReverb() {
       <div className="relative z-10 border-t border-white/5 mt-8" />
       <p className="relative z-10 text-center text-neutral-500 text-xs py-6">
         6$/mo ? WTF - Claude free + hermes (free xAI Grok trial) - WORK HARD - credit to&nbsp;
-        <Link className="text-blue-400 hover:text-blue-500" href="https://vizzy.io" target="_blank">
+        <Link className="text-blue-400 hover:text-blue-500 duration-75" href="https://vizzy.io" target="_blank">
           vizzy.io
+        </Link>
+        <br />
+        🚀 Done with speed in: ~1h 51m | hire me&nbsp;
+        <Link className="text-blue-400 hover:text-blue-500 duration-75" href="https://nicitaa.com" target="_blank">
+          here
         </Link>
       </p>
     </div>
