@@ -59,10 +59,10 @@ Work top to bottom. Check off items as they are completed. **Stop after each num
 - [x] Verify: full manual flow — load file, play, seek, sliders, presets (checklist §8, all items except download). (ProBadge created early for waveform; hook extended with clear() for UI.)
 
 ### Step 5 — Download / export
-- [ ] `pnpm add @breezystack/lamejs`
-- [ ] `lib/encodeWav.ts`, `lib/encodeMp3.ts`, `lib/renderOffline.ts`.
-- [ ] Wire `download(format)` in the engine hook and un-stub `DownloadSplitButton`.
-- [ ] Verify: MP3 + WAV export at 0.8x/40% reverb plays correctly in an external player.
+- [x] `pnpm add @breezystack/lamejs`
+- [x] `lib/encodeWav.ts`, `lib/encodeMp3.ts`, `lib/renderOffline.ts`.
+- [x] Wire `download(format)` in the engine hook and un-stub `DownloadSplitButton`.
+- [x] Verify: MP3 + WAV export at 0.8x/40% reverb plays correctly in an external player.
 
 ### Step 6 — Sidebar nav entry
 - [ ] Add route to `components/Sidebar.tsx` routes array (after "My Songs"): icon `TbWaveSine` from `react-icons/tb`, label `"Slow & Reverb"`, `active: pathname.startsWith("/slow-and-reverb")`, `href: "/slow-and-reverb"`.

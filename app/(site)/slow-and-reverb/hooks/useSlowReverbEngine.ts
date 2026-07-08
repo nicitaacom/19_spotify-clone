@@ -4,6 +4,9 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { toast } from "react-hot-toast"
 
 import { buildEffectsGraph, EffectsParams } from "../lib/buildEffectsGraph"
+import { renderOffline } from "../lib/renderOffline"
+import { encodeMp3 } from "../lib/encodeMp3"
+import { encodeWav } from "../lib/encodeWav"
 
 export interface SlowReverbEngine {
   loadFile(file: File): Promise<void>
@@ -315,13 +318,54 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     // keep speed/reverb/bass as-is
   }, [stopCurrent])
 
-  const download = async (_format: "mp3" | "wav"): Promise<void> => {
-    void _format
-    // stub until Step 5
+  const download = async (format: "mp3" | "wav"): Promise<void> => {
+    const buf = bufferRef.current
+    if (isRendering || !buf) return
+
     setIsRendering(true)
-    toast("Export coming in the next step")
-    setIsRendering(false)
+
+    const base = (fileName || "track").replace(/\.[^/.]+$/, "")
+    const speedVal = speedRef.current
+    const rev = reverbRef.current
+    const fileBase = `${base} (slowed ${speedVal}x, reverb ${rev}%)`
+
+    try {
+      toast.loading("Rendering…", { id: "export" })
+
+      const rendered = await renderOffline(buf, {
+        speed: speedVal,
+        reverb: rev,
+        bass: bassRef.current,
+      })
+
+      let blob: Blob
+      if (format === "mp3") {
+        blob = await encodeMp3(rendered, (pct) => {
+          toast.loading(`Encoding… ${pct}%`, { id: "export" })
+        })
+      } else {
+        blob = encodeWav(rendered)
+      }
+
+      // trigger download
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${fileBase}.${format}`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      toast.success("Downloaded", { id: "export" })
+    } catch (err) {
+      console.error("Export failed", err)
+      toast.error("Export failed", { id: "export" })
+    } finally {
+      setIsRendering(false)
+    }
   }
+
 
   // Cleanup on unmount
   useEffect(() => {
