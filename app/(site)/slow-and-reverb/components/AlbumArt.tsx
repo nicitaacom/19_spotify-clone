@@ -14,6 +14,7 @@ export default function AlbumArt({ albumArtUrl, pitchEnabled, pitchSemitones }: 
   return (
     <div className="absolute right-6 top-6 hidden md:block">
       <div className="w-28 h-28 rounded-xl border border-white/5 overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={albumArtUrl}
           alt="Album art"

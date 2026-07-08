@@ -50,7 +50,7 @@ export function extractAlbumArt(data: ArrayBuffer): Blob | null {
 
       if (frameID === 'APIC' || frameID === 'PIC') {
         let pos = offset + 10
-        const encoding = bytes[pos++]
+        pos++ // encoding byte
 
         let mimeEnd = pos
         while (mimeEnd < offset + 10 + frameSize && bytes[mimeEnd] !== 0) mimeEnd++
