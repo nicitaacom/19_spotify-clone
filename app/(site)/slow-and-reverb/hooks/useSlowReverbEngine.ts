@@ -8,6 +8,13 @@ import { renderOffline } from "../lib/renderOffline"
 import { encodeMp3 } from "../lib/encodeMp3"
 import { extractAlbumArt } from "../lib/id3AlbumArt"
 
+export interface PresetValues {
+  speed: number
+  reverb: number
+  bass: number
+  pitchSt: number
+}
+
 export interface SlowReverbEngine {
   loadFile(file: File): Promise<void>
   fileName: string | null
@@ -27,7 +34,7 @@ export interface SlowReverbEngine {
   setPitchSemitones(v: number): void
   pitchEnabled: boolean
   setPitchEnabled(v: boolean): void
-  applyPreset(p: "slowed" | "nightcore" | "lofi" | "dreamy" | "vinyl"): void
+  applyPreset(values: PresetValues): void
   isRendering: boolean
   download(): Promise<void>
   clear(): void
@@ -315,27 +322,21 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     }
   }, [])
 
-  const applyPreset = useCallback((p: "slowed" | "nightcore" | "lofi" | "dreamy" | "vinyl") => {
-    if (p === "slowed") {
-      setSpeed(0.8)
-      setReverb(40)
-    } else if (p === "nightcore") {
-      setSpeed(1.25)
-      setReverb(0)
-    } else if (p === "lofi") {
-      setSpeed(0.85)
-      setReverb(25)
-      setBass(35)
-    } else if (p === "dreamy") {
-      setSpeed(0.75)
-      setReverb(55)
-      setBass(20)
-    } else if (p === "vinyl") {
-      setSpeed(0.92)
-      setReverb(15)
-      setBass(40)
-    }
-  }, [setSpeed, setReverb, setBass])
+  const applyPreset = useCallback(
+    (values: PresetValues) => {
+      setSpeed(values.speed)
+      setReverb(values.reverb)
+      setBass(values.bass)
+      if (values.pitchSt !== 0) {
+        setPitchSemitones(values.pitchSt)
+        setPitchEnabled(true)
+      } else {
+        setPitchSemitones(0)
+        setPitchEnabled(false)
+      }
+    },
+    [setSpeed, setReverb, setBass, setPitchSemitones, setPitchEnabled],
+  )
 
   const clear = useCallback(() => {
     stopCurrent()

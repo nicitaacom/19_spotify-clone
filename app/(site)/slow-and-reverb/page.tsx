@@ -7,7 +7,10 @@ export const metadata = {
 
 export default function SlowAndReverb() {
   return (
-    <div className="h-full w-full overflow-x-hidden rounded-lg bg-surface text-white">
+    <div
+      className="h-full w-full overflow-x-hidden rounded-lg text-white transition-colors duration-300"
+      style={{ backgroundColor: "var(--srv-bg, #111111)" }}
+    >
       <Header className="bg-gradient-to-b from-[#0f1f14] via-[#0b0f0c] to-transparent">
         <div className="mt-10">
           <div className="flex flex-col gap-y-3">
