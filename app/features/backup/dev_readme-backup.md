@@ -4,7 +4,117 @@ Available to every authenticated user. Entry point: **Account Settings** (`/acco
 Restore" button → `DbBackupModal`.
 
 **Verified working in production on 2026-07-04:** export tables (CSV), export files (storage),
-import tables (CSV), import files (storage) — all four flows, no errors.
+import tables (CSV), import files (storage) — all four flows, no errors. **Ported to
+`26_hot-delivery` on 2026-07-04**, proving the design below is genuinely copy-pastable.
+
+<br/>
+
+## Porting this feature into another project (SOP)
+
+Everything project-specific lives in **one file: `backupConfig.ts`**. Nothing else in
+`app/features/backup/` or `app/api/backup/` should need to change. If you (the AI doing the port)
+find yourself editing a route or `BackupSDK.ts` to make a project's schema fit, stop — that almost
+always means `backupConfig.ts`'s shape needs a new field, not that the routes need project-specific
+logic again.
+
+### 1. Copy these files as-is
+
+```
+app/features/backup/tarClient.ts         (pure archive plumbing — never edit)
+app/features/backup/csvClient.ts         (pure CSV read/write — never edit)
+app/features/backup/backupTables.ts      (re-export shim — never edit)
+app/features/backup/BackupSDK.ts         (browser orchestration — never edit)
+app/features/backup/useDbBackup.ts       (hook — never edit)
+app/features/backup/useDbBackupModal.ts  (zustand open/close store — never edit)
+app/features/backup/DbBackupModal.tsx    (modal UI — edit only the copy strings, e.g. table names in
+                                          the description text; the structure/logic stays)
+app/features/backup/ModalContainer.tsx   (self-contained modal shell — copy as-is; if the target
+                                          project already has its own modal primitive, prefer that
+                                          one instead of this file)
+app/api/backup/requireUser.ts            (auth gate — see step 4, its body may need a small edit)
+app/api/backup/rows/route.ts             (generic — never edit)
+app/api/backup/files/route.ts            (generic — never edit)
+```
+
+### 2. Write `backupConfig.ts` — the only file you write from scratch
+
+This is the contract both routes and the SDK import from. See the two existing implementations for
+the full shape: [`19_spotify-clone`'s](./backupConfig.ts) (per-user) and
+[`26_hot-delivery`'s](../../../26_hot-delivery/app/features/backup/backupConfig.ts) (admin-role).
+Skeleton:
+
+```ts
+export interface BackupTableConfig {
+  name: string                // exact table name
+  onConflict: string          // PK column(s) for upsert, comma-separated for composite keys
+  numericColumns: string[]    // CSV string → number on import
+  arrayColumns: string[]      // Postgres text[] round-trip
+  jsonColumns: string[]       // jsonb / jsonb[] round-trip
+  scopeSelect?: (admin, userId) => Promise<{ data, error }>   // omit if no per-user row scoping
+  scopeRows?: (admin, userId, rows) => Promise<rows>          // omit if no per-user row scoping
+}
+
+export const BACKUP_TABLES: BackupTableConfig[]   // FK-safe order
+export const BACKUP_BUCKETS: string[]
+
+export async function assertBackupAccess(userId, admin): Promise<boolean>
+export async function listFiles(admin, userId): Promise<BackupFileRef[]>
+export async function isOwnedFile(admin, userId, bucket, path): Promise<boolean>
+export function getPublicUrl(bucket, path): string
+```
+
+### 3. Questions to ask the user before writing it
+
+Ask these up front rather than guessing — guessing produced three real bugs during the
+hot-delivery port (wrong column name, wrong PK, wrong column type; see the two worked examples
+below). **Always cross-check every answer against the project's actual `types_db.ts` /
+generated Supabase types before writing the config** — a markdown doc or a verbal description of
+the schema can be stale; the generated types file is the current truth.
+
+1. **Which tables should be backed up, in FK-safe order?** (parents before children)
+2. **For each table: what's the primary key?** (single column, or composite — comma-separated)
+3. **For each table: which columns are numeric, `text[]`, or `jsonb`/`jsonb[]`?** (everything else
+   is left as a string; PostgREST coerces timestamp/uuid/enum/bool from text automatically)
+4. **Which storage buckets should be backed up?**
+5. **What decides who may run a backup, and what decides which rows/files they may read or write?**
+   Two common shapes — ask which one applies (or if it's something else entirely):
+   - *Per-user*: every table scoped by a `user_id` column; a file is owned if its path appears in
+     some table's path column. → `assertBackupAccess` always returns `true`; every table sets
+     `scopeSelect`/`scopeRows`; `listFiles`/`isOwnedFile` derive from that owning table.
+   - *Role/admin-gated*: one global gate (e.g. `users.roles` includes `"ADMIN"`), no per-row
+     scoping. → `assertBackupAccess` does the role check; tables omit `scopeSelect`/`scopeRows`;
+     `listFiles`/`isOwnedFile` list/check the buckets directly (`storage.list()`).
+6. **How is a stored file's public URL built?** (usually
+   `${NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/<bucket>/<path>` — confirm the env var
+   name matches this project)
+
+### 4. Files to request if missing
+
+The AI cannot proceed without these — ask for them rather than assuming a shape:
+
+- **The generated `types_db.ts`** (or equivalent Supabase type-gen output) — the source of truth
+  for every column name/type/nullability. Don't trust a hand-written schema doc over this file.
+- **The project's `tsconfig.json`** `paths` entry for `@/*` — 19_spotify-clone maps `@/* → ./*`;
+  26_hot-delivery maps `@/* → ./app/*`. Every `@/...` import in the copied files must resolve
+  under the target project's actual mapping, or the build fails with a module-not-found error
+  before any logic even runs (this was hot-delivery's first bug).
+- **The service-role Supabase client** (e.g. `libs/supabaseAdmin.ts`) and **the route-handler auth
+  helper** (e.g. `libs/supabaseServer.ts` or however the project gets a session in a route
+  handler) — `requireUser.ts` calls into whatever this project's actual pattern is; check for an
+  existing `createRouteHandlerClient(...)` call elsewhere in the project's API routes and match
+  its exact import path and call signature, don't assume it matches another project's wrapper.
+- **Any existing public-URL helper** (e.g. `getSupabasePublicUrl` / `getPublicUrl`) — reuse it if
+  one already exists instead of duplicating the formula in `backupConfig.ts`.
+
+### 5. Verify
+
+- `npx tsc --noEmit` from the target project's own root (not a parent directory — a nested
+  project inside another repo will otherwise get swept into the wrong tsconfig and report false
+  cross-project errors).
+- Export tables, inspect one CSV, re-import, confirm array/jsonb columns round-trip unchanged.
+- Export files, re-import into an empty bucket, confirm files reappear and render/play correctly.
+- Try the access boundary with a caller who should be denied (wrong role, or another user's data)
+  and confirm they're skipped/rejected, not silently allowed.
 
 <br/>
 
@@ -48,12 +158,13 @@ path is found in one of your own `19_songs` rows (the ownership check — see [S
 if the rows aren't there yet, every file is skipped as "not yours."
 
 **Tables CSV format:** each cell is written per RFC 4180 (`csvClient.ts`). Cells come back as
-strings; PostgREST coerces them to the real column type on upsert (int / timestamp / uuid / enum).
-Numeric columns (`id`, `size_bytes`, `song_id`, `position`) are converted to real numbers in
-`rows/route.ts` before upsert; text columns are left as strings, so a title that happens to be
-`"123"` stays text. None of the four backup tables has a JSON/`jsonb` column, so there is no
-JSON-cell round-trip concern (the `utm_stats` jsonb column lives on a different table that is not
-backed up).
+strings; PostgREST coerces most of them to the real column type on upsert (timestamp / uuid / enum
+/ bool). Three kinds need explicit coercion, declared per-table in `backupConfig.ts` and applied
+client-side by `coerceRowsForImport()` in `BackupSDK.ts` before each POST: **numeric** columns
+(`id`, `size_bytes`, `song_id`, `position`) become real numbers; **array** (`text[]`) and **jsonb**
+columns are `JSON.parse`d back from the JSON text `toCsv()` wrote them as. None of this project's
+four backup tables has an array or jsonb column, so that path is exercised only by
+`26_hot-delivery`'s port (`food_live.images`/`ingredients`) — see [Porting this feature](#porting-this-feature-into-another-project-sop).
 
 <br/>
 
@@ -64,27 +175,34 @@ Split by **runtime**: everything that runs in the browser (or is pure and browse
 
 ```
 app/features/backup/            ← all client + pure code, plus this doc
+├── backupConfig.ts             ★ THE ONLY PROJECT-SPECIFIC FILE — tables, buckets, column
+│                                 coercion rules, access boundary, file listing/ownership, public
+│                                 URL builder. Porting to a new project = rewriting only this file.
 ├── BackupSDK.ts                browser orchestration: exportTables / importTables /
-│                                 exportFiles / importFiles / downloadBlob
+│                                 exportFiles / importFiles / downloadBlob / coerceRowsForImport
 ├── useDbBackup.ts              hook: all export/import state, progress, stall watchdog, start* actions
 ├── useDbBackupModal.ts         Zustand store: isOpen / onOpen / onClose
-├── DbBackupModal.tsx           modal UI (render-only; imports Modal from @/components/Modal)
+├── DbBackupModal.tsx           modal UI (render-only; imports ModalContainer, self-contained)
+├── ModalContainer.tsx          copy-pastable modal shell (framer-motion, no Dialog.Root dependency)
 ├── tarClient.ts                pure tar build/parse + browser gzip (CompressionStream) and
-│                                 gunzip (DecompressionStream) — no Node deps
-├── csvClient.ts                pure CSV read/write, RFC 4180 — no Node deps
-├── backupTables.ts             pure re-export shim: BACKUP_TABLES/BUCKETS + types + tar helpers
+│                                 gunzip (DecompressionStream) — no Node deps, never edit per-project
+├── csvClient.ts                pure CSV read/write, RFC 4180 — no Node deps, never edit per-project
+├── backupTables.ts             re-export shim: re-exports backupConfig.ts's constants/functions +
+│                                 tarClient.ts's archive helpers from one stable import path
 └── dev_readme-backup.md        this file
 
-app/api/backup/                 ← server route handlers only
-├── requireUser.ts              auth gate — 401 if no session, returns { userId }
-├── rows/route.ts               GET → { tables };  POST { table, rows } → upsert one table
-└── files/route.ts              GET → { files };   POST { files:[{bucket,path}] } → signed upload URLs
+app/api/backup/                 ← server route handlers only, generic — never edit per-project
+├── requireUser.ts              auth gate — 401 if no session, returns { userId } (may need a small
+│                                 edit per project — see the SOP's "files to request", item 3)
+├── rows/route.ts               GET → { tables };  POST { table, rows } → upsert one table,
+│                                 calling backupConfig.ts's assertBackupAccess/scopeSelect/scopeRows
+└── files/route.ts              GET → { files };   POST { files:[{bucket,path}] } → signed upload
+                                  URLs, calling backupConfig.ts's assertBackupAccess/listFiles/isOwnedFile
 ```
 
-There is **no server-only module in this folder anymore** — `backupTables.ts` used to hold Node
-`zlib` helpers, but the archive is now decompressed in the browser, so those were removed. Every
-file here is safe to import from the client. (Old rule, now moot: "never import `backupTables` from
-the client because it pulls in `zlib`" — it no longer imports `zlib`.)
+There is **no server-only module in this folder** — the archive is decompressed in the browser, so
+every file here is safe to import from the client. `backupConfig.ts` is the one file every port
+rewrites; see [Porting this feature](#porting-this-feature-into-another-project-sop) above.
 
 **Consumers outside the feature folder:**
 
@@ -128,12 +246,17 @@ playlists) and returns `{ rows, skipped }` or the raw Postgres error.
 ### Export files — `exportFiles()` in `BackupSDK.ts`
 
 ```
-GET /api/backup/files?includeImages=true → { files: [{ bucket, path, contentType }, ...] }
+GET /api/backup/files → { files: [{ bucket, path, contentType }, ...] }
 ```
 
-The browser downloads each file **directly from Supabase's public CDN** (`getSupabasePublicUrl`,
-concurrency pool of 5), packs `storage/<bucket>/<path>` entries plus `storage-content-types.json`,
-gzips locally → `19_backup-files-<date>.tar.gz`. The Vercel function returns only the path list.
+The server's file list comes from `backupConfig.ts`'s `listFiles()` (in this project: every
+`song_path`/`image_path` on the caller's own `19_songs` rows). The browser downloads each file
+**directly from Supabase's public CDN** (`getPublicUrl()`, concurrency pool of 5), packs
+`storage/<bucket>/<path>` entries plus `storage-content-types.json`, gzips locally →
+`19_backup-files-<date>.tar.gz`. The Vercel function returns only the path list. `includeImages`
+(the modal's "Include cover images" checkbox) is applied client-side by filtering the `images`
+bucket out of the list — the server always returns the full list, since it never changes per
+request.
 
 ```
  Browser (exportFiles)                        Vercel function            Supabase
@@ -150,7 +273,10 @@ gzips locally → `19_backup-files-<date>.tar.gz`. The Vercel function returns o
 ### Import files — `importFiles()` in `BackupSDK.ts` (this is the memory-safe path)
 
 The whole archive is decompressed and parsed **in the browser**; the server only ever issues signed
-upload URLs and never receives a byte of the archive.
+upload URLs and never receives a byte of the archive. The "owned-path check" below is
+`backupConfig.ts`'s `isOwnedFile()` — in this project that means "is this path one of the caller's
+own `19_songs.song_path`/`image_path` values"; a role-gated project like `26_hot-delivery` instead
+checks bucket membership only (see [Porting this feature](#porting-this-feature-into-another-project-sop)).
 
 ```
  Browser (importFiles)                              Vercel function                Supabase
@@ -225,16 +351,19 @@ back off on the next progress event. The modal shows an amber "Taking longer tha
 
 ## Security
 
-- Both routes are gated by `requireUser()` (`libs/supabaseServer.ts`, async `cookies()` wrapper).
-- Reads are `.eq("user_id", userId)`; `19_playlist_songs` is further filtered to the user's own
-  playlist IDs.
+- Both routes are gated by `requireUser()` (`libs/supabaseServer.ts`, async `cookies()` wrapper),
+  then by `backupConfig.ts`'s `assertBackupAccess()` — in this project always `true` for any
+  authenticated user, because the real boundary is per-row/per-file scoping below (a role-gated
+  project like `26_hot-delivery` puts the whole boundary in `assertBackupAccess` instead).
+- Reads use each table's `scopeSelect()`: `.eq("user_id", userId)` for most tables;
+  `19_playlist_songs` is further filtered to the user's own playlist IDs.
 - **Import ownership is the security boundary.** The server uses `supabaseAdmin` (service role), so
-  RLS does not apply — user-ID scoping in application code is what prevents one user from writing
+  RLS does not apply — the scoping in `backupConfig.ts` is what prevents one user from writing
   another's data:
-  - Rows with a foreign `user_id` are skipped on upsert.
-  - A file gets a signed upload URL **only** if its path is in one of the user's own `19_songs`
-    rows. The browser's file list is untrusted; the server decides what may be written. (This is
-    also why tables must be imported before files.)
+  - Rows are filtered by each table's `scopeRows()` — a foreign `user_id` row is skipped on upsert.
+  - A file gets a signed upload URL **only** if `isOwnedFile()` returns true — in this project, only
+    if its path is in one of the user's own `19_songs` rows. The browser's file list is untrusted;
+    the server decides what may be written. (This is also why tables must be imported before files.)
 
 <br/>
 
@@ -255,8 +384,10 @@ no Node imports, safe on client or server:
 **`csvClient.ts`** — `toCsv(rows)` / `parseCsv(text)`, RFC 4180 (quoting, `""` escaping, quoted
 newlines, empty cell ↔ `null`).
 
-**`backupTables.ts`** — re-exports the pure tar helpers + `BACKUP_TABLES` / `BACKUP_BUCKETS` +
-types, so the routes import them from one stable path.
+**`backupTables.ts`** — re-exports the pure tar helpers from `tarClient.ts` plus everything from
+`backupConfig.ts` (`BACKUP_TABLES`, `BACKUP_BUCKETS`, `assertBackupAccess`, `listFiles`,
+`isOwnedFile`, `getPublicUrl`, types), so the routes import from one stable path regardless of
+which file actually defines each export.
 
 <br/>
 
@@ -354,6 +485,21 @@ they are history, kept because each one encodes a ceiling or trap that is easy t
    moved to the browser (no hard memory ceiling there); files upload one-by-one straight to Supabase.
    Tables and files were split into the two independent flows documented above. Verified working in
    production 2026-07-04.
+
+10. **Porting to `26_hot-delivery` by copy-pasting the feature with `BACKUP_TABLES` /
+    `BACKUP_BUCKETS` / the ownership checks still hardcoded to spotify's schema.** The copy built on
+    the wrong path alias (`@/app/features/...` under a `@/* → ./app/*` project resolves to
+    `./app/app/features/...`) and, even with imports fixed, would have backed up nothing — hot
+    delivery has no `19_songs` table, no `user_id` scoping, and different bucket names. **Fixed by
+    extracting every project-specific fact into `backupConfig.ts`** (tables, buckets, column
+    coercion, `assertBackupAccess`, `listFiles`/`isOwnedFile`, `getPublicUrl`) so the routes and
+    `BackupSDK.ts` became generic, config-driven code — verified by retrofitting this project onto
+    the same `backupConfig.ts` shape with zero behavior change. Two schema bugs were caught only by
+    cross-checking the hand-written config against the generated `types_db.ts`, not the markdown
+    schema doc: hot-delivery's role column is `users.roles` (plural), not `role`; and this
+    project's `19_liked_songs` has no `id` column at all (composite PK `user_id,song_id`) — both
+    would have silently broken in production had the config been trusted without that check. See
+    [Porting this feature](#porting-this-feature-into-another-project-sop) at the top of this doc.
 
 <br/>
 
