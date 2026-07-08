@@ -1,7 +1,5 @@
-import { getSupabasePublicUrl } from "@/libs/helpers"
+import { BACKUP_TABLES, getPublicUrl, type BackupFileRef, type BackupTableConfig } from "./backupConfig"
 import {
-  BACKUP_TABLES,
-  BackupFileRef,
   addTarEntry,
   finalizeTar,
   parseTar,
@@ -77,8 +75,8 @@ export async function exportTables(onProgress: (done: number, total: number) => 
   onProgress(done, BACKUP_TABLES.length)
 
   for (const table of BACKUP_TABLES) {
-    const csv = toCsv(tables[table] ?? [])
-    addTarEntry(tarChunks, `${table}.csv`, Buffer.from(csv, "utf8"))
+    const csv = toCsv(tables[table.name] ?? [])
+    addTarEntry(tarChunks, `${table.name}.csv`, Buffer.from(csv, "utf8"))
     done++
     onProgress(done, BACKUP_TABLES.length)
   }
@@ -86,7 +84,7 @@ export async function exportTables(onProgress: (done: number, total: number) => 
   const tarBuf = finalizeTar(tarChunks)
   const gz = await gzipBufferClient(new Uint8Array(tarBuf))
   const date = new Date().toISOString().slice(0, 10)
-  const fileName = `19_backup-tables-${date}.tar.gz`
+  const fileName = `backup-tables-${date}.tar.gz`
   const blob = new Blob([gz], { type: "application/gzip" })
 
   return { fileName, blob }
@@ -130,10 +128,40 @@ async function readCsvEntries(file: File): Promise<Record<string, string>> {
 }
 
 /**
+ * CSV stores every cell as text. On export a `text[]` column comes back a JS array and a jsonb /
+ * jsonb[] column comes back an object/array, both of which toCsv writes as JSON. Here we reverse
+ * that per the table's config so each row matches the column's Postgres type before upsert:
+ *   numericColumns → number, arrayColumns (text[]) → string[], jsonColumns (jsonb/jsonb[]) → parsed.
+ * Everything else stays a string (PostgREST coerces timestamp/uuid/enum/bool from text). A null cell
+ * stays null. A bad JSON cell throws with the table/column/row so the failure is legible (rule 15).
+ */
+function coerceRowsForImport(config: BackupTableConfig, rows: Record<string, string | null>[]): Record<string, unknown>[] {
+  const parseJsonColumns = new Set([...config.arrayColumns, ...config.jsonColumns])
+  const numericColumns = new Set(config.numericColumns)
+
+  return rows.map((row, rowIndex) => {
+    const coerced: Record<string, unknown> = { ...row }
+    for (const [column, value] of Object.entries(row)) {
+      if (value === null) continue
+      if (numericColumns.has(column)) {
+        coerced[column] = value === "" ? null : Number(value)
+      } else if (parseJsonColumns.has(column)) {
+        try {
+          coerced[column] = JSON.parse(value)
+        } catch (error: any) {
+          throw new Error(`${config.name}.csv row ${rowIndex + 1}, column "${column}": not valid JSON — ${error?.message ?? String(error)}`)
+        }
+      }
+    }
+    return coerced
+  })
+}
+
+/**
  * Import table rows from CSV files — either .tar.gz archives (from exportTables) or loose .csv
  * files. Multiple inputs are merged; a partial set is fine (only the tables present are imported).
  * Rows are parsed in the browser and POSTed to /api/backup/rows in ≤500-row batches, in FK-safe
- * order (BACKUP_TABLES). The server scopes rows to the session user and returns real counts.
+ * order (BACKUP_TABLES). The server upserts on each table's primary key and returns real counts.
  */
 export async function importTables(
   files: File[],
@@ -146,9 +174,10 @@ export async function importTables(
     Object.assign(csvByTable, entries)
   }
 
-  const tablesToImport = BACKUP_TABLES.filter(table => csvByTable[table] !== undefined)
+  const tablesToImport = BACKUP_TABLES.filter(table => csvByTable[table.name] !== undefined)
   if (tablesToImport.length === 0) {
-    throw new Error("No table CSV files found — expected files like 19_songs.csv, either loose or inside a .tar.gz archive.")
+    const example = BACKUP_TABLES[0]?.name ?? "table"
+    throw new Error(`No table CSV files found — expected files like ${example}.csv, either loose or inside a .tar.gz archive.`)
   }
 
   const results: TablesImportResult = { tables: [] }
@@ -156,13 +185,13 @@ export async function importTables(
   onProgress(done, tablesToImport.length, "Restoring tables…")
 
   for (const table of tablesToImport) {
-    onProgress(done, tablesToImport.length, `Restoring ${table}…`)
+    onProgress(done, tablesToImport.length, `Restoring ${table.name}…`)
 
-    let rows: Record<string, string | null>[]
+    let rows: Record<string, unknown>[]
     try {
-      rows = parseCsv(csvByTable[table])
+      rows = coerceRowsForImport(table, parseCsv(csvByTable[table.name]))
     } catch (error: any) {
-      throw new Error(`Failed to parse ${table}.csv: ${error?.message ?? String(error)}`)
+      throw new Error(`Failed to parse ${table.name}.csv: ${error?.message ?? String(error)}`)
     }
 
     let importedRows = 0
@@ -173,7 +202,7 @@ export async function importTables(
       const res = await fetch("/api/backup/rows", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ table, rows: batch }),
+        body: JSON.stringify({ table: table.name, rows: batch }),
       })
       if (!res.ok) {
         const responseText = await res.text().catch(() => "")
@@ -186,16 +215,16 @@ export async function importTables(
         } catch {
           message = responseText || undefined
         }
-        throw new Error(`Failed to import ${table} (${res.status})${message ? `: ${message}` : ""}`)
+        throw new Error(`Failed to import ${table.name} (${res.status})${message ? `: ${message}` : ""}`)
       }
       const { rows: rowsUpserted, skipped } = await res.json()
       importedRows += rowsUpserted
-      skippedRows += skipped
+      skippedRows += skipped ?? 0
     }
 
-    results.tables.push({ table, rows: importedRows, skipped: skippedRows })
+    results.tables.push({ table: table.name, rows: importedRows, skipped: skippedRows })
     done++
-    onProgress(done, tablesToImport.length, `Restored ${table}`)
+    onProgress(done, tablesToImport.length, `Restored ${table.name}`)
   }
 
   return results
@@ -206,19 +235,21 @@ export async function importTables(
  * entirely in the browser: fetch the file list from the server, download each file directly from
  * Supabase's public CDN, and pack them locally. The app server never touches Storage bytes, so
  * there is no 60s function timeout regardless of library size. Kept separate from table export so
- * a files backup never has to fetch or pack table rows.
+ * a files backup never has to fetch or pack table rows. `includeImages` is applied client-side —
+ * the server's file list is the same regardless, so a re-export with the box checked never needs
+ * a second request.
  */
 export async function exportFiles(
   includeImages: boolean,
   onProgress: (done: number, total: number) => void,
 ): Promise<{ fileName: string; blob: Blob }> {
-  const params = new URLSearchParams({ includeImages: String(includeImages) })
-  const filesRes = await fetch(`/api/backup/files?${params}`)
+  const filesRes = await fetch(`/api/backup/files`)
   if (!filesRes.ok) {
     const body = await filesRes.json().catch(() => ({}))
     throw new Error(body?.error ?? `Failed to fetch file list (${filesRes.status})`)
   }
-  const { files }: { files: BackupFileRef[] } = await filesRes.json()
+  const { files: allFiles }: { files: BackupFileRef[] } = await filesRes.json()
+  const files = includeImages ? allFiles : allFiles.filter(file => file.bucket !== "images")
 
   let done = 0
   onProgress(done, files.length)
@@ -232,15 +263,13 @@ export async function exportFiles(
     while (nextIndex < files.length) {
       const index = nextIndex++
       const file = files[index]
-      const url = getSupabasePublicUrl(file.bucket, file.path)
+      const url = getPublicUrl(file.bucket, file.path)
       let buf: Buffer | null = null
-      if (url) {
-        try {
-          const res = await fetch(url)
-          if (res.ok) buf = Buffer.from(await res.arrayBuffer())
-        } catch {
-          // Missing/failed file — skip it (buf stays null) rather than aborting the whole export.
-        }
+      try {
+        const res = await fetch(url)
+        if (res.ok) buf = Buffer.from(await res.arrayBuffer())
+      } catch {
+        // Missing/failed file — skip it (buf stays null) rather than aborting the whole export.
       }
       packed[index] = { file, buf }
       done++

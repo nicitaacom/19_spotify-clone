@@ -1,23 +1,8 @@
 // Pure tar (.tar) builders/parsers + a browser-native gzip. Everything here is either pure
 // `Buffer` math (works in the browser via Next's polyfill) or uses the built-in Web
 // `CompressionStream` API — deliberately NO Node `zlib` import, so this module is safe to pull
-// into the client bundle. The server's Node `zlib` helpers live in ./backupTables and re-export
-// these pure parts so existing server imports keep working unchanged.
-
-// Tables backed up in FK-safe order
-export const BACKUP_TABLES = ["19_songs", "19_liked_songs", "19_playlists", "19_playlist_songs"] as const
-export type BackupTable = (typeof BACKUP_TABLES)[number]
-
-// Storage buckets
-export const BACKUP_BUCKETS = ["songs", "images"] as const
-export type BackupBucket = (typeof BACKUP_BUCKETS)[number]
-
-export interface BackupFileRef {
-  bucket: BackupBucket
-  path: string
-  size: number
-  contentType: string
-}
+// into the client bundle. Project-specific constants (which tables/buckets are backed up) live in
+// ./backupConfig; this file is pure archive plumbing shared unchanged across projects.
 
 // ── tar helpers ─────────────────────────────────────────────────────────────
 

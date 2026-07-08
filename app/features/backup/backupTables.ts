@@ -1,14 +1,17 @@
-// Re-exports the pure tar builders/parsers + backup table/bucket constants and types from
-// ./tarClient, so the server routes import them from one stable place (`@/app/features/backup/
-// backupTables`). No Node-only imports here anymore — the archive is now decompressed and parsed
-// entirely in the browser (see dev_readme-backup.md), so the old server-side `zlib` gzip/gunzip
-// helpers were removed along with the chunked import pipeline.
+// One stable import point for the routes and the SDK: project-specific constants/types come from
+// ./backupConfig, the pure archive plumbing from ./tarClient. No Node-only imports here — the
+// archive is decompressed and parsed entirely in the browser (see dev_readme-backup.md), so the
+// old server-side `zlib` helpers and chunked import pipeline are gone.
 export {
   BACKUP_TABLES,
   BACKUP_BUCKETS,
-  addTarEntry,
-  finalizeTar,
-  parseTar,
-  gzipBufferClient,
-} from "./tarClient"
-export type { BackupTable, BackupBucket, BackupFileRef } from "./tarClient"
+  getTableConfig,
+  isBackupBucket,
+  assertBackupAccess,
+  getPublicUrl,
+  listFiles,
+  isOwnedFile,
+} from "./backupConfig"
+export type { BackupTableConfig, BackupTableName, BackupBucket, BackupFileRef } from "./backupConfig"
+
+export { addTarEntry, finalizeTar, parseTar, gzipBufferClient, gunzipBufferClient } from "./tarClient"
