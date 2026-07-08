@@ -22,6 +22,10 @@ export interface SlowReverbEngine {
   setReverb(v: number): void
   bass: number
   setBass(v: number): void
+  pitch: number
+  setPitch(v: number): void
+  pitchEnabled: boolean
+  setPitchEnabled(v: boolean): void
   applyPreset(p: "slowed" | "nightcore"): void
   isRendering: boolean
   download(): Promise<void>
@@ -36,6 +40,8 @@ export function useSlowReverbEngine(): SlowReverbEngine {
   const [speed, setSpeedState] = useState(1)
   const [reverb, setReverbState] = useState(0)
   const [bass, setBassState] = useState(0)
+  const [pitch, setPitchState] = useState(1)
+  const [pitchEnabled, setPitchEnabledState] = useState(false)
   const [isRendering, setIsRendering] = useState(false)
 
   // Audio engine refs
@@ -44,6 +50,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
   const lowshelfRef = useRef<BiquadFilterNode | null>(null)
   const wetGainRef = useRef<GainNode | null>(null)
   const dryGainRef = useRef<GainNode | null>(null)
+  const pitchShifterRef = useRef<ReturnType<typeof import("../lib/pitchShifter").createPitchShifter> | null>(null)
 
   const generationRef = useRef(0)
   const pausedOffsetSecRef = useRef(0)
@@ -53,58 +60,42 @@ export function useSlowReverbEngine(): SlowReverbEngine {
   const speedRef = useRef(1)
   const reverbRef = useRef(0)
   const bassRef = useRef(0)
+  const pitchRef = useRef(1)
+  const pitchEnabledRef = useRef(false)
   const isPlayingRef = useRef(false)
   const bufferRef = useRef<AudioBuffer | null>(null)
 
-  // Sync refs with state
-  useEffect(() => {
-    speedRef.current = speed
-  }, [speed])
-  useEffect(() => {
-    reverbRef.current = reverb
-  }, [reverb])
-  useEffect(() => {
-    bassRef.current = bass
-  }, [bass])
-  useEffect(() => {
-    bufferRef.current = buffer
-  }, [buffer])
-  useEffect(() => {
-    isPlayingRef.current = isPlaying
-  }, [isPlaying])
+  // Sync refs
+  useEffect(() => { speedRef.current = speed }, [speed])
+  useEffect(() => { reverbRef.current = reverb }, [reverb])
+  useEffect(() => { bassRef.current = bass }, [bass])
+  useEffect(() => { pitchRef.current = pitch }, [pitch])
+  useEffect(() => { pitchEnabledRef.current = pitchEnabled }, [pitchEnabled])
+  useEffect(() => { bufferRef.current = buffer }, [buffer])
+  useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
 
   const stopCurrent = useCallback(() => {
     const src = sourceRef.current
     if (src) {
-      try {
-        src.stop()
-      } catch {}
-      try {
-        src.disconnect()
-      } catch {}
+      try { src.stop() } catch {}
+      try { src.disconnect() } catch {}
     }
     const ls = lowshelfRef.current
-    if (ls) {
-      try {
-        ls.disconnect()
-      } catch {}
-    }
+    if (ls) { try { ls.disconnect() } catch {} }
     const wg = wetGainRef.current
-    if (wg) {
-      try {
-        wg.disconnect()
-      } catch {}
-    }
+    if (wg) { try { wg.disconnect() } catch {} }
     const dg = dryGainRef.current
-    if (dg) {
-      try {
-        dg.disconnect()
-      } catch {}
+    if (dg) { try { dg.disconnect() } catch {} }
+    const ps = pitchShifterRef.current
+    if (ps) {
+      try { ps.input.disconnect() } catch {}
+      try { ps.output.disconnect() } catch {}
     }
     sourceRef.current = null
     lowshelfRef.current = null
     wetGainRef.current = null
     dryGainRef.current = null
+    pitchShifterRef.current = null
   }, [])
 
   const getPosition = useCallback((): number => {
@@ -128,6 +119,8 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       speed: speedRef.current,
       reverb: reverbRef.current,
       bass: bassRef.current,
+      pitch: pitchRef.current,
+      pitchEnabled: pitchEnabledRef.current,
     }
 
     const graph = buildEffectsGraph(ctx, buf, params)
@@ -135,6 +128,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     lowshelfRef.current = graph.lowshelf
     wetGainRef.current = graph.wetGain
     dryGainRef.current = graph.dryGain
+    pitchShifterRef.current = graph.pitchShifter
 
     const now = ctx.currentTime
     startCtxTimeRef.current = now
@@ -167,12 +161,9 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     }
 
     try {
-      // Close previous context
       if (ctxRef.current) {
         stopCurrent()
-        try {
-          await ctxRef.current.close()
-        } catch {}
+        try { await ctxRef.current.close() } catch {}
         ctxRef.current = null
       }
 
@@ -181,6 +172,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
         (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext ||
         (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext ||
         AudioContext
+
       const ctx = new AudioCtx()
       ctxRef.current = ctx
 
@@ -198,8 +190,6 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       setBuffer(decoded)
       setDuration(decoded.duration)
       setFileName(file.name)
-
-      // keep speed/reverb/bass as-is
     } catch (err) {
       console.error("Decode failed", err)
       toast.error("Unsupported or corrupted audio file")
@@ -224,38 +214,43 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     }
   }, [getPosition, playFromOffset, stopCurrent])
 
-  const seek = useCallback(
-    (seconds: number) => {
-      const buf = bufferRef.current
-      if (!buf) return
-      const clamped = Math.max(0, Math.min(seconds, buf.duration))
-      pausedOffsetSecRef.current = clamped
-      if (isPlayingRef.current) {
-        const ctx = ctxRef.current
-        if (ctx) ctx.resume().catch(() => {})
-        playFromOffset(clamped)
-      }
-      // if paused, getPosition will return the updated pausedOffset
-    },
-    [playFromOffset],
-  )
+  const seek = useCallback((seconds: number) => {
+    const buf = bufferRef.current
+    if (!buf) return
+    const clamped = Math.max(0, Math.min(seconds, buf.duration))
+    pausedOffsetSecRef.current = clamped
+    if (isPlayingRef.current) {
+      const ctx = ctxRef.current
+      if (ctx) ctx.resume().catch(() => {})
+      playFromOffset(clamped)
+    }
+  }, [playFromOffset])
 
   const setSpeed = useCallback((v: number) => {
     let clamped = Math.max(0.5, Math.min(1.5, v))
-    clamped = Math.round(clamped * 20) / 20 // 0.05 step
+    clamped = Math.round(clamped * 20) / 20
     setSpeedState(clamped)
     speedRef.current = clamped
+
+    // If not in independent pitch mode, keep pitch in sync for display
+    if (!pitchEnabledRef.current) {
+      setPitchState(clamped)
+      pitchRef.current = clamped
+    }
 
     const ctx = ctxRef.current
     if (isPlayingRef.current && sourceRef.current && ctx) {
       const pos = getPosition()
       startOffsetSecRef.current = pos
       startCtxTimeRef.current = ctx.currentTime
-      sourceRef.current.playbackRate.setTargetAtTime(
-        clamped,
-        ctx.currentTime,
-        0.03,
-      )
+      sourceRef.current.playbackRate.setTargetAtTime(clamped, ctx.currentTime, 0.03)
+
+      // Update pitch shifter ratio live if enabled
+      const ps = pitchShifterRef.current
+      if (ps) {
+        const ratio = pitchEnabledRef.current ? pitchRef.current / clamped : 1
+        ps.setRatio(ratio, ctx.currentTime)
+      }
     }
   }, [getPosition])
 
@@ -266,11 +261,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
 
     const ctx = ctxRef.current
     if (isPlayingRef.current && wetGainRef.current && ctx) {
-      wetGainRef.current.gain.setTargetAtTime(
-        clamped / 100,
-        ctx.currentTime,
-        0.03,
-      )
+      wetGainRef.current.gain.setTargetAtTime(clamped / 100, ctx.currentTime, 0.03)
     }
   }, [])
 
@@ -281,11 +272,38 @@ export function useSlowReverbEngine(): SlowReverbEngine {
 
     const ctx = ctxRef.current
     if (isPlayingRef.current && lowshelfRef.current && ctx) {
-      lowshelfRef.current.gain.setTargetAtTime(
-        (clamped / 100) * 12,
-        ctx.currentTime,
-        0.03,
-      )
+      lowshelfRef.current.gain.setTargetAtTime((clamped / 100) * 12, ctx.currentTime, 0.03)
+    }
+  }, [])
+
+  const setPitch = useCallback((v: number) => {
+    let clamped = Math.max(0.5, Math.min(1.5, v))
+    clamped = Math.round(clamped * 20) / 20
+    setPitchState(clamped)
+    pitchRef.current = clamped
+
+    const ctx = ctxRef.current
+    if (isPlayingRef.current && pitchShifterRef.current && ctx && pitchEnabledRef.current) {
+      const ratio = clamped / speedRef.current
+      pitchShifterRef.current.setRatio(ratio, ctx.currentTime)
+    }
+  }, [])
+
+  const setPitchEnabled = useCallback((enabled: boolean) => {
+    setPitchEnabledState(enabled)
+    pitchEnabledRef.current = enabled
+
+    if (enabled) {
+      // Initialize pitch to current speed when enabling independent mode
+      const currentSpeed = speedRef.current
+      setPitchState(currentSpeed)
+      pitchRef.current = currentSpeed
+    }
+
+    const ctx = ctxRef.current
+    if (isPlayingRef.current && pitchShifterRef.current && ctx) {
+      const ratio = enabled ? pitchRef.current / speedRef.current : 1
+      pitchShifterRef.current.setRatio(ratio, ctx.currentTime)
     }
   }, [])
 
@@ -293,7 +311,6 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     if (p === "slowed") {
       setSpeed(0.8)
       setReverb(40)
-      // bass untouched
     } else {
       setSpeed(1.25)
       setReverb(0)
@@ -313,7 +330,6 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     pausedOffsetSecRef.current = 0
     isPlayingRef.current = false
     setIsPlaying(false)
-    // keep speed/reverb/bass as-is
   }, [stopCurrent])
 
   const download = async (): Promise<void> => {
@@ -321,11 +337,14 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     if (isRendering || !buf) return
 
     setIsRendering(true)
-
     const base = (fileName || "track").replace(/\.[^/.]+$/, "")
     const speedVal = speedRef.current
     const rev = reverbRef.current
-    const fileBase = `${base} (slowed ${speedVal}x, reverb ${rev}%)`
+    const pitchVal = pitchRef.current
+    const enabled = pitchEnabledRef.current
+
+    const pitchLabel = enabled ? ` pitch ${pitchVal}x` : ""
+    const fileBase = `${base} (slowed ${speedVal}x, reverb ${rev}%${pitchLabel})`
 
     try {
       toast.loading("Rendering…", { id: "export" })
@@ -334,13 +353,14 @@ export function useSlowReverbEngine(): SlowReverbEngine {
         speed: speedVal,
         reverb: rev,
         bass: bassRef.current,
+        pitch: pitchVal,
+        pitchEnabled: enabled,
       })
 
       const blob = await encodeMp3(rendered, (pct) => {
         toast.loading(`Encoding… ${pct}%`, { id: "export" })
       })
 
-      // trigger download
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
@@ -359,7 +379,6 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     }
   }
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopCurrent()
@@ -384,6 +403,10 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     setReverb,
     bass,
     setBass,
+    pitch,
+    setPitch,
+    pitchEnabled,
+    setPitchEnabled,
     applyPreset,
     isRendering,
     download,

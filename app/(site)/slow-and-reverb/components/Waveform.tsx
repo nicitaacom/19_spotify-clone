@@ -219,7 +219,7 @@ const Waveform = ({
         {/* Unpadded inner wrapper for accurate measurement and pointer events */}
         <div
           ref={innerRef}
-          className="relative w-full overflow-hidden cursor-pointer select-none"
+          className="relative w-full overflow-hidden cursor-pointer select-none rounded-lg"
           onPointerDown={handlePointerDown}
         >
           <canvas ref={canvasRef} className="block w-full" />

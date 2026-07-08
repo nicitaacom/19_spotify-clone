@@ -11,9 +11,9 @@ Add a standalone page at `/slow-and-reverb` replicating the slowedreverb.studio 
 Decisions already confirmed with the user — do **not** re-litigate:
 
 - **Audio source:** local file only (drag & drop + file picker).
-- **Pitch:** linked to speed. `playbackRate` shifts tempo+pitch together (classic slowed sound). The "Pitch" row is display-only: a toggle that is ON and effectively decorative, showing the resulting pitch multiplier (= speed value) with Pro/BETA badges. **No pitch-shift DSP library.**
+- **Pitch:** ~~linked to speed, display-only toggle, no pitch DSP~~ **superseded by §10.1:** toggle OFF = linked to speed (default); toggle ON = real independent pitch via a granular delay-based shifter (`lib/pitchShifter.ts`, no deps). No BETA badge.
 - **Download:** ~~split button — main click = MP3, caret dropdown = MP3/WAV choice~~ **superseded by §9.6:** single button, MP3-only at 320 kbps.
-- **"Pro" badges:** cosmetic only ("Pro — free for all"); nothing is gated, no auth checks.
+- **"Pro" badges:** cosmetic only; nothing is gated, no auth checks. Format per §10.2: `PRO` chip + `- free for all` plain text outside it.
 - **Styling:** screenshot's *layout*, but the app's neon/dark theme — **not** the screenshot's purple.
 - **Timeline shows original track time** (waveform maps 1:1 to the decoded buffer; screenshot shows 4:14 original). Show effective output length (`duration / speed`) as small grey text near the Download button.
 
@@ -330,3 +330,52 @@ In `components/EffectSliderRow.tsx`:
 - [x] Single Download button; exported file is `.mp3`, 320 kbps (check with `ffprobe` or file properties); no WAV anywhere in UI or code.
 - [x] Each slider row has exactly one `BiReset` icon (right side); click restores the default value; hover transition is 150ms.
 - [x] `pnpm lint` passes; volume slider in the bottom player unaffected.
+
+---
+
+## 10. Fix round 2 — post-review issues (reported 2026-07-08)
+
+> Same rules: follow `dev_readme-ui.md`, surgical changes, check off each item, verify with §10.4. **Item 10.1 is real feature work** (independent pitch DSP) — it supersedes the §1 "no pitch-shift DSP" decision and §9.5; do it last within this round.
+
+### 10.1 Pitch must be a real, working control — and not BETA — `[ ]`
+
+**What the user wants (matches the reference screenshot):** the Pitch toggle enables an actual pitch control with its own slider, decoupled from speed — exactly like Speed/Reverb rows. Remove the **BETA** badge entirely (keep the PRO badge).
+
+**Semantics:**
+- `pitch` = the desired *total* pitch multiplier of the output (range **0.5–1.5**, step 0.05).
+- Toggle **OFF (default)** = linked mode: pitch follows speed (`pitch === speed`), slider hidden (or disabled) and the label shows the speed-derived value — current behavior, subtext "Pitch follows speed (linked)".
+- Toggle **ON** = independent mode: a slider row appears under the toggle row (same `EffectSliderRow` layout with `BiReset`, default value = current `speed`), and the audio pitch is set independently of tempo.
+
+**Implementation — granular delay-based pitch shifter (the Chrome "jungle" technique), no new dependencies:**
+- New file `lib/pitchShifter.ts`: `createPitchShifter(ctx: BaseAudioContext): { input: AudioNode; output: AudioNode; setRatio(r: number, time: number): void }`. Built ONLY from standard nodes (two modulated `DelayNode` lines cross-faded by gain envelopes, driven by looping `AudioBufferSourceNode` sawtooth/fade curve buffers; grain delay ~0.10s, fade ~0.05s) so the **same code runs in `AudioContext` and `OfflineAudioContext`** — the export stays exactly what you hear. Do NOT use `source.detune` (it changes speed too) and do NOT add SoundTouchJS/AudioWorklet (offline-render integration pain).
+- **Ratio math:** `playbackRate` already shifts pitch by `speed`, so the shifter must only supply the remainder: `ratio = pitchEnabled ? pitch / speed : 1`. Recompute on every `setSpeed`/`setPitch`/toggle change.
+- **Bypass when linked:** at `ratio === 1` route audio around the shifter (or keep a parallel dry route switched by gains) so linked mode has zero added artifacts/latency. Insert point: `source → [pitchShifter] → lowshelf → …` in `buildEffectsGraph`; `EffectsParams` gains `pitch: number` and `pitchEnabled: boolean`, and `renderOffline.ts` passes them through — offline output must match live playback.
+- **Engine API additions** in `useSlowReverbEngine.ts`: `pitchEnabled/setPitchEnabled`, `pitch/setPitch`. `setPitchEnabled(true)` initializes `pitch` to the current `speed` (no audible jump). While linked, `pitch` mirrors `speed` for display.
+- **UI (`PitchToggleRow.tsx`):** toggle + `Pitch ({pitch}x)` + `<ProBadge />` — **delete the BETA chip**. When enabled, render the pitch slider row below (reuse `EffectSliderRow`); when linked, keep the subtext. Presets stay linked-mode (they don't touch pitch).
+- **Known tradeoff (accept it):** granular shifting adds a slight doubling/graininess at extreme ratios — that's inherent to the technique and fine for this use case.
+
+### 10.2 Badge: `PRO` inside, "- free for all" outside — `[ ]`
+
+Current `ProBadge.tsx` renders `{'"Pro" - free for all'}` inside the chip (and `uppercase` makes it scream `"PRO" - FREE FOR ALL`). The user wants:
+- **Inside the chip:** just `PRO` — no quotes, nothing else.
+- **Outside the chip, right after it:** plain muted text `- free for all` (lowercase, NOT uppercase).
+
+Fix: `ProBadge` returns an `inline-flex items-center gap-1.5 whitespace-nowrap` wrapper containing (1) the chip `<span>` with the existing neon classes and content `PRO`, and (2) `<span className="text-xs normal-case tracking-normal text-neutral-500">- free for all</span>` (explicitly reset `uppercase`/`tracking-wide` — put those classes on the chip span only, not the wrapper). Check all three usage sites (Waveform time row, Pitch row, Bass boost label) for layout with the wider footprint.
+
+### 10.3 Consistent rounding: waveform card + filename pill — `[ ]`
+
+Both containers must show clearly rounded corners (per `dev_readme-ui.md` card pattern):
+- **Filename pill** in `SlowReverbEditor.tsx`: keep a visible radius consistent with the design system — use `rounded-lg` (the reference UI uses a rounded rectangle, not a full pill; drop `rounded-full` if present).
+- **Waveform card** in `Waveform.tsx`: keep `rounded-xl overflow-hidden` on the outer card AND add `rounded-lg overflow-hidden` to the inner canvas wrapper so waveform bars are clipped to a rounded shape and never render a square edge against the card corner.
+- Verify visually at both narrow and wide widths that no square corner shows on either element.
+
+### 10.4 Verification for this round
+
+- [ ] BETA badge is gone; PRO badge remains on Pitch and Bass boost.
+- [ ] Toggle OFF: pitch label tracks the speed slider (speed 0.8 → "Pitch (0.80x)"), no pitch slider visible, audio identical to before this round (bypass active — no added artifacts).
+- [ ] Toggle ON: pitch slider appears (defaulting to current speed); at speed 0.8 + pitch 1.0 the track plays slow WITHOUT the deep pitch drop; at speed 1.0 + pitch 0.8 the track plays at normal tempo but lower pitch.
+- [ ] `BiReset` on the pitch row resets pitch to the linked value (current speed).
+- [ ] Download at speed 0.8 + independent pitch 1.0: exported MP3 sounds identical to the live preview (offline graph includes the shifter).
+- [ ] Badge renders as a neon `PRO` chip followed by muted `- free for all` text outside it, in all three locations.
+- [ ] Filename pill and waveform card both show rounded corners; waveform bars never touch a square edge.
+- [ ] `pnpm lint` passes.

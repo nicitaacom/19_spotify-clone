@@ -1,9 +1,12 @@
 import { createImpulseResponse } from "./impulseResponse"
+import { createPitchShifter } from "./pitchShifter"
 
 export interface EffectsParams {
   speed: number
   reverb: number
   bass: number // 0-100
+  pitch: number // 0.5 - 1.5 total pitch
+  pitchEnabled: boolean
 }
 
 export function buildEffectsGraph(
@@ -14,6 +17,10 @@ export function buildEffectsGraph(
   const source = ctx.createBufferSource()
   source.buffer = buffer
   source.playbackRate.value = params.speed
+
+  const shifter = createPitchShifter(ctx)
+  const ratio = params.pitchEnabled ? params.pitch / params.speed : 1
+  shifter.setRatio(ratio, 0)
 
   const lowshelf = ctx.createBiquadFilter()
   lowshelf.type = "lowshelf"
@@ -29,8 +36,10 @@ export function buildEffectsGraph(
   const wetGain = ctx.createGain()
   wetGain.gain.value = params.reverb / 100
 
-  // topology
-  source.connect(lowshelf)
+  // topology with pitch shifter
+  source.connect(shifter.input)
+  shifter.output.connect(lowshelf)
+
   lowshelf.connect(dryGain)
   lowshelf.connect(convolver)
   convolver.connect(wetGain)
@@ -38,5 +47,5 @@ export function buildEffectsGraph(
   dryGain.connect(ctx.destination)
   wetGain.connect(ctx.destination)
 
-  return { source, lowshelf, wetGain, dryGain }
+  return { source, lowshelf, wetGain, dryGain, pitchShifter: shifter }
 }

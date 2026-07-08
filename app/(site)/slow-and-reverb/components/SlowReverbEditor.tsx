@@ -29,6 +29,10 @@ const SlowReverbEditor = () => {
     setReverb,
     bass,
     setBass,
+    pitch,
+    setPitch,
+    pitchEnabled,
+    setPitchEnabled,
     applyPreset,
     isRendering,
     download,
@@ -54,7 +58,7 @@ const SlowReverbEditor = () => {
     <div className="max-w-2xl mx-auto px-6 py-8 flex flex-col gap-6">
       {/* filename pill */}
       <div className="flex justify-center">
-        <div className="inline-flex items-center gap-2 rounded-full bg-elevated border border-white/10 px-4 py-1.5 text-sm text-neutral-300 max-w-full">
+        <div className="inline-flex items-center gap-2 rounded-lg bg-elevated border border-white/10 px-4 py-1.5 text-sm text-neutral-300 max-w-full">
           <span className="truncate">{fileName}</span>
           <button
             onClick={clear}
@@ -112,8 +116,14 @@ const SlowReverbEditor = () => {
         onChange={setReverb}
       />
 
-      {/* pitch (display) */}
-      <PitchToggleRow speed={speed} />
+      {/* pitch toggle + optional independent slider */}
+      <PitchToggleRow
+        speed={speed}
+        pitch={pitch}
+        pitchEnabled={pitchEnabled}
+        setPitchEnabled={setPitchEnabled}
+        setPitch={setPitch}
+      />
 
       {/* bass */}
       <EffectSliderRow
