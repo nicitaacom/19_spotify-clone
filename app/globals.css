@@ -28,13 +28,14 @@ body,
 }
 
 .glow-ring {
-  box-shadow: 0 0 0 1px var(--neon-glow), 0 0 16px var(--neon-glow);
+  box-shadow:
+    0 0 0 1px var(--neon-glow),
+    0 0 16px var(--neon-glow);
 }
 
 .glow-soft {
   box-shadow: 0 0 24px var(--neon-glow-soft);
 }
-
 
 .hide-scrollbar {
   overflow-y: scroll;
@@ -72,5 +73,38 @@ body,
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;
+  }
+}
+
+@keyframes kenburns {
+  0% {
+    transform: scale(1) translate(0px, 0px);
+  }
+  12% {
+    transform: scale(1.02) translate(4px, -3px);
+  }
+  25% {
+    transform: scale(1.05) translate(8px, -6px);
+  }
+  37% {
+    transform: scale(1.07) translate(5px, -9px);
+  }
+  50% {
+    transform: scale(1.05) translate(-3px, -7px);
+  }
+  62% {
+    transform: scale(1.07) translate(-8px, -4px);
+  }
+  74% {
+    transform: scale(1.05) translate(-6px, 2px);
+  }
+  85% {
+    transform: scale(1.03) translate(2px, 1px);
+  }
+  93% {
+    transform: scale(1.01) translate(1px, -1px);
+  }
+  100% {
+    transform: scale(1) translate(0px, 0px);
   }
 }
