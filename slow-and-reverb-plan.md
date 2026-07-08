@@ -421,11 +421,11 @@ Both containers must show clearly rounded corners (per `dev_readme-ui.md` card p
 
 ---
 
-## 12. Round 4 — album art, pitch-reactive theme, resume bug, presets, footer, empty state (planned 2026-07-08, NOT yet implemented)
+## 12. Round 4 — album art, pitch-reactive theme, resume bug, presets, footer, empty state (planned 2026-07-08, IMPLEMENTED)
 
 > **Status: plan only — do not start implementing until the user approves.** Same standing rules: follow `dev_readme-ui.md`, one sub-item at a time with review pauses. Verified facts used below: `@keyframes kenburns` already exists at `app/globals.css:79` (user added it) but **no utility class triggers it yet**; globals.css also has a reduced-motion `animation: none !important` block which must keep winning. The drag-and-drop readme (`app/dev_readme-drag-and-drop.md`) is an SOP copied from another project — `useDragAndDropPost`, `useDrapAndDrop`, `ReactImageUploading`, and the `.image-upload` CSS class **do not exist in this repo**; we follow its *patterns*, not its imports.
 
-### 12.1 Album art from MP3 metadata + Ken Burns on low pitch — `[ ]`
+### 12.1 Album art from MP3 metadata + Ken Burns on low pitch — `[x]`
 
 **Extract the embedded ID3 image (no new dependency):**
 - New `lib/id3AlbumArt.ts`: `extractAlbumArt(data: ArrayBuffer): Blob | null`. Parse the ID3v2 header (`"ID3"` magic, version, syncsafe tag size), walk frames, find `APIC` (v2.3/2.4) or `PIC` (v2.2), read text-encoding byte + MIME + picture-type + description, return the image bytes as a `Blob` with the frame's MIME type. Return `null` on anything unexpected — never throw. (~70 lines; handles the overwhelmingly common case; non-MP3 files simply get no art.)
@@ -436,7 +436,7 @@ Both containers must show clearly rounded corners (per `dev_readme-ui.md` card p
 - New `components/AlbumArt.tsx`, rendered by `SlowReverbEditor` only when `albumArtUrl` exists. Placement: the editor column's parent gets `relative`; the art sits `absolute right-6 top-6 hidden md:block` (hidden on mobile — the column is centered and narrow there). Card recipe: `w-28 h-28 rounded-xl border border-white/5 overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.5)]` wrapping an `<img className="w-full h-full object-cover">`.
 - **Ken Burns:** add to `tailwind.config.ts` `animation` extend: `kenburns: "kenburns 14s ease-in-out infinite"` (keyframes already live in globals.css — Tailwind's animation utility just emits the shorthand, so referencing them works). Apply `animate-kenburns` to the `<img>` when `pitchEnabled && pitchSemitones <= -1`. The wrapper's `overflow-hidden rounded-xl` clips the scale/translate. The existing reduced-motion block in globals.css already neutralizes it via `animation: none !important` — don't fight that.
 
-### 12.2 Pitch-reactive brightness (site background + art) — `[ ]`
+### 12.2 Pitch-reactive brightness (site background + art) — `[x]`
 
 Single source of truth in `SlowReverbEditor`: `dim = pitchEnabled ? pitchSemitones / 12 : 0` (range −1…+1; 0 while linked).
 
@@ -446,7 +446,7 @@ Single source of truth in `SlowReverbEditor`: `dim = pitchEnabled ? pitchSemiton
   - `z-30` keeps it under toasts/modals; `pointer-events-none` keeps the page fully interactive. Unmounts with the editor (leaving the page removes the tint).
 - **Album art 1.5× more sensitive:** the overlay already dims the art by 1× (it covers the whole screen), so the `<img>` supplies only the extra 0.5× via its own filter: `style={{ filter: \`brightness(${1 + dim * (dim < 0 ? 0.175 : 0.03)})\` }}` with `transition: filter 300ms`. Net effect on the art ≈ 1.5× the site's brightness change in both directions.
 
-### 12.3 Fix: unpause restarts from 0 instead of resuming — `[ ]`
+### 12.3 Fix: unpause restarts from 0 instead of resuming — `[x]`
 
 **Root cause (found in `hooks/useSlowReverbEngine.ts`, confirms the exact symptom):** the pause path in `togglePlay` stores the position in `pausedOffsetSecRef`, then calls `stopCurrent()` → `src.stop()`. But **pause never bumps `generationRef`**, so when the stopped source's `onended` fires (async, after stop), its `generationRef.current !== gen` guard *passes* and it runs the natural-end path — which does `pausedOffsetSecRef.current = 0`, wiping the position that pause just saved. Unpause then plays from 0. (Seek-while-playing doesn't hit this because `playFromOffset` increments the generation before the stale `onended` can run.)
 
@@ -458,7 +458,7 @@ This is the same class of bug as `dev_readme-player.md`'s rules — "a stale cal
 
 **Verify:** play to ~40%, pause, wait 2s, unpause → continues from the same spot (watch the time label); natural track end still resets to 0:00; seek/pause/unpause combinations don't drift.
 
-### 12.4 New presets (6, with separator) + squarer buttons — `[ ]`
+### 12.4 New presets (6, with separator) + squarer buttons — `[x]`
 
 Replace the hardcoded slowed/nightcore pair with a data-driven list in `SlowReverbEditor.tsx` (Nightcore is removed):
 
@@ -479,7 +479,7 @@ const PRESETS = [
 - Layout: two rows of three buttons (`flex flex-wrap justify-center gap-2`), separated by a line: `<div className="border-t border-white/10 w-2/3 mx-auto my-1" />`. **Roundness reduced:** `rounded-full` → `rounded-md` on preset buttons only (Download button unchanged). Keep the existing active/inactive class recipes otherwise. Labels render as given (uppercase strings as-is).
 - Speed 0.60/0.70 are within the slider's existing 0.5–1.5 range — no range change needed.
 
-### 12.5 Footer line — `[ ]`
+### 12.5 Footer line — `[x]`
 
 At the bottom of the page content, always visible (both empty and loaded states) — put it in `page.tsx` below `<SlowReverbEditor />`:
 
@@ -492,7 +492,7 @@ At the bottom of the page content, always visible (both empty and loaded states)
 
 Literal string exactly as written by the user (including `6$/mo ? WTF`). Separator = the hairline `border-t` above it.
 
-### 12.6 Empty state: 4-step guide — `[ ]`
+### 12.6 Empty state: 4-step guide — `[x]`
 
 Below the `FileDropZone` card (inside the empty-state branch of `SlowReverbEditor`), a centered step list:
 
@@ -503,7 +503,7 @@ Below the `FileDropZone` card (inside the empty-state branch of `SlowReverbEdito
 
 Markup: `<ol>` with `flex flex-col gap-1.5 text-sm text-neutral-400 items-center mt-6`; the `STEP N:` prefix in `text-neutral-500 text-xs uppercase tracking-wide font-medium`. No numbers besides the prefixes.
 
-### 12.7 Empty state: whole-screen drag & drop — `[ ]`
+### 12.7 Empty state: whole-screen drag & drop — `[x]`
 
 Follow the **patterns** of `app/dev_readme-drag-and-drop.md` (document-level detection, pointer-events dance, `relatedTarget === null` window-exit check, preventDefault-on-drop-or-the-browser-opens-the-file) but implement with plain DOM events for audio files — the readme's `useDragAndDropPost`/`ReactImageUploading`/`.image-upload` don't exist here and the lib is image-only.
 
