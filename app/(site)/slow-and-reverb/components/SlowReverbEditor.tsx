@@ -73,6 +73,11 @@ const SlowReverbEditor = () => {
 
       <AlbumArt albumArtUrl={albumArtUrl} pitchEnabled={pitchEnabled} pitchSemitones={pitchSemitones} />
 
+      {/* pitch-reactive dim overlay */}
+      {pitchEnabled && (
+        <div className="absolute inset-0 bg-black/40 pointer-events-none rounded-2xl z-0" />
+      )}
+
       {/* waveform */}
       <Waveform
         buffer={buffer}

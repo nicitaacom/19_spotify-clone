@@ -238,6 +238,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     } else {
       ctx.resume().catch(() => {})
       const offset = pausedOffsetSecRef.current
+      generationRef.current += 1 // bump to ensure pitch/speed survive resume (round 4 fix)
       playFromOffset(offset)
     }
   }, [getPosition, playFromOffset, stopCurrent])
