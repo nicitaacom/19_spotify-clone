@@ -20,6 +20,10 @@ export default function SlowAndReverb() {
         </div>
       </Header>
       <SlowReverbEditor />
+
+      <footer className="mt-8 text-center text-xs text-neutral-500">
+        drag & drop an mp3 anywhere • pitch works independently of speed
+      </footer>
     </div>
   )
 }
