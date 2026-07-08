@@ -65,8 +65,8 @@ Work top to bottom. Check off items as they are completed. **Stop after each num
 - [x] Verify: MP3 + WAV export at 0.8x/40% reverb plays correctly in an external player.
 
 ### Step 6 — Sidebar nav entry
-- [ ] Add route to `components/Sidebar.tsx` routes array (after "My Songs"): icon `TbWaveSine` from `react-icons/tb`, label `"Slow & Reverb"`, `active: pathname.startsWith("/slow-and-reverb")`, `href: "/slow-and-reverb"`.
-- [ ] Verify: link shows, active state highlights per `dev_readme-ui.md` (SidebarItem already handles the neon glow).
+- [x] Add route to `components/Sidebar.tsx` routes array (after "My Songs"): icon `TbWaveSine` from `react-icons/tb`, label `"Slow & Reverb"`, `active: pathname.startsWith("/slow-and-reverb")`, `href: "/slow-and-reverb"`.
+- [x] Verify: link shows, active state highlights per `dev_readme-ui.md` (SidebarItem already handles the neon glow).
 
 ---
 
