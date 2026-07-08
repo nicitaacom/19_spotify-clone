@@ -30,7 +30,8 @@ const Waveform = ({
   onTogglePlay,
 }: WaveformProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null) // the card (with padding)
+  const innerRef = useRef<HTMLDivElement>(null) // unpadded wrapper for canvas measurement
   const peaksRef = useRef<Peak[]>([])
   const rafRef = useRef<number | null>(null)
   const lastDisplayTimeRef = useRef(0)
@@ -38,9 +39,10 @@ const Waveform = ({
   const [currentTime, setCurrentTime] = useState(0)
   const [canvasWidth, setCanvasWidth] = useState(600)
 
-  // Compute peaks once per buffer
-  const computePeaks = useCallback((audioBuffer: AudioBuffer, numBuckets = 1200): Peak[] => {
+  // Compute peaks based on actual width (dynamic bucket count)
+  const computePeaks = useCallback((audioBuffer: AudioBuffer, width: number): Peak[] => {
     const channel = audioBuffer.getChannelData(0)
+    const numBuckets = Math.max(40, Math.floor(width / 3)) // ~3px per bar (bar + gap)
     const bucketSize = Math.max(1, Math.floor(channel.length / numBuckets))
     const peaks: Peak[] = []
 
@@ -59,28 +61,34 @@ const Waveform = ({
     return peaks
   }, [])
 
-  // Update peaks when buffer changes
+  // Recompute peaks when buffer or canvasWidth changes
   useEffect(() => {
     if (buffer) {
-      peaksRef.current = computePeaks(buffer)
+      peaksRef.current = computePeaks(buffer, canvasWidth)
     } else {
       peaksRef.current = []
     }
-  }, [buffer, computePeaks])
+  }, [buffer, canvasWidth, computePeaks])
 
-  // Responsive canvas size
+  // Responsive canvas size — observe the *inner* unpadded container
   useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
+    const inner = innerRef.current
+    if (!inner) return
 
-    const updateSize = () => {
-      const w = Math.max(300, container.clientWidth || 600)
-      setCanvasWidth(w)
+    const updateSize = (w?: number) => {
+      const measured = w ?? Math.max(300, inner.clientWidth || 600)
+      setCanvasWidth(measured)
     }
 
     updateSize()
-    const ro = new ResizeObserver(updateSize)
-    ro.observe(container)
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = entry.contentRect?.width || inner.clientWidth
+        updateSize(Math.max(300, Math.floor(w)))
+      }
+    })
+    ro.observe(inner)
 
     return () => ro.disconnect()
   }, [])
@@ -95,7 +103,7 @@ const Waveform = ({
     const cssH = 96
     canvas.width = cssW * dpr
     canvas.height = cssH * dpr
-    canvas.style.width = `${cssW}px`
+    // Do not override style.width beyond measured box; rely on parent + w-full
     canvas.style.height = `${cssH}px`
     ctx.scale(dpr, dpr)
     ctx.clearRect(0, 0, cssW, cssH)
@@ -117,7 +125,7 @@ const Waveform = ({
       const x = i * (barWidth + gap)
       const p = peaks[i]
       const top = centerY - p.max * (centerY - 4)
-      const bot = centerY - p.min * (centerY - 4) // since min negative
+      const bot = centerY - p.min * (centerY - 4)
       const h = Math.max(1, bot - top)
       ctx.fillRect(x, top, barWidth, h)
     }
@@ -161,7 +169,7 @@ const Waveform = ({
     if (isPlaying) {
       rafRef.current = requestAnimationFrame(loop)
     } else {
-      draw() // final draw when paused
+      draw()
     }
 
     return () => {
@@ -172,7 +180,7 @@ const Waveform = ({
     }
   }, [isPlaying, draw])
 
-  // Seek handlers
+  // Seek handlers — on the inner wrapper (avoids padding issues)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
     const x = e.clientX - rect.left
@@ -180,7 +188,7 @@ const Waveform = ({
     onSeek(fraction * duration)
 
     const move = (ev: PointerEvent) => {
-      const r = rect // capture
+      const r = rect
       const xx = ev.clientX - r.left
       const frac = Math.max(0, Math.min(1, xx / r.width))
       onSeek(frac * duration)
@@ -206,22 +214,31 @@ const Waveform = ({
     <div className="flex flex-col gap-3">
       <div
         ref={containerRef}
-        className="relative rounded-xl border border-white/5 bg-elevated p-4 shadow-[0_4px_12px_rgba(0,0,0,0.5)] cursor-pointer select-none"
-        onPointerDown={handlePointerDown}>
-        <canvas ref={canvasRef} className="block w-full" />
+        className="relative rounded-xl border border-white/5 bg-elevated p-4 shadow-[0_4px_12px_rgba(0,0,0,0.5)] overflow-hidden"
+      >
+        {/* Unpadded inner wrapper for accurate measurement and pointer events */}
+        <div
+          ref={innerRef}
+          className="relative w-full overflow-hidden cursor-pointer select-none"
+          onPointerDown={handlePointerDown}
+        >
+          <canvas ref={canvasRef} className="block w-full" />
 
-        {/* centered play/pause overlay */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onTogglePlay()
-          }}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10"
-          aria-label={isPlaying ? "Pause" : "Play"}>
-          <div className={playIconClass}>
-            {isPlaying ? <FaPause size={18} /> : <FaPlay size={18} className="ml-0.5" />}
-          </div>
-        </button>
+          {/* centered play/pause overlay */}
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onTogglePlay()
+            }}
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10"
+            aria-label={isPlaying ? "Pause" : "Play"}
+          >
+            <div className={playIconClass}>
+              {isPlaying ? <FaPause size={18} /> : <FaPlay size={18} className="ml-0.5" />}
+            </div>
+          </button>
+        </div>
       </div>
 
       {/* time row */}

@@ -5,12 +5,11 @@ export async function encodeMp3(
   onProgress?: (pct: number) => void,
 ): Promise<Blob> {
   const sampleRate = buffer.sampleRate
-  const numChannels = Math.min(2, buffer.numberOfChannels) // lame handles 2
-  const kbps = 192
+  const numChannels = Math.min(2, buffer.numberOfChannels)
+  const kbps = 320
 
   const encoder = new Mp3Encoder(numChannels, sampleRate, kbps)
 
-  // Convert to Int16
   const left = buffer.getChannelData(0)
   const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : left
 
@@ -37,7 +36,6 @@ export async function encodeMp3(
       const pct = Math.floor(((i + chunkSize) / samples) * 90)
       onProgress(Math.max(1, Math.min(90, pct)))
     }
-    // yield to main thread
     await new Promise((r) => setTimeout(r, 0))
   }
 

@@ -6,7 +6,6 @@ import { toast } from "react-hot-toast"
 import { buildEffectsGraph, EffectsParams } from "../lib/buildEffectsGraph"
 import { renderOffline } from "../lib/renderOffline"
 import { encodeMp3 } from "../lib/encodeMp3"
-import { encodeWav } from "../lib/encodeWav"
 
 export interface SlowReverbEngine {
   loadFile(file: File): Promise<void>
@@ -25,7 +24,7 @@ export interface SlowReverbEngine {
   setBass(v: number): void
   applyPreset(p: "slowed" | "nightcore"): void
   isRendering: boolean
-  download(format: "mp3" | "wav"): Promise<void>
+  download(): Promise<void>
   clear(): void
 }
 
@@ -301,7 +300,6 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     }
   }, [setSpeed, setReverb])
 
-
   const clear = useCallback(() => {
     stopCurrent()
     if (ctxRef.current) {
@@ -318,7 +316,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     // keep speed/reverb/bass as-is
   }, [stopCurrent])
 
-  const download = async (format: "mp3" | "wav"): Promise<void> => {
+  const download = async (): Promise<void> => {
     const buf = bufferRef.current
     if (isRendering || !buf) return
 
@@ -338,20 +336,15 @@ export function useSlowReverbEngine(): SlowReverbEngine {
         bass: bassRef.current,
       })
 
-      let blob: Blob
-      if (format === "mp3") {
-        blob = await encodeMp3(rendered, (pct) => {
-          toast.loading(`Encoding… ${pct}%`, { id: "export" })
-        })
-      } else {
-        blob = encodeWav(rendered)
-      }
+      const blob = await encodeMp3(rendered, (pct) => {
+        toast.loading(`Encoding… ${pct}%`, { id: "export" })
+      })
 
       // trigger download
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `${fileBase}.${format}`
+      a.download = `${fileBase}.mp3`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -365,7 +358,6 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       setIsRendering(false)
     }
   }
-
 
   // Cleanup on unmount
   useEffect(() => {

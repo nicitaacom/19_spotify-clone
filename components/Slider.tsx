@@ -37,6 +37,7 @@ const Slider: React.FC<SlideProps> = ({
         touch-none 
         w-full 
         h-10
+        cursor-pointer
       `,
         className,
       )}
@@ -75,6 +76,7 @@ const Slider: React.FC<SlideProps> = ({
           hover:scale-110 
           focus:outline-none 
           transition
+          cursor-pointer
         "
         aria-label={ariaLabel}
       />

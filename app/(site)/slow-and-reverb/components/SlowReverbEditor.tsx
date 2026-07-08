@@ -8,7 +8,7 @@ import FileDropZone from "./FileDropZone"
 import Waveform from "./Waveform"
 import EffectSliderRow from "./EffectSliderRow"
 import PitchToggleRow from "./PitchToggleRow"
-import DownloadSplitButton from "./DownloadSplitButton"
+import DownloadButton from "./DownloadButton"
 import ProBadge from "./ProBadge"
 import { formatTime } from "../lib/format"
 
@@ -130,7 +130,7 @@ const SlowReverbEditor = () => {
 
       {/* download */}
       <div className="flex flex-col items-center gap-1 pt-2">
-        <DownloadSplitButton
+        <DownloadButton
           onDownload={download}
           isRendering={isRendering}
           disabled={!buffer}

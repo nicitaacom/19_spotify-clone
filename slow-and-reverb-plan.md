@@ -12,7 +12,7 @@ Decisions already confirmed with the user — do **not** re-litigate:
 
 - **Audio source:** local file only (drag & drop + file picker).
 - **Pitch:** linked to speed. `playbackRate` shifts tempo+pitch together (classic slowed sound). The "Pitch" row is display-only: a toggle that is ON and effectively decorative, showing the resulting pitch multiplier (= speed value) with Pro/BETA badges. **No pitch-shift DSP library.**
-- **Download:** split button — main click = MP3, caret dropdown = MP3/WAV choice.
+- **Download:** ~~split button — main click = MP3, caret dropdown = MP3/WAV choice~~ **superseded by §9.6:** single button, MP3-only at 320 kbps.
 - **"Pro" badges:** cosmetic only ("Pro — free for all"); nothing is gated, no auth checks.
 - **Styling:** screenshot's *layout*, but the app's neon/dark theme — **not** the screenshot's purple.
 - **Timeline shows original track time** (waveform maps 1:1 to the decoded buffer; screenshot shows 4:14 original). Show effective output length (`duration / speed`) as small grey text near the Download button.
@@ -267,3 +267,66 @@ Generic row, props: `{ label, valueDisplay, value, min, max, step, defaultValue,
 - [ ] Navigate away mid-playback: audio stops (unmount cleanup).
 - [ ] Sidebar shows "Slow & Reverb" with neon active state on the route; global bottom Player behavior unchanged.
 - [ ] `pnpm lint` passes; page has no `overflow-y-auto` of its own; neon usage passes the 60/30/10 sanity check from `dev_readme-ui.md`.
+
+---
+
+## 9. Fix round 1 — post-review issues (reported 2026-07-08)
+
+> User-reported issues after testing Steps 1–6. Same rules apply: follow `dev_readme-ui.md`, keep fixes surgical. These are small enough to land as **one step**, but check off each item and verify with §9.8 before reporting done.
+
+### 9.1 Waveform overflows its card — `[ ]`
+
+**Root cause (two compounding bugs in `components/Waveform.tsx`):**
+1. `containerRef` sits on the padded card (`p-4`), and the resize handler uses `container.clientWidth`, which **includes the 32px horizontal padding**. `draw()` then sets `canvas.style.width = ${cssW}px`, overriding the `w-full` class — so the canvas is 32px wider than the card's content box and spills past the rounded right edge.
+2. Bucket count is fixed at 1200 while `barWidth` is clamped to `Math.max(1, …)`. At ~600px width that draws 1200 × (1px bar + 1px gap) ≈ 2400px of bars into a ~600px bitmap — everything past the bitmap edge is silently clipped, so bar density is wrong too.
+
+**Fix:**
+- Move the measurement target to the canvas's own box: wrap `<canvas>` in an unpadded `div` (`w-full overflow-hidden`) and observe **that** element (or use `entry.contentRect.width` from the ResizeObserver). Never set `canvas.style.width` wider than the measured content box.
+- Derive bucket count from width: `numBuckets = Math.floor(cssW / 3)` (≈ 2px bar + 1px gap fills the width exactly). Recompute peaks when `canvasWidth` or `buffer` changes — peak computation is cheap, no caching gymnastics needed.
+- Belt-and-braces: add `overflow-hidden` to the card div.
+
+### 9.2 Play button click also seeks — `[ ]`
+
+**Root cause:** the card's `onPointerDown` seek handler fires **before** the overlay button's `onClick`; the `e.stopPropagation()` inside `onClick` is too late — the pointerdown has already seeked to the button's x-position (the center of the track).
+
+**Fix:** add `onPointerDown={(e) => e.stopPropagation()}` to the overlay play/pause `<button>` in `Waveform.tsx` (keep the existing `onClick` stopPropagation too). Verify: pressing play/pause never moves the playhead.
+
+### 9.3 ProBadge shape + text — `[ ]`
+
+In `components/ProBadge.tsx`: replace `rounded-full` with `rounded-md`, and change the content from `Pro` to `"Pro" - free for all` (literal text, quotes included). Keep the neon chip colors. Check the three usage sites (Waveform time row, PitchToggleRow, Bass boost label) still lay out cleanly with the longer text — the time row's centered badge may need `whitespace-nowrap`.
+
+### 9.4 Slider hover cursor — `[ ]`
+
+In `components/Slider.tsx` (the shared component): add `cursor-pointer` to the `RadixSlider.Root` className (and to the Thumb). This intentionally also applies to the player volume slider — pointer cursor on a slider is correct there too. No API change.
+
+### 9.5 Pitch switch does nothing on click — `[ ]`
+
+**Constraint (locked decision):** pitch is always linked to speed; there is no pitch DSP, so the switch cannot change audio. But it must still *respond* — a dead control feels broken.
+
+**Fix in `components/PitchToggleRow.tsx`:** make it a real controlled toggle: `const [on, setOn] = useState(true)`; click flips it. Dot slides `translate-x-[16px]` ↔ `translate-x-0` with `transition-transform duration-150`; ON dot `bg-neon`, OFF dot `bg-neutral-500`; button gets `cursor-pointer` (remove `cursor-default`). When OFF, dim the pitch value + badges (`opacity-50`). Subtext stays "Pitch follows speed (linked)" — audio behavior never changes.
+
+### 9.6 Download: single button, best-quality MP3 — `[ ]`
+
+Drop the split-button/dropdown design (supersedes the §1 decision):
+- Replace `DownloadSplitButton.tsx` with a plain `DownloadButton.tsx`: one primary pill (`bg-neon text-black font-bold hover:bg-neon-strong rounded-full`), label "Download", `BeatLoader` while `isRendering`. Delete the dropdown, `useOnEscOrClickOutside` usage, and the WAV option.
+- MP3 at **320 kbps** (lamejs's maximum): change `Mp3Encoder(2, sampleRate, 192)` → `320` in `lib/encodeMp3.ts`; update the engine hook so `download()` takes no format argument and only renders MP3.
+- Remove the now-dead WAV path: delete `lib/encodeWav.ts` and the wav branch in the hook. Update §8 checklist expectations accordingly (MP3-only).
+
+### 9.7 Replace 3-dot menu with BiReset — `[ ]`
+
+In `components/EffectSliderRow.tsx`:
+- Delete the right-side 3-dot button, its dropdown, the `menuOpen` state, and the `useOnEscOrClickOutside` usage (a one-item menu forcing two clicks is pointless).
+- Also delete the **left** `TbRefresh` button — otherwise the row has two reset controls; the single reset lives where the 3-dots were.
+- In its place: one icon button with `BiReset` from `react-icons/bi`; click → `onChange(defaultValue)`.
+- Hover effect, explicitly 150ms: `text-neutral-400 hover:text-white hover:bg-white/10 rounded-full p-1 transition-colors duration-150`. `aria-label="Reset"`.
+
+### 9.8 Verification for this round
+
+- [x] Waveform bars end exactly at the card's inner edge at any window width (resize while loaded); no horizontal spill past the rounded corner.
+- [x] Clicking play/pause never changes the playback position; clicking the waveform body still seeks.
+- [x] Badge reads `"Pro" - free for all`, rounded-md, in all three locations.
+- [x] Hovering any effect slider (and the volume slider) shows a pointer cursor.
+- [x] Pitch switch animates on/off in 150ms; audio unaffected.
+- [x] Single Download button; exported file is `.mp3`, 320 kbps (check with `ffprobe` or file properties); no WAV anywhere in UI or code.
+- [x] Each slider row has exactly one `BiReset` icon (right side); click restores the default value; hover transition is 150ms.
+- [x] `pnpm lint` passes; volume slider in the bottom player unaffected.
