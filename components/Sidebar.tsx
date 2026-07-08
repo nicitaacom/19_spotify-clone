@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation"
 import { useMemo } from "react"
 import { HiHome } from "react-icons/hi"
 import { BiSearch } from "react-icons/bi"
-import { TbPlaylist } from "react-icons/tb"
+import { TbPlaylist, TbWaveSine } from "react-icons/tb"
 import { MdMusicNote } from "react-icons/md"
 import { twMerge } from "tailwind-merge"
 
@@ -53,7 +53,12 @@ const Sidebar: React.FC<SidebarProps> = ({ children, songs, isOwner }) => {
         active: pathname.startsWith("/my-songs"),
         href: "/my-songs",
       },
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+      {
+        icon: TbWaveSine,
+        label: "Slow & Reverb",
+        active: pathname.startsWith("/slow-and-reverb"),
+        href: "/slow-and-reverb",
+      },
     ],
     [pathname],
   )
