@@ -1,111 +1,19 @@
 # What inside? <br/> <sub> https://music.jokik.fi/ </sub>
 
-![19_spotify-clone](https://i.imgur.com/YyqXl2t.png)
+![jokik-music](./public/slowed-and-reverb.png)
 
 <br/>
 <br/>
 <br/>
 
-# Clone repository
+> **CONTRIBUTING**: I don't accept any contributions
 
-## Step 1.1 - clone repository (variant 1)
+## Thanks to:
 
-![alt text](https://i.imgur.com/9KSgjaN.png)
-
-## or Step 1.1 - clone repository (variant 2)
-
-```
-git clone https://github.com/nicitaacom/19_spotify-clone
-```
-
-## Step 1.2 - install deps
-
-```
-pnpm i
-```
-
-## Step 1.3 - run project
-
-```
-pnpm dev
-```
-
-<br/>
-<br/>
-<br/>
-
-## Step 2 - setup .env
-
-### 2.1 - github
-
-![Go to settings](https://i.imgur.com/vnG4aMh.png)
-
-### 2.2 - github
-
-![Go to developer settings](https://i.imgur.com/eodZM9p.png)
-
-### 2.3 - github
-
-![OAuth Apps](https://i.imgur.com/yjeGtKv.png)
-
-### 2.4 - github
-
-![New OAuth App](https://i.imgur.com/QXuo0kE.png)
-
-### 2.5 - github
-
-![Auth url](https://i.imgur.com/MKmuYnA.png)
-
-### 2.6 - github
-
-![Copy env values](https://i.imgur.com/SIkWyeE.png)
-
-### 2.7 - github
-
-![Paste env values](https://i.imgur.com/yoevhr7.png)
-
-<hr/>
-
-### 2.8 - supabase (Login in supabase - https://app.supabase.com/sign-in)
-
-![Login in supabase](https://i.imgur.com/zxJFahy.png)
-
-### 2.9 - supabase
-
-![Click new project](https://i.imgur.com/9YZGJ8j.png)
-
-### 2.10 - supabase
-
-![Enter aer](https://i.imgur.com/zxJFahy.png)
-
-### 2.11 - supabase
-
-![Set up project](https://i.imgur.com/0xIb866.png)
-
-### 2.12 - supabase
-
-![Copy env](https://i.imgur.com/592li1Z.png)
-
-### 2.13 - supabase
-
-![Paste env](https://i.imgur.com/Qpvso8o.png)
-
-<hr/>
-
-### 2.14 - stripe
-
-![create new project](https://i.imgur.com/q89qoOS.png)
-
-### 2.14 - stripe
-
-![Choose name for project](https://i.imgur.com/1A0I7t3.png)
-
-### 2.14 - stripe
-
-![Copy public key and secret key](https://i.imgur.com/JZsT4Na.png)
-
-### 2.15 - stripe
-
-![Paste public and secret key](https://i.imgur.com/Ja1Iwuo.png)
-
-### 2.16 - stripe (use this guide to paste your webhook https://youtu.be/2aeMRB8LL4o?t=20951)
+[![Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://www.cloudflare.com)
+[![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org)
+[![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com)
+[![Code with Antonio](https://img.shields.io/badge/Code%20with%20Antonio-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/@codewithantonio)
+[![Claude](https://img.shields.io/badge/Claude-D97757?style=for-the-badge&logo=anthropic&logoColor=white)](https://claude.ai)
+[![Grok](https://img.shields.io/badge/Grok-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.ai)
+[![vizzy.io](https://img.shields.io/badge/vizzy.io-6D28D9?style=for-the-badge&logo=audiomack&logoColor=white)](https://vizzy.io)
