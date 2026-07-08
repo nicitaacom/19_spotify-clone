@@ -45,7 +45,8 @@ export function buildEffectsGraph(
   // passive tap — it never feeds destination, so it's inert on offline renders.
   const analyser = ctx.createAnalyser()
   analyser.fftSize = 1024
-  analyser.smoothingTimeConstant = 0.5
+  // Low smoothing keeps kick transients sharp so onset (flux) detection works.
+  analyser.smoothingTimeConstant = 0.2
   lowshelf.connect(analyser)
 
   // topology with pitch shifter

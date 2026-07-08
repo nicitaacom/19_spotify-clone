@@ -14,19 +14,21 @@ interface AlbumArtProps {
 // the `brightness-[40%]` reference). Pitch modulates on top of this.
 const BASE_BRIGHTNESS = 0.4
 
-// Bass-reactive motion (vizzy.io style): a kick pushes `env` up fast and it
-// eases back down, driving a subtle scale + blur pulse. Kept gentle. This runs
-// on an OUTER wrapper so it composes with the CSS ken-burns drift on the <img>.
-const MAX_SCALE = 0.06 // +6% at a full-energy kick
-const MAX_BLUR = 4 // px at a full-energy kick
-const ATTACK = 0.5 // how fast env rises toward a louder level
-const DECAY = 0.08 // how fast env falls when the level drops
+// Kick-reactive motion (vizzy.io style). We react to the *onset* of a kick —
+// the sudden RISE in low-end energy frame-to-frame (spectral flux), NOT the
+// absolute bass volume — so sustained bass/808 tails don't keep it scaled up.
+// Each detected transient injects into `env`, which then decays smoothly.
+const MAX_SCALE = 0.07 // +7% at a full-strength kick
+const MAX_BLUR = 4 // px at a full-strength kick
+const FLUX_GAIN = 6 // amplify the rise so real kicks reach ~1
+const FLUX_GATE = 0.015 // ignore tiny fluctuations (noise floor)
+const DECAY = 0.12 // how fast the pulse eases back down each frame
 
 /**
  * Full-bleed background image built from the uploaded track's embedded cover.
  * Fills the page shell (which must be `relative`) behind all content. A slow
  * ken-burns drift plays on the image while playing + pitched down; on top, the
- * whole layer pulses (scale + blur) with the low-end. Brightness tracks pitch
+ * whole layer punches (scale + blur) on kick onsets. Brightness tracks pitch
  * 1.5× more than the site background (§12.10.C).
  */
 export default function AlbumArt({
@@ -38,6 +40,7 @@ export default function AlbumArt({
 }: AlbumArtProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const envRef = useRef(0)
+  const prevBassRef = useRef(0)
   const rafRef = useRef<number | null>(null)
 
   // dim = st/12; art is 1.5× more sensitive than the site bg (slopes 0.9 / 0.15).
@@ -52,24 +55,36 @@ export default function AlbumArt({
     const wrap = wrapRef.current
     if (!wrap) return
 
-    // When not playing, ease the pulse back to rest and stop the loop.
     if (!isPlaying) {
+      // Ease back to rest over 300ms, then stop the loop.
       envRef.current = 0
+      prevBassRef.current = 0
+      wrap.style.transition = "transform 300ms ease-out, filter 300ms ease-out"
       wrap.style.transform = "scale(1)"
       wrap.style.filter = "none"
       return
     }
 
-    const tick = () => {
-      const level = getBassLevel() // 0..1
-      const env = envRef.current
-      // Asymmetric follower: quick attack on louder hits, slow release.
-      const coeff = level > env ? ATTACK : DECAY
-      const next = env + (level - env) * coeff
-      envRef.current = next
+    // No CSS transition while running — the rAF loop drives every frame itself,
+    // otherwise the pulse would lag the beat by 300ms.
+    wrap.style.transition = "none"
 
-      const scale = 1 + next * MAX_SCALE
-      const blur = next * MAX_BLUR
+    const tick = () => {
+      const bass = getBassLevel() // 0..1
+      // Spectral flux: only the POSITIVE rise counts as a kick onset.
+      const rise = bass - prevBassRef.current
+      prevBassRef.current = bass
+      if (rise > FLUX_GATE) {
+        const hit = Math.min(1, rise * FLUX_GAIN)
+        if (hit > envRef.current) envRef.current = hit
+      }
+
+      // Decay the pulse.
+      envRef.current *= 1 - DECAY
+      const env = envRef.current
+
+      const scale = 1 + env * MAX_SCALE
+      const blur = env * MAX_BLUR
       wrap.style.transform = `scale(${scale.toFixed(4)})`
       wrap.style.filter = blur > 0.05 ? `blur(${blur.toFixed(2)}px)` : "none"
 
