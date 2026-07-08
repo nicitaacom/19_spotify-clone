@@ -73,8 +73,8 @@ const FileDropZone = ({ onFile }: FileDropZoneProps) => {
       />
       <div className="flex flex-col items-center gap-4">
         <FiUploadCloud size={48} className="text-neutral-400" />
-        <p className="text-neutral-300">Drop an audio file here or click to browse</p>
-        <p className="text-neutral-500 text-xs">MP3, WAV, and most audio formats supported</p>
+        <p className="text-neutral-300">🎵 Drop an MP3 here or click to browse</p>
+        <p className="text-neutral-500 text-xs">MP3 recommended • pitch + reverb + bass in browser</p>
       </div>
     </div>
   )
