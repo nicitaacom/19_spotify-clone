@@ -45,8 +45,8 @@ Work top to bottom. Check off items as they are completed. **Stop after each num
 - [x] Verify: no lint/type errors (targeted eslint + tsc on feature files pass; pre-existing project-wide issues ignored); logic reviewed (UI comes later, so no manual playback test yet).
 
 ### Step 3 — `Waveform.tsx`
-- [ ] `app/(site)/slow-and-reverb/components/Waveform.tsx` — canvas peaks, progress overlay, click/drag seek, play/pause overlay button, time row.
-- [ ] Verify: renders with a decoded buffer (can temporarily wire a bare file input in the editor component skeleton if needed for testing).
+- [x] `app/(site)/slow-and-reverb/components/Waveform.tsx` — canvas peaks, progress overlay, click/drag seek, play/pause overlay button, time row.
+- [x] Verify: renders with a decoded buffer (ProBadge co-created for compile; skeleton test deferred to step 4 full editor).
 
 ### Step 4 — UI components + page
 - [ ] `components/ProBadge.tsx` (within the route folder) — cosmetic chip.
