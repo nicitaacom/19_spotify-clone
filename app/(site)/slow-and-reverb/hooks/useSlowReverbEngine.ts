@@ -23,6 +23,7 @@ export interface SlowReverbEngine {
   applyPreset(p: "slowed" | "nightcore"): void
   isRendering: boolean
   download(format: "mp3" | "wav"): Promise<void>
+  clear(): void
 }
 
 export function useSlowReverbEngine(): SlowReverbEngine {
@@ -297,6 +298,23 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     }
   }, [setSpeed, setReverb])
 
+
+  const clear = useCallback(() => {
+    stopCurrent()
+    if (ctxRef.current) {
+      ctxRef.current.close().catch(() => {})
+      ctxRef.current = null
+    }
+    bufferRef.current = null
+    setBuffer(null)
+    setFileName(null)
+    setDuration(0)
+    pausedOffsetSecRef.current = 0
+    isPlayingRef.current = false
+    setIsPlaying(false)
+    // keep speed/reverb/bass as-is
+  }, [stopCurrent])
+
   const download = async (_format: "mp3" | "wav"): Promise<void> => {
     void _format
     // stub until Step 5
@@ -333,5 +351,6 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     applyPreset,
     isRendering,
     download,
+    clear,
   }
 }

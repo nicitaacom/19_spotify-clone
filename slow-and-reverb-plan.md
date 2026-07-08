@@ -49,14 +49,14 @@ Work top to bottom. Check off items as they are completed. **Stop after each num
 - [x] Verify: renders with a decoded buffer (ProBadge co-created for compile; skeleton test deferred to step 4 full editor).
 
 ### Step 4 — UI components + page
-- [ ] `components/ProBadge.tsx` (within the route folder) — cosmetic chip.
-- [ ] `components/FileDropZone.tsx` — drag&drop + picker empty state.
-- [ ] `components/EffectSliderRow.tsx` — generic slider row (used for Speed, Reverb, Bass).
-- [ ] `components/PitchToggleRow.tsx` — display-only pitch row.
-- [ ] `components/DownloadSplitButton.tsx` — split button (download handler stubbed until Step 5; disable with tooltip/toast "coming in next step" is fine, or wire directly if Step 5 lands together — prefer stub).
-- [ ] `components/SlowReverbEditor.tsx` — composes everything, owns the engine hook.
-- [ ] `page.tsx` — server component shell with `metadata` + `Header`.
-- [ ] Verify: full manual flow — load file, play, seek, sliders, presets (checklist §8, all items except download).
+- [x] `components/ProBadge.tsx` (within the route folder) — cosmetic chip.
+- [x] `components/FileDropZone.tsx` — drag&drop + picker empty state.
+- [x] `components/EffectSliderRow.tsx` — generic slider row (used for Speed, Reverb, Bass).
+- [x] `components/PitchToggleRow.tsx` — display-only pitch row.
+- [x] `components/DownloadSplitButton.tsx` — split button (download handler stubbed until Step 5).
+- [x] `components/SlowReverbEditor.tsx` — composes everything, owns the engine hook.
+- [x] `page.tsx` — server component shell with `metadata` + `Header`.
+- [x] Verify: full manual flow — load file, play, seek, sliders, presets (checklist §8, all items except download). (ProBadge created early for waveform; hook extended with clear() for UI.)
 
 ### Step 5 — Download / export
 - [ ] `pnpm add @breezystack/lamejs`
