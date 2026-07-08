@@ -5,8 +5,12 @@ export interface EffectsParams {
   speed: number
   reverb: number
   bass: number // 0-100
-  pitch: number // 0.5 - 1.5 total pitch
+  pitchSemitones: number // -12..+12, transposes on top of speed's natural pitch
   pitchEnabled: boolean
+}
+
+export function semitonesToRatio(semitones: number): number {
+  return Math.pow(2, semitones / 12)
 }
 
 export function buildEffectsGraph(
@@ -19,7 +23,7 @@ export function buildEffectsGraph(
   source.playbackRate.value = params.speed
 
   const shifter = createPitchShifter(ctx)
-  const ratio = params.pitchEnabled ? params.pitch / params.speed : 1
+  const ratio = params.pitchEnabled ? semitonesToRatio(params.pitchSemitones) : 1
   shifter.setRatio(ratio, 0)
 
   const lowshelf = ctx.createBiquadFilter()

@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { toast } from "react-hot-toast"
 
-import { buildEffectsGraph, EffectsParams } from "../lib/buildEffectsGraph"
+import { buildEffectsGraph, EffectsParams, semitonesToRatio } from "../lib/buildEffectsGraph"
 import { renderOffline } from "../lib/renderOffline"
 import { encodeMp3 } from "../lib/encodeMp3"
 
@@ -22,8 +22,8 @@ export interface SlowReverbEngine {
   setReverb(v: number): void
   bass: number
   setBass(v: number): void
-  pitch: number
-  setPitch(v: number): void
+  pitchSemitones: number
+  setPitchSemitones(v: number): void
   pitchEnabled: boolean
   setPitchEnabled(v: boolean): void
   applyPreset(p: "slowed" | "nightcore"): void
@@ -40,7 +40,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
   const [speed, setSpeedState] = useState(1)
   const [reverb, setReverbState] = useState(0)
   const [bass, setBassState] = useState(0)
-  const [pitch, setPitchState] = useState(1)
+  const [pitchSemitones, setPitchSemitonesState] = useState(0)
   const [pitchEnabled, setPitchEnabledState] = useState(false)
   const [isRendering, setIsRendering] = useState(false)
 
@@ -60,7 +60,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
   const speedRef = useRef(1)
   const reverbRef = useRef(0)
   const bassRef = useRef(0)
-  const pitchRef = useRef(1)
+  const pitchSemitonesRef = useRef(0)
   const pitchEnabledRef = useRef(false)
   const isPlayingRef = useRef(false)
   const bufferRef = useRef<AudioBuffer | null>(null)
@@ -69,7 +69,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
   useEffect(() => { speedRef.current = speed }, [speed])
   useEffect(() => { reverbRef.current = reverb }, [reverb])
   useEffect(() => { bassRef.current = bass }, [bass])
-  useEffect(() => { pitchRef.current = pitch }, [pitch])
+  useEffect(() => { pitchSemitonesRef.current = pitchSemitones }, [pitchSemitones])
   useEffect(() => { pitchEnabledRef.current = pitchEnabled }, [pitchEnabled])
   useEffect(() => { bufferRef.current = buffer }, [buffer])
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
@@ -119,7 +119,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       speed: speedRef.current,
       reverb: reverbRef.current,
       bass: bassRef.current,
-      pitch: pitchRef.current,
+      pitchSemitones: pitchSemitonesRef.current,
       pitchEnabled: pitchEnabledRef.current,
     }
 
@@ -232,25 +232,13 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     setSpeedState(clamped)
     speedRef.current = clamped
 
-    // If not in independent pitch mode, keep pitch in sync for display
-    if (!pitchEnabledRef.current) {
-      setPitchState(clamped)
-      pitchRef.current = clamped
-    }
-
+    // Transposition is independent of speed, so the shifter is untouched here.
     const ctx = ctxRef.current
     if (isPlayingRef.current && sourceRef.current && ctx) {
       const pos = getPosition()
       startOffsetSecRef.current = pos
       startCtxTimeRef.current = ctx.currentTime
       sourceRef.current.playbackRate.setTargetAtTime(clamped, ctx.currentTime, 0.03)
-
-      // Update pitch shifter ratio live if enabled
-      const ps = pitchShifterRef.current
-      if (ps) {
-        const ratio = pitchEnabledRef.current ? pitchRef.current / clamped : 1
-        ps.setRatio(ratio, ctx.currentTime)
-      }
     }
   }, [getPosition])
 
@@ -276,16 +264,14 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     }
   }, [])
 
-  const setPitch = useCallback((v: number) => {
-    let clamped = Math.max(0.5, Math.min(1.5, v))
-    clamped = Math.round(clamped * 20) / 20
-    setPitchState(clamped)
-    pitchRef.current = clamped
+  const setPitchSemitones = useCallback((v: number) => {
+    const clamped = Math.max(-12, Math.min(12, Math.round(v)))
+    setPitchSemitonesState(clamped)
+    pitchSemitonesRef.current = clamped
 
     const ctx = ctxRef.current
     if (isPlayingRef.current && pitchShifterRef.current && ctx && pitchEnabledRef.current) {
-      const ratio = clamped / speedRef.current
-      pitchShifterRef.current.setRatio(ratio, ctx.currentTime)
+      pitchShifterRef.current.setRatio(semitonesToRatio(clamped), ctx.currentTime)
     }
   }, [])
 
@@ -293,16 +279,9 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     setPitchEnabledState(enabled)
     pitchEnabledRef.current = enabled
 
-    if (enabled) {
-      // Initialize pitch to current speed when enabling independent mode
-      const currentSpeed = speedRef.current
-      setPitchState(currentSpeed)
-      pitchRef.current = currentSpeed
-    }
-
     const ctx = ctxRef.current
     if (isPlayingRef.current && pitchShifterRef.current && ctx) {
-      const ratio = enabled ? pitchRef.current / speedRef.current : 1
+      const ratio = enabled ? semitonesToRatio(pitchSemitonesRef.current) : 1
       pitchShifterRef.current.setRatio(ratio, ctx.currentTime)
     }
   }, [])
@@ -340,10 +319,11 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     const base = (fileName || "track").replace(/\.[^/.]+$/, "")
     const speedVal = speedRef.current
     const rev = reverbRef.current
-    const pitchVal = pitchRef.current
+    const semitones = pitchSemitonesRef.current
     const enabled = pitchEnabledRef.current
 
-    const pitchLabel = enabled ? ` pitch ${pitchVal}x` : ""
+    const pitchLabel =
+      enabled && semitones !== 0 ? ` pitch ${semitones > 0 ? "+" : ""}${semitones}st` : ""
     const fileBase = `${base} (slowed ${speedVal}x, reverb ${rev}%${pitchLabel})`
 
     try {
@@ -353,7 +333,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
         speed: speedVal,
         reverb: rev,
         bass: bassRef.current,
-        pitch: pitchVal,
+        pitchSemitones: semitones,
         pitchEnabled: enabled,
       })
 
@@ -403,8 +383,8 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     setReverb,
     bass,
     setBass,
-    pitch,
-    setPitch,
+    pitchSemitones,
+    setPitchSemitones,
     pitchEnabled,
     setPitchEnabled,
     applyPreset,

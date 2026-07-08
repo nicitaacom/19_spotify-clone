@@ -29,8 +29,8 @@ const SlowReverbEditor = () => {
     setReverb,
     bass,
     setBass,
-    pitch,
-    setPitch,
+    pitchSemitones,
+    setPitchSemitones,
     pitchEnabled,
     setPitchEnabled,
     applyPreset,
@@ -118,11 +118,10 @@ const SlowReverbEditor = () => {
 
       {/* pitch toggle + optional independent slider */}
       <PitchToggleRow
-        speed={speed}
-        pitch={pitch}
+        pitchSemitones={pitchSemitones}
         pitchEnabled={pitchEnabled}
         setPitchEnabled={setPitchEnabled}
-        setPitch={setPitch}
+        setPitchSemitones={setPitchSemitones}
       />
 
       {/* bass */}

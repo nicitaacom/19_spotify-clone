@@ -5,19 +5,19 @@ import ProBadge from "./ProBadge"
 import EffectSliderRow from "./EffectSliderRow"
 
 interface PitchToggleRowProps {
-  pitch: number
+  pitchSemitones: number
   pitchEnabled: boolean
   setPitchEnabled: (enabled: boolean) => void
-  setPitch: (v: number) => void
-  speed: number
+  setPitchSemitones: (v: number) => void
 }
 
+const formatSemitones = (st: number) => `${st > 0 ? "+" : ""}${st} st`
+
 const PitchToggleRow = ({
-  pitch,
+  pitchSemitones,
   pitchEnabled,
   setPitchEnabled,
-  setPitch,
-  speed,
+  setPitchSemitones,
 }: PitchToggleRowProps) => {
   const handleToggle = useCallback(() => {
     setPitchEnabled(!pitchEnabled)
@@ -42,7 +42,8 @@ const PitchToggleRow = ({
         </button>
 
         <span className={valueClass}>
-          Pitch <span className="font-medium text-white">({pitch.toFixed(2)}x)</span>
+          Pitch{" "}
+          <span className="font-medium text-white">({formatSemitones(pitchSemitones)})</span>
         </span>
 
         <div className={badgeClass}>
@@ -51,7 +52,9 @@ const PitchToggleRow = ({
       </div>
 
       <p className="text-neutral-500 text-xs">
-        {pitchEnabled ? "Independent pitch" : "Pitch follows speed (linked)"}
+        {pitchEnabled
+          ? "Transposition in semitones (−12 = one octave down)"
+          : "Pitch follows speed (linked)"}
       </p>
 
       {/* Real pitch slider when independent mode is on */}
@@ -59,13 +62,13 @@ const PitchToggleRow = ({
         <div className="w-full mt-1">
           <EffectSliderRow
             label="Pitch"
-            valueDisplay={`(${pitch.toFixed(2)}x)`}
-            value={pitch}
-            min={0.5}
-            max={1.5}
-            step={0.05}
-            defaultValue={speed}
-            onChange={setPitch}
+            valueDisplay={`(${formatSemitones(pitchSemitones)})`}
+            value={pitchSemitones}
+            min={-12}
+            max={12}
+            step={1}
+            defaultValue={0}
+            onChange={setPitchSemitones}
           />
         </div>
       )}
