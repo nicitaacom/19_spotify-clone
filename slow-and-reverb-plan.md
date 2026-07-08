@@ -33,9 +33,9 @@ Codebase facts (verified — trust these, don't re-explore):
 Work top to bottom. Check off items as they are completed. **Stop after each numbered step for user review.**
 
 ### Step 1 — Extend `components/Slider.tsx`
-- [ ] Add optional props: `min` (default `0`), `max` (default `1`), `step` (default `0.1`), `ariaLabel` (default `"Volume"`), `className` (merged with `twMerge`).
-- [ ] Keep all defaults identical to current hardcoded values so `PlayerContent.tsx` needs **zero changes**.
-- [ ] Verify: volume slider in the bottom player still works exactly as before.
+- [x] Add optional props: `min` (default `0`), `max` (default `1`), `step` (default `0.1`), `ariaLabel` (default `"Volume"`), `className` (merged with `twMerge`).
+- [x] Keep all defaults identical to current hardcoded values so `PlayerContent.tsx` needs **zero changes**.
+- [x] Verify: volume slider in the bottom player still works exactly as before.
 
 ### Step 2 — Audio engine (`lib/` + `hooks/useSlowReverbEngine.ts`)
 - [ ] `app/(site)/slow-and-reverb/lib/format.ts` — `formatTime(seconds): string` → `"m:ss"`.
