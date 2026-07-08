@@ -433,7 +433,7 @@ Both containers must show clearly rounded corners (per `dev_readme-ui.md` card p
 - Engine (`useSlowReverbEngine.ts`) additions: `albumArtUrl: string | null` created via `URL.createObjectURL(blob)` in `loadFile`; `URL.revokeObjectURL` on new file, `clear()`, and unmount.
 
 **Display (top-right):**
-- New `components/AlbumArt.tsx`, rendered by `SlowReverbEditor` only when `albumArtUrl` exists. Placement: the editor column's parent gets `relative`; the art sits `absolute right-6 top-6 hidden md:block` (hidden on mobile — the column is centered and narrow there). Card recipe: `w-28 h-28 rounded-xl border border-white/5 overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.5)]` wrapping an `<img className="w-full h-full object-cover">`.
+- New `components/AlbumArt.tsx`, rendered by `SlowReverbEditor` only when `albumArtUrl` exists. Placement (**revised per user review**): in normal flow, centered **between the filename pill and the waveform card** (`flex justify-center` wrapper — visible on all screen sizes; ~~absolute top-right~~). Card recipe: `w-28 h-28 rounded-xl border border-white/5 overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.5)]` wrapping an `<img className="w-full h-full object-cover">`.
 - **Ken Burns:** add to `tailwind.config.ts` `animation` extend: `kenburns: "kenburns 14s ease-in-out infinite"` (keyframes already live in globals.css — Tailwind's animation utility just emits the shorthand, so referencing them works). Apply `animate-kenburns` to the `<img>` when `pitchEnabled && pitchSemitones <= -1`. The wrapper's `overflow-hidden rounded-xl` clips the scale/translate. The existing reduced-motion block in globals.css already neutralizes it via `animation: none !important` — don't fight that.
 
 ### 12.2 Pitch-reactive brightness (site background + art) — `[x]`
@@ -528,3 +528,45 @@ Modified: `hooks/useSlowReverbEngine.ts` (albumArtUrl, resume fix, applyPreset s
 - [ ] Empty state shows STEP 1–4; STEP 1 link opens yt1z.io in a new tab.
 - [ ] Empty state: dragging a file anywhere over the window shows the full-screen dashed hint; dropping anywhere loads the file; dropping a non-audio file → error toast, no navigation to the file (preventDefault worked); after a file is loaded the full-screen overlay is gone (drops outside the editor do nothing).
 - [ ] `pnpm lint` + `tsc --noEmit` pass.
+
+### 12.10 ⚠️ IMPORTANT — Round 4 corrections (user review of the first implementation)
+
+> The first round-4 implementation deviated from this plan in three places. These corrections are authoritative and override anything above that conflicts.
+
+**A. Presets — remove `Lofi` / `Dreamy` / `Vinyl` entirely.** `[x]`
+They were never in the spec. Use exactly the §12.4 table (repeated here so there is zero ambiguity):
+
+```
+SLOWED&REVERB:        Speed (0.80x) - Reverb (40%) - Pitch (0 st)  - Bass boost (5%)
+SUPER SLOWED&REVERB:  Speed (0.70x) - Reverb (40%) - Pitch (0 st)  - Bass boost (10%)
+ULTRA SLOWED&REVERB:  Speed (0.60x) - Reverb (40%) - Pitch (0 st)  - Bass boost (20%)
+- (separation line) -
+PRESET 1:             Speed (0.85x) - Reverb (60%) - Pitch (-4 st) - Bass boost (20%)
+PRESET 2:             Speed (0.80x) - Reverb (50%) - Pitch (-6 st) - Bass boost (30%)
+PRESET 3:             Speed (0.75x) - Reverb (40%) - Pitch (-7 st) - Bass boost (35%)
+```
+
+Engine: `applyPreset(values: { speed; reverb; bass; pitchSt })` — sets all four via existing setters; `pitchSt !== 0` → enable pitch + set semitones; `pitchSt === 0` → semitones 0 + disable. Editor: data-driven `PRESETS` array, two rows of three with a separator line between, buttons `rounded-md` (per §12.4), active = all four values + toggle state match.
+
+**B. Layout split — media right, inputs left.** `[x]`
+Loaded state becomes a two-column layout (`max-w-5xl mx-auto grid md:grid-cols-2 gap-8 items-start`):
+- **Right section:** filename pill → album art → waveform (+ time row) → presets.
+- **Left section:** Speed, Reverb, Pitch row (+ slider), Bass boost, Download button + output length.
+- Mobile: single column, media section first (DOM order: media div first with `md:order-2`, inputs div `md:order-1`).
+- Empty state unchanged.
+
+**C. Whole-website dim — not a section overlay.** `[x]`
+The first implementation rendered a static `bg-black/40` overlay over the editor section only when pitch was enabled. Wrong on all three axes (scope, mapping, continuity). Correct behavior:
+- Target = the **page shell** in `page.tsx` (`h-full w-full overflow-x-hidden rounded-lg bg-surface text-white`): its background must change, continuously, with pitch. Less pitch = darker, higher pitch = *slightly* lighter.
+- Mechanism: shell drops `bg-surface` for inline `style={{ backgroundColor: "var(--srv-bg, #111111)" }}` + `transition-colors duration-300`; the editor (client) sets `--srv-bg` on `document.documentElement` in a `useEffect([pitchEnabled, pitchSemitones])` and removes the property on unmount (other pages keep normal `bg-surface`).
+- Mapping (`dim = pitchEnabled ? pitchSemitones / 12 : 0`, base channel `0x11` = 17):
+  - `dim < 0`: channel = `17 × (1 + dim × 0.6)` → `#070707` at −12 st (clearly darker).
+  - `dim > 0`: channel = `17 + dim × 16` → `#212121` at +12 st (just slightly lighter).
+- **Album art 1.5× more sensitive** — its own `filter: brightness(...)` with 1.5× the site's slope: `dim < 0`: `1 + dim × 0.9`; `dim > 0`: `1 + dim × 0.15`; `transition: filter 300ms`. Remove the old `bg-black/40` overlay div from `SlowReverbEditor`.
+
+**D. Self-validation checklist (run all of it):**
+- [x] §12.1 art + Ken Burns: `animate-kenburns` exists (`tailwind.config.ts:33` ✓ verified) and the image visibly animates at pitch ≤ −1 st, static at 0/positive/linked. *(static: `shouldAnimate = pitchEnabled && pitchSemitones <= -1` gates `animate-kenburns`; runtime playback needs manual check.)*
+- [x] Presets: exactly six buttons in two rows + separator; each sets its four values; Lofi/Dreamy/Vinyl gone from UI **and** hook types.
+- [x] Two-column layout at md+; stacked (media first) on mobile; nothing overlaps the Header or footer. *(media div `md:order-2`, inputs `md:order-1`; single-column below md.)*
+- [x] Dragging pitch −12…+12 smoothly darkens/lightens the page shell (footer + header area included); leaving the page restores normal `bg-surface` elsewhere; art dims/brightens visibly more than the page. *(`--srv-bg` set on `<html>` in `useEffect`, removed on unmount; shell reads `var(--srv-bg, #111111)`; art slope 0.9/0.15 = 1.5× site 0.6/0.107. Visual smoothness needs manual check.)*
+- [x] `tsc --noEmit` + eslint on feature files pass.
