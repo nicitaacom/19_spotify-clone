@@ -91,6 +91,12 @@ export function useSlowReverbEngine(): SlowReverbEngine {
   const stopCurrent = useCallback(() => {
     const src = sourceRef.current
     if (src) {
+      // Detach onended BEFORE stopping: src.stop() fires onended asynchronously,
+      // and the natural-end handler resets pausedOffsetSecRef to 0. A manual stop
+      // (pause / seek / param restart) must never trigger that, or resume/seek
+      // would jump back to the start. (cf. dev_readme-player.md: never let a stop
+      // run the end-of-track path.)
+      src.onended = null
       try { src.stop() } catch {}
       try { src.disconnect() } catch {}
     }
