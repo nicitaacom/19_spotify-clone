@@ -30,7 +30,7 @@ const config: Config = {
       },
       animation: {
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
-        "kenburns": "kenburns 14s ease-in-out infinite",
+        "kenburns": "kenburns 15s ease-in-out infinite",
       },
     },
   },

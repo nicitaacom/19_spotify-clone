@@ -1,5 +1,6 @@
 import Header from "@/components/Header"
 import SlowReverbEditor from "./components/SlowReverbEditor"
+import Link from "next/link"
 
 export const metadata = {
   title: "Slow & Reverb",
@@ -8,10 +9,9 @@ export const metadata = {
 export default function SlowAndReverb() {
   return (
     <div
-      className="h-full w-full overflow-x-hidden rounded-lg text-white transition-colors duration-300"
-      style={{ backgroundColor: "var(--srv-bg, #111111)" }}
-    >
-      <Header className="bg-gradient-to-b from-[#0f1f14] via-[#0b0f0c] to-transparent">
+      className="relative h-full w-full overflow-x-hidden rounded-lg text-white transition-colors duration-300"
+      style={{ backgroundColor: "var(--srv-bg, #111111)" }}>
+      <Header className="relative z-10 bg-gradient-to-b from-[#0f1f14] via-[#0b0f0c] to-transparent">
         <div className="mt-10">
           <div className="flex flex-col gap-y-3">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-rose-100">Tools</p>
@@ -24,9 +24,12 @@ export default function SlowAndReverb() {
       </Header>
       <SlowReverbEditor />
 
-      <div className="border-t border-white/5 mt-8" />
-      <p className="text-center text-neutral-500 text-xs py-6">
-        6$/mo ? WTF - Claude free + hermes (free xAI Grok trial) - WORK HARD
+      <div className="relative z-10 border-t border-white/5 mt-8" />
+      <p className="relative z-10 text-center text-neutral-500 text-xs py-6">
+        6$/mo ? WTF - Claude free + hermes (free xAI Grok trial) - WORK HARD - credit to&nbsp;
+        <Link className="text-blue-400 hover:text-blue-500" href="https://vizzy.io" target="_blank">
+          vizzy.io
+        </Link>
       </p>
     </div>
   )

@@ -40,6 +40,14 @@ export function buildEffectsGraph(
   const wetGain = ctx.createGain()
   wetGain.gain.value = params.reverb / 100
 
+  // Analyser tapped post-bass-boost so the background reacts to the low-end the
+  // listener actually hears (kicks / 808s, including the Bass slider). It's a
+  // passive tap — it never feeds destination, so it's inert on offline renders.
+  const analyser = ctx.createAnalyser()
+  analyser.fftSize = 1024
+  analyser.smoothingTimeConstant = 0.5
+  lowshelf.connect(analyser)
+
   // topology with pitch shifter
   source.connect(shifter.input)
   shifter.output.connect(lowshelf)
@@ -51,5 +59,5 @@ export function buildEffectsGraph(
   dryGain.connect(ctx.destination)
   wetGain.connect(ctx.destination)
 
-  return { source, lowshelf, wetGain, dryGain, pitchShifter: shifter }
+  return { source, lowshelf, wetGain, dryGain, pitchShifter: shifter, analyser }
 }

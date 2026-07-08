@@ -39,6 +39,7 @@ export interface SlowReverbEngine {
   download(): Promise<void>
   clear(): void
   albumArtUrl: string | null
+  getBassLevel(): number
 }
 
 export function useSlowReverbEngine(): SlowReverbEngine {
@@ -61,6 +62,8 @@ export function useSlowReverbEngine(): SlowReverbEngine {
   const wetGainRef = useRef<GainNode | null>(null)
   const dryGainRef = useRef<GainNode | null>(null)
   const pitchShifterRef = useRef<ReturnType<typeof import("../lib/pitchShifter").createPitchShifter> | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const bassFreqDataRef = useRef<Uint8Array | null>(null)
 
   const generationRef = useRef(0)
   const pausedOffsetSecRef = useRef(0)
@@ -102,11 +105,14 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       try { ps.input.disconnect() } catch {}
       try { ps.output.disconnect() } catch {}
     }
+    const an = analyserRef.current
+    if (an) { try { an.disconnect() } catch {} }
     sourceRef.current = null
     lowshelfRef.current = null
     wetGainRef.current = null
     dryGainRef.current = null
     pitchShifterRef.current = null
+    analyserRef.current = null
   }, [])
 
   const getPosition = useCallback((): number => {
@@ -117,6 +123,20 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     const elapsed = (ctx.currentTime - startCtxTimeRef.current) * speedRef.current
     const pos = startOffsetSecRef.current + elapsed
     return Math.max(0, Math.min(pos, buf.duration))
+  }, [])
+
+  // Normalized low-end energy (0..1) for the bass-reactive background. Averages
+  // the lowest FFT bins (~0-250Hz — kicks / 808s) of the post-bass-boost signal.
+  const getBassLevel = useCallback((): number => {
+    const analyser = analyserRef.current
+    const data = bassFreqDataRef.current
+    if (!analyser || !data || !isPlayingRef.current) return 0
+    analyser.getByteFrequencyData(data)
+    // fftSize 1024 → binHz = sampleRate/1024 ≈ 43Hz; first ~6 bins ≈ 0-260Hz.
+    const bins = 6
+    let sum = 0
+    for (let i = 0; i < bins; i++) sum += data[i]
+    return sum / bins / 255
   }, [])
 
   const playFromOffset = useCallback((offsetSec: number) => {
@@ -140,6 +160,8 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     wetGainRef.current = graph.wetGain
     dryGainRef.current = graph.dryGain
     pitchShifterRef.current = graph.pitchShifter
+    analyserRef.current = graph.analyser
+    bassFreqDataRef.current = new Uint8Array(graph.analyser.frequencyBinCount)
 
     const now = ctx.currentTime
     startCtxTimeRef.current = now
@@ -442,5 +464,6 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     download,
     clear,
     albumArtUrl,
+    getBassLevel,
   }
 }

@@ -62,6 +62,7 @@ const SlowReverbEditor = () => {
     download,
     clear,
     albumArtUrl,
+    getBassLevel,
   } = engine
 
   const { isDragging } = useDocumentDrag()
@@ -138,115 +139,124 @@ const SlowReverbEditor = () => {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8 grid md:grid-cols-2 gap-8 items-start">
-      {/* RIGHT section (media): filename, album art, waveform, presets */}
-      <div className="md:order-2 flex flex-col gap-6">
-        {/* filename pill */}
-        <div className="flex justify-center">
-          <div className="inline-flex items-center gap-2 rounded-lg bg-elevated border border-white/10 px-4 py-1.5 text-sm text-neutral-300 max-w-full">
-            <span className="truncate">{fileName}</span>
-            <button
-              onClick={clear}
-              className="text-neutral-500 hover:text-white ml-1"
-              aria-label="Clear file">
-              ×
-            </button>
-          </div>
-        </div>
+    <>
+      {/* full-page background built from the track's embedded cover */}
+      <AlbumArt
+        albumArtUrl={albumArtUrl}
+        pitchEnabled={pitchEnabled}
+        pitchSemitones={pitchSemitones}
+        isPlaying={isPlaying}
+        getBassLevel={getBassLevel}
+      />
 
-        <AlbumArt albumArtUrl={albumArtUrl} pitchEnabled={pitchEnabled} pitchSemitones={pitchSemitones} />
-
-        {/* waveform */}
-        <Waveform
-          buffer={buffer}
-          duration={duration}
-          isPlaying={isPlaying}
-          getPosition={getPosition}
-          onSeek={seek}
-          onTogglePlay={togglePlay}
-        />
-
-        {/* presets */}
-        <div className="flex flex-col gap-2">
-          <div className="text-center text-xs uppercase tracking-widest text-neutral-400">Presets</div>
-          <div className="flex flex-wrap justify-center gap-2">
-            {PRESETS.map((p) => (
-              <button key={p.label} onClick={() => applyPreset(p)} className={presetBtn(isPresetActive(p))}>
-                {p.label}
+      <div className="relative z-10 max-w-5xl mx-auto px-6 py-8 grid md:grid-cols-2 gap-8 items-start">
+        {/* RIGHT section (media): filename, waveform, presets */}
+        <div className="md:order-2 flex flex-col gap-6 rounded-2xl border border-white/10 bg-black/60 p-6 backdrop-blur-md shadow-2xl">
+          {/* filename pill */}
+          <div className="flex justify-center">
+            <div className="inline-flex items-center gap-2 rounded-lg bg-elevated border border-white/10 px-4 py-1.5 text-sm text-neutral-300 max-w-full">
+              <span className="truncate">{fileName}</span>
+              <button
+                onClick={clear}
+                className="text-neutral-500 hover:text-white ml-1"
+                aria-label="Clear file">
+                ×
               </button>
-            ))}
+            </div>
           </div>
-          <div className="border-t border-white/10 w-2/3 mx-auto my-1" />
-          <div className="flex flex-wrap justify-center gap-2">
-            {CUSTOM_PRESETS.map((p) => (
-              <button key={p.label} onClick={() => applyPreset(p)} className={presetBtn(isPresetActive(p))}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      {/* LEFT section (inputs): speed, reverb, pitch, bass, download */}
-      <div className="md:order-1 flex flex-col gap-6">
-        {/* speed */}
-        <EffectSliderRow
-          label="Speed"
-          valueDisplay={`(${speed.toFixed(2)}x)`}
-          value={speed}
-          min={0.5}
-          max={1.5}
-          step={0.05}
-          defaultValue={1}
-          onChange={setSpeed}
-        />
-
-        {/* reverb */}
-        <EffectSliderRow
-          label="Reverb"
-          valueDisplay={`(${reverb}%)`}
-          value={reverb}
-          min={0}
-          max={100}
-          step={1}
-          defaultValue={0}
-          onChange={setReverb}
-        />
-
-        {/* pitch toggle + optional independent slider */}
-        <PitchToggleRow
-          pitchSemitones={pitchSemitones}
-          pitchEnabled={pitchEnabled}
-          setPitchEnabled={setPitchEnabled}
-          setPitchSemitones={setPitchSemitones}
-        />
-
-        {/* bass */}
-        <EffectSliderRow
-          label="Bass boost"
-          valueDisplay={`(${bass}%)`}
-          value={bass}
-          min={0}
-          max={100}
-          step={1}
-          defaultValue={0}
-          onChange={setBass}
-          badge={<ProBadge />}
-        />
-
-        {/* download */}
-        <div className="flex flex-col items-center gap-1 pt-2">
-          <DownloadButton
-            onDownload={download}
-            isRendering={isRendering}
-            disabled={!buffer}
+          {/* waveform */}
+          <Waveform
+            buffer={buffer}
+            duration={duration}
+            isPlaying={isPlaying}
+            getPosition={getPosition}
+            onSeek={seek}
+            onTogglePlay={togglePlay}
           />
-          <p className="text-neutral-500 text-xs">
-            Output length: {formatTime(duration / Math.max(0.1, speed))}
-          </p>
+
+          {/* presets */}
+          <div className="flex flex-col gap-2">
+            <div className="text-center text-xs uppercase tracking-widest text-neutral-400">Presets</div>
+            <div className="flex flex-wrap justify-center gap-2">
+              {PRESETS.map((p) => (
+                <button key={p.label} onClick={() => applyPreset(p)} className={presetBtn(isPresetActive(p))}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <div className="border-t border-white/10 w-2/3 mx-auto my-1" />
+            <div className="flex flex-wrap justify-center gap-2">
+              {CUSTOM_PRESETS.map((p) => (
+                <button key={p.label} onClick={() => applyPreset(p)} className={presetBtn(isPresetActive(p))}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* LEFT section (inputs): speed, reverb, pitch, bass, download */}
+        <div className="md:order-1 flex flex-col gap-6 rounded-2xl border border-white/10 bg-black/60 p-6 backdrop-blur-md shadow-2xl">
+          {/* speed */}
+          <EffectSliderRow
+            label="Speed"
+            valueDisplay={`(${speed.toFixed(2)}x)`}
+            value={speed}
+            min={0.5}
+            max={1.5}
+            step={0.05}
+            defaultValue={1}
+            onChange={setSpeed}
+          />
+
+          {/* reverb */}
+          <EffectSliderRow
+            label="Reverb"
+            valueDisplay={`(${reverb}%)`}
+            value={reverb}
+            min={0}
+            max={100}
+            step={1}
+            defaultValue={0}
+            onChange={setReverb}
+          />
+
+          {/* pitch toggle + optional independent slider */}
+          <PitchToggleRow
+            pitchSemitones={pitchSemitones}
+            pitchEnabled={pitchEnabled}
+            setPitchEnabled={setPitchEnabled}
+            setPitchSemitones={setPitchSemitones}
+          />
+
+          {/* bass */}
+          <EffectSliderRow
+            label="Bass boost"
+            valueDisplay={`(${bass}%)`}
+            value={bass}
+            min={0}
+            max={100}
+            step={1}
+            defaultValue={0}
+            onChange={setBass}
+            badge={<ProBadge />}
+          />
+
+          {/* download */}
+          <div className="flex flex-col items-center gap-1 pt-2">
+            <DownloadButton
+              onDownload={download}
+              isRendering={isRendering}
+              disabled={!buffer}
+            />
+            <p className="text-neutral-500 text-xs">
+              Output length: {formatTime(duration / Math.max(0.1, speed))}
+            </p>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 
