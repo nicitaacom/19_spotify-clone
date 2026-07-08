@@ -10,6 +10,7 @@ import EffectSliderRow from "./EffectSliderRow"
 import PitchToggleRow from "./PitchToggleRow"
 import DownloadButton from "./DownloadButton"
 import ProBadge from "./ProBadge"
+import AlbumArt from "./AlbumArt"
 import { formatTime } from "../lib/format"
 
 const SlowReverbEditor = () => {
@@ -37,6 +38,7 @@ const SlowReverbEditor = () => {
     isRendering,
     download,
     clear,
+    albumArtUrl,
   } = engine
 
   const isSlowed = useMemo(() => speed === 0.8 && reverb === 40, [speed, reverb])
@@ -55,7 +57,7 @@ const SlowReverbEditor = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8 flex flex-col gap-6">
+    <div className="max-w-2xl mx-auto px-6 py-8 flex flex-col gap-6 relative">
       {/* filename pill */}
       <div className="flex justify-center">
         <div className="inline-flex items-center gap-2 rounded-lg bg-elevated border border-white/10 px-4 py-1.5 text-sm text-neutral-300 max-w-full">
@@ -68,6 +70,8 @@ const SlowReverbEditor = () => {
           </button>
         </div>
       </div>
+
+      <AlbumArt albumArtUrl={albumArtUrl} pitchEnabled={pitchEnabled} pitchSemitones={pitchSemitones} />
 
       {/* waveform */}
       <Waveform

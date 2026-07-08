@@ -6,6 +6,7 @@ import { toast } from "react-hot-toast"
 import { buildEffectsGraph, EffectsParams, semitonesToRatio } from "../lib/buildEffectsGraph"
 import { renderOffline } from "../lib/renderOffline"
 import { encodeMp3 } from "../lib/encodeMp3"
+import { extractAlbumArt } from "../lib/id3AlbumArt"
 
 export interface SlowReverbEngine {
   loadFile(file: File): Promise<void>
@@ -30,6 +31,7 @@ export interface SlowReverbEngine {
   isRendering: boolean
   download(): Promise<void>
   clear(): void
+  albumArtUrl: string | null
 }
 
 export function useSlowReverbEngine(): SlowReverbEngine {
@@ -43,6 +45,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
   const [pitchSemitones, setPitchSemitonesState] = useState(0)
   const [pitchEnabled, setPitchEnabledState] = useState(false)
   const [isRendering, setIsRendering] = useState(false)
+  const [albumArtUrl, setAlbumArtUrl] = useState<string | null>(null)
 
   // Audio engine refs
   const ctxRef = useRef<AudioContext | null>(null)
@@ -64,6 +67,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
   const pitchEnabledRef = useRef(false)
   const isPlayingRef = useRef(false)
   const bufferRef = useRef<AudioBuffer | null>(null)
+  const albumArtUrlRef = useRef<string | null>(null)
 
   // Sync refs
   useEffect(() => { speedRef.current = speed }, [speed])
@@ -168,6 +172,23 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       }
 
       const arrayBuffer = await file.arrayBuffer()
+
+      // Extract album art BEFORE decode (decode detaches the buffer)
+      let newArtUrl: string | null = null
+      const artBlob = extractAlbumArt(arrayBuffer.slice(0))
+      if (artBlob) {
+        if (albumArtUrlRef.current) {
+          URL.revokeObjectURL(albumArtUrlRef.current)
+        }
+        newArtUrl = URL.createObjectURL(artBlob)
+        albumArtUrlRef.current = newArtUrl
+      } else {
+        if (albumArtUrlRef.current) {
+          URL.revokeObjectURL(albumArtUrlRef.current)
+          albumArtUrlRef.current = null
+        }
+      }
+
       const AudioCtx =
         (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext }).AudioContext ||
         (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext ||
@@ -190,9 +211,16 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       setBuffer(decoded)
       setDuration(decoded.duration)
       setFileName(file.name)
+      setAlbumArtUrl(newArtUrl)
     } catch (err) {
       console.error("Decode failed", err)
       toast.error("Unsupported or corrupted audio file")
+      // cleanup art on error
+      if (albumArtUrlRef.current) {
+        URL.revokeObjectURL(albumArtUrlRef.current)
+        albumArtUrlRef.current = null
+      }
+      setAlbumArtUrl(null)
     }
   }, [stopCurrent])
 
@@ -302,10 +330,15 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       ctxRef.current.close().catch(() => {})
       ctxRef.current = null
     }
+    if (albumArtUrlRef.current) {
+      URL.revokeObjectURL(albumArtUrlRef.current)
+      albumArtUrlRef.current = null
+    }
     bufferRef.current = null
     setBuffer(null)
     setFileName(null)
     setDuration(0)
+    setAlbumArtUrl(null)
     pausedOffsetSecRef.current = 0
     isPlayingRef.current = false
     setIsPlaying(false)
@@ -365,6 +398,9 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       if (ctxRef.current) {
         ctxRef.current.close().catch(() => {})
       }
+      if (albumArtUrlRef.current) {
+        URL.revokeObjectURL(albumArtUrlRef.current)
+      }
     }
   }, [stopCurrent])
 
@@ -391,5 +427,6 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     isRendering,
     download,
     clear,
+    albumArtUrl,
   }
 }
