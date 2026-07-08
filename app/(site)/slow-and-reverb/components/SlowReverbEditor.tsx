@@ -41,8 +41,6 @@ const SlowReverbEditor = () => {
     albumArtUrl,
   } = engine
 
-  const isSlowed = useMemo(() => speed === 0.8 && reverb === 40, [speed, reverb])
-  const isNightcore = useMemo(() => speed === 1.25 && reverb === 0, [speed, reverb])
 
   const presetBtn = (active: boolean) =>
     twMerge(
@@ -91,13 +89,10 @@ const SlowReverbEditor = () => {
       {/* presets */}
       <div className="flex flex-col gap-2">
         <div className="text-center text-xs uppercase tracking-widest text-neutral-400">Presets</div>
-        <div className="flex justify-center gap-2">
-          <button onClick={() => applyPreset("slowed")} className={presetBtn(isSlowed)}>
-            Slowed + Reverb
-          </button>
-          <button onClick={() => applyPreset("nightcore")} className={presetBtn(isNightcore)}>
-            Nightcore
-          </button>
+        <div className="flex justify-center gap-3">
+          <button onClick={() => applyPreset("lofi")} className={presetBtn(false)}>Lofi</button>
+          <button onClick={() => applyPreset("dreamy")} className={presetBtn(false)}>Dreamy</button>
+          <button onClick={() => applyPreset("vinyl")} className={presetBtn(false)}>Vinyl</button>
         </div>
       </div>
 

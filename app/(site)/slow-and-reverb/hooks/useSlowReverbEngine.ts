@@ -27,7 +27,7 @@ export interface SlowReverbEngine {
   setPitchSemitones(v: number): void
   pitchEnabled: boolean
   setPitchEnabled(v: boolean): void
-  applyPreset(p: "slowed" | "nightcore"): void
+  applyPreset(p: "slowed" | "nightcore" | "lofi" | "dreamy" | "vinyl"): void
   isRendering: boolean
   download(): Promise<void>
   clear(): void
@@ -315,15 +315,27 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     }
   }, [])
 
-  const applyPreset = useCallback((p: "slowed" | "nightcore") => {
+  const applyPreset = useCallback((p: "slowed" | "nightcore" | "lofi" | "dreamy" | "vinyl") => {
     if (p === "slowed") {
       setSpeed(0.8)
       setReverb(40)
-    } else {
+    } else if (p === "nightcore") {
       setSpeed(1.25)
       setReverb(0)
+    } else if (p === "lofi") {
+      setSpeed(0.85)
+      setReverb(25)
+      setBass(35)
+    } else if (p === "dreamy") {
+      setSpeed(0.75)
+      setReverb(55)
+      setBass(20)
+    } else if (p === "vinyl") {
+      setSpeed(0.92)
+      setReverb(15)
+      setBass(40)
     }
-  }, [setSpeed, setReverb])
+  }, [setSpeed, setReverb, setBass])
 
   const clear = useCallback(() => {
     stopCurrent()
