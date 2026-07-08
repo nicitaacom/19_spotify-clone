@@ -185,13 +185,21 @@ const Waveform = ({
     const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
     const x = e.clientX - rect.left
     const fraction = Math.max(0, Math.min(1, x / rect.width))
-    onSeek(fraction * duration)
+    const target = fraction * duration
+    onSeek(target)
+    // Repaint immediately: while paused nothing re-renders this component, so
+    // the playhead/progress would otherwise stay put until the next play.
+    setCurrentTime(target)
+    requestAnimationFrame(draw)
 
     const move = (ev: PointerEvent) => {
       const r = rect
       const xx = ev.clientX - r.left
       const frac = Math.max(0, Math.min(1, xx / r.width))
-      onSeek(frac * duration)
+      const t = frac * duration
+      onSeek(t)
+      setCurrentTime(t)
+      requestAnimationFrame(draw)
     }
     const up = () => {
       window.removeEventListener("pointermove", move)
