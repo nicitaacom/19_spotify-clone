@@ -1,6 +1,5 @@
 "use client"
 
-import { useMemo } from "react"
 import { twMerge } from "tailwind-merge"
 
 import { useSlowReverbEngine } from "../hooks/useSlowReverbEngine"
@@ -11,6 +10,8 @@ import PitchToggleRow from "./PitchToggleRow"
 import DownloadButton from "./DownloadButton"
 import ProBadge from "./ProBadge"
 import AlbumArt from "./AlbumArt"
+import FullScreenDropOverlay from "./FullScreenDropOverlay"
+import { useDocumentDrag } from "../hooks/useDocumentDrag"
 import { formatTime } from "../lib/format"
 
 const SlowReverbEditor = () => {
@@ -41,6 +42,8 @@ const SlowReverbEditor = () => {
     albumArtUrl,
   } = engine
 
+  const { isDragging } = useDocumentDrag()
+
 
   const presetBtn = (active: boolean) =>
     twMerge(
@@ -50,8 +53,43 @@ const SlowReverbEditor = () => {
         : "bg-elevated border-white/10 text-neutral-300 hover:border-neon/30 hover:text-white",
     )
 
-  if (!buffer || !fileName) {
-    return <FileDropZone onFile={loadFile} />
+  const isEmpty = !buffer || !fileName
+
+  if (isEmpty) {
+    return (
+      <div className="max-w-2xl mx-auto px-6 py-8 flex flex-col items-center">
+        <FileDropZone onFile={loadFile} />
+
+        {/* 12.6 Empty state: 4-step guide */}
+        <ol className="flex flex-col gap-1.5 text-sm text-neutral-400 items-center mt-6">
+          <li>
+            <span className="text-neutral-500 text-xs uppercase tracking-wide font-medium">STEP 1: </span>
+            <a
+              href="https://yt1z.io/en/video/FeKOxDT-XFQ"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-neon hover:text-neon-strong underline underline-offset-2"
+            >
+              Download song
+            </a>
+          </li>
+          <li>
+            <span className="text-neutral-500 text-xs uppercase tracking-wide font-medium">STEP 2: </span>
+            Upload song
+          </li>
+          <li>
+            <span className="text-neutral-500 text-xs uppercase tracking-wide font-medium">STEP 3: </span>
+            Try different presets
+          </li>
+          <li>
+            <span className="text-neutral-500 text-xs uppercase tracking-wide font-medium">STEP 4: </span>
+            Download song
+          </li>
+        </ol>
+
+        <FullScreenDropOverlay isDragging={isDragging} onFile={loadFile} />
+      </div>
+    )
   }
 
   return (

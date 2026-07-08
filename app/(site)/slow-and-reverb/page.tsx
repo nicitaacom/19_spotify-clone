@@ -21,9 +21,10 @@ export default function SlowAndReverb() {
       </Header>
       <SlowReverbEditor />
 
-      <footer className="mt-8 text-center text-xs text-neutral-500">
-        drag & drop an mp3 anywhere • pitch works independently of speed
-      </footer>
+      <div className="border-t border-white/5 mt-8" />
+      <p className="text-center text-neutral-500 text-xs py-6">
+        6$/mo ? WTF - Claude free + hermes (free xAI Grok trial) - WORK HARD
+      </p>
     </div>
   )
 }
