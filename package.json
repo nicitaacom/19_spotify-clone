@@ -4,11 +4,15 @@
   "private": true,
   "packageManager": "pnpm@11.5.0",
   "scripts": {
-    "dev": "next dev",
     "build": "next build",
+    "dev": "next dev",
     "start": "next start",
     "lint": "eslint .",
-    "update-types": "pnpm exec supabase gen types typescript --project-id eqhntdpwtnhqzcnpxegh > app/interfaces/types_db.ts"
+    "update-types": "pnpm exec supabase gen types typescript --project-id eqhntdpwtnhqzcnpxegh > app/interfaces/types_db.ts",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
