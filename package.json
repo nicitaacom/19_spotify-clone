@@ -48,6 +48,8 @@
     "zustand": "^4.4.4"
   },
   "devDependencies": {
-    "supabase": "^1.106.1"
+    "@opennextjs/cloudflare": "1.20.1",
+    "supabase": "^1.106.1",
+    "wrangler": "4.107.1"
   }
 }
