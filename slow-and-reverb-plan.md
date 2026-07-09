@@ -486,7 +486,7 @@ At the bottom of the page content, always visible (both empty and loaded states)
 ```
 <div className="border-t border-white/5 mt-8" />
 <p className="text-center text-neutral-500 text-xs py-6">
-  6$/mo ? WTF - Claude free + hermes (free xAI Grok trial) - WORK HARD
+  6$/mo ? WTF - Claude free + free xAI Grok trial - WORK HARD
 </p>
 ```
 
