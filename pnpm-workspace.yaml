@@ -1,8 +1,14 @@
 packages:
   - "."
+onlyBuiltDependencies:
+  - sharp
+  - supabase
+  - unrs-resolver
+  - esbuild
+  - workerd
+minimumReleaseAgeExclude:
+  - '@types/react@19.2.17'
 allowBuilds:
   sharp: true
   supabase: true
   unrs-resolver: true
-minimumReleaseAgeExclude:
-  - '@types/react@19.2.17'
