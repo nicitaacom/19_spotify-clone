@@ -1,13 +1,11 @@
 "use client"
 
 import { BiReset } from "react-icons/bi"
-import { twMerge } from "tailwind-merge"
 
 import { use8dEngine } from "../hooks/use8dEngine"
 import { SPEAKERS } from "../lib/speakers"
 import FileDropZone from "../../slow-and-reverb/components/FileDropZone"
 import Waveform from "../../slow-and-reverb/components/Waveform"
-import EffectSliderRow from "../../slow-and-reverb/components/EffectSliderRow"
 import { formatTime } from "../../slow-and-reverb/lib/format"
 import SpeakerRing from "./SpeakerRing"
 import MixerRow from "./MixerRow"
@@ -28,14 +26,9 @@ const EightDEditor = () => {
     duration,
     isPlaying,
     getPosition,
-    getOrbitAngle,
     getCurrentGains,
     togglePlay,
     seek,
-    rotationPeriod,
-    setRotationPeriod,
-    direction,
-    setDirection,
     mixerVolumes,
     setMixerVolume,
     resetMixers,
@@ -53,14 +46,6 @@ const EightDEditor = () => {
       </div>
     )
   }
-
-  const dirBtn = (active: boolean) =>
-    twMerge(
-      "px-4 py-1.5 rounded-md text-xs border transition",
-      active
-        ? "bg-elevated border-neon/30 text-neon"
-        : "bg-elevated border-white/10 text-neutral-300 hover:border-neon/30 hover:text-white",
-    )
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 grid md:grid-cols-2 gap-8 items-start">
@@ -117,7 +102,6 @@ const EightDEditor = () => {
         <div className="rounded-xl border border-white/5 bg-elevated shadow-[0_4px_12px_rgba(0,0,0,0.5)] p-5">
           <SpeakerRing
             isPlaying={isPlaying}
-            getOrbitAngle={getOrbitAngle}
             getCurrentGains={getCurrentGains}
             mixerVolumes={mixerVolumes}
           />
@@ -133,30 +117,6 @@ const EightDEditor = () => {
             onSeek={seek}
             onTogglePlay={togglePlay}
           />
-        </div>
-
-        {/* rotation controls */}
-        <div className="flex flex-col gap-4">
-          <EffectSliderRow
-            label="Rotation"
-            valueDisplay={`(${rotationPeriod.toFixed(1)}s / rev)`}
-            value={rotationPeriod}
-            min={2}
-            max={20}
-            step={0.5}
-            defaultValue={8}
-            onChange={setRotationPeriod}
-          />
-
-          <div className="flex items-center justify-center gap-2 text-sm">
-            <span className="text-neutral-400">Direction</span>
-            <button onClick={() => setDirection(1)} className={dirBtn(direction === 1)}>
-              CW
-            </button>
-            <button onClick={() => setDirection(-1)} className={dirBtn(direction === -1)}>
-              CCW
-            </button>
-          </div>
         </div>
       </div>
     </div>
