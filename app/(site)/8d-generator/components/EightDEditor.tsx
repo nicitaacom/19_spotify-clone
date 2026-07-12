@@ -52,7 +52,7 @@ const EightDEditor = () => {
       {/* LEFT column (mixers) */}
       <div className="md:order-1 flex flex-col gap-4">
         <div className="rounded-xl border border-white/5 bg-elevated shadow-[0_4px_12px_rgba(0,0,0,0.5)] p-5">
-          <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center justify-between mb-0.5">
             <span className="text-neutral-400 text-sm">Mixers</span>
             <button
               onClick={resetMixers}
@@ -61,6 +61,9 @@ const EightDEditor = () => {
               <BiReset size={14} /> Reset all
             </button>
           </div>
+          <p className="text-neutral-600 text-xs mb-1">
+            All at 0 = clean original. Raise a channel to push the sound that way.
+          </p>
           <div className="divide-y divide-white/5">
             {SPEAKERS.map((sp, i) => (
               <MixerRow
@@ -68,7 +71,6 @@ const EightDEditor = () => {
                 label={sp.label}
                 value={mixerVolumes[i]}
                 onChange={(v) => setMixerVolume(i, v)}
-                muted={mixerVolumes[i] === 0}
               />
             ))}
           </div>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useEffect } from "react"
-import { HiSpeakerWave, HiSpeakerXMark } from "react-icons/hi2"
+import { HiSpeakerWave } from "react-icons/hi2"
 
 import { SPEAKERS } from "../lib/speakers"
 
@@ -63,8 +63,7 @@ const SpeakerRing = ({ isPlaying, getCurrentGains, mixerVolumes }: SpeakerRingPr
         const rad = ((sp.angleDeg - 90) * Math.PI) / 180 // -90 so front (0°) is at the top
         const left = 50 + CHIP_RADIUS * 100 * Math.cos(rad)
         const top = 50 + CHIP_RADIUS * 100 * Math.sin(rad)
-        const muted = mixerVolumes[i] === 0
-        const Icon = muted ? HiSpeakerXMark : HiSpeakerWave
+        const active = mixerVolumes[i] > 0
         return (
           <div
             key={sp.id}
@@ -75,9 +74,9 @@ const SpeakerRing = ({ isPlaying, getCurrentGains, mixerVolumes }: SpeakerRingPr
                 chipRefs.current[i] = el
               }}
               className={`w-12 h-12 rounded-lg bg-elevated border border-white/10 flex items-center justify-center transition-opacity ${
-                muted ? "opacity-40" : ""
+                active ? "" : "opacity-50"
               }`}>
-              <Icon className="text-neutral-300" size={18} />
+              <HiSpeakerWave className={active ? "text-neon" : "text-neutral-400"} size={18} />
             </div>
             <span className="text-[9px] text-neutral-500 uppercase tracking-wide whitespace-nowrap">
               {sp.label}

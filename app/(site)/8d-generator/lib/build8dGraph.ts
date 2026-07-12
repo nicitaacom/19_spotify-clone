@@ -6,20 +6,26 @@ export interface EightDParams {
 
 export interface EightDGraph {
   source: AudioBufferSourceNode
-  userGains: GainNode[] // length 8 — the mixer sliders
+  dryGain: GainNode // the clean, unspatialized backbone — always full
+  sendGains: GainNode[] // length 8 — per-direction HRTF send levels (the sliders)
   master: GainNode
 }
 
+// How loud a fully-raised (100%) HRTF send is relative to the dry signal. Kept well
+// below 1 so a send adds a *hint* of direction on top of the clean dry backbone rather
+// than a second full-level delayed copy — that's what avoids the comb-filter "reeping".
+export const SEND_SCALE = 0.6
+
 /**
- * Single source of truth for the 8D node graph — used by BOTH the live AudioContext
- * and the OfflineAudioContext render, so what you hear is what you export.
+ * 8D graph as a DRY backbone + 8 additive HRTF sends.
  *
- * Static 8-channel HRTF mixer: the full track plays through all 8 fixed speakers at
- * once, each scaled by its own volume. No rotation — the sound sits in space, shaped
- * by the 8 sliders.
+ *   source ─► dryGain ───────────────────────────────► master ─► destination   (clean, no panner)
+ *          └► sendGain[i] ─► PannerNode[i](HRTF) ─► master                       (×8, subtle)
  *
- * Per speaker i:
- *   source ─► userGain[i] ─► PannerNode[i](HRTF) ─► master ─► destination
+ * With every send at 0 the output is exactly the clean original (no HRTF in the path, so
+ * no comb filtering). Raising send[i] leans the spatial image toward direction i. Because
+ * the dry signal is never spatialized and the sends are scaled by SEND_SCALE, you add
+ * directional flavor without stacking 8 loud delayed copies.
  *
  * The builder does NOT start the source — callers own that.
  */
@@ -32,18 +38,22 @@ export function build8dGraph(
   source.buffer = buffer
 
   const master = ctx.createGain()
-  // Up to 8 HRTF speakers sum at the master. Volumes default to 1; the summed level
-  // is the user's responsibility via the sliders, so no auto-compensation here.
   master.gain.value = 1
   master.connect(ctx.destination)
 
-  const userGainNodes: GainNode[] = []
+  // Dry backbone: the clean original, straight through, always on.
+  const dryGain = ctx.createGain()
+  dryGain.gain.value = 1
+  source.connect(dryGain)
+  dryGain.connect(master)
+
+  const sendGainNodes: GainNode[] = []
 
   for (let i = 0; i < SPEAKER_COUNT; i++) {
     const pos = speakerPosition(SPEAKERS[i].angleDeg)
 
-    const userGain = ctx.createGain()
-    userGain.gain.value = params.mixerVolumes[i]
+    const sendGain = ctx.createGain()
+    sendGain.gain.value = params.mixerVolumes[i] * SEND_SCALE
 
     const panner = new PannerNode(ctx, {
       panningModel: "HRTF",
@@ -54,12 +64,12 @@ export function build8dGraph(
       positionZ: pos.z,
     })
 
-    source.connect(userGain)
-    userGain.connect(panner)
+    source.connect(sendGain)
+    sendGain.connect(panner)
     panner.connect(master)
 
-    userGainNodes.push(userGain)
+    sendGainNodes.push(sendGain)
   }
 
-  return { source, userGains: userGainNodes, master }
+  return { source, dryGain, sendGains: sendGainNodes, master }
 }

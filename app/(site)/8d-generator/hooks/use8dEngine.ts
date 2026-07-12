@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { toast } from "react-hot-toast"
 
 import { extractAlbumArt } from "../../slow-and-reverb/lib/id3AlbumArt"
-import { build8dGraph, EightDParams } from "../lib/build8dGraph"
+import { build8dGraph, EightDParams, SEND_SCALE } from "../lib/build8dGraph"
 import { SPEAKER_COUNT } from "../lib/speakers"
 import { renderOffline8d } from "../lib/renderOffline8d"
 import { encodeMp3 } from "../../slow-and-reverb/lib/encodeMp3"
@@ -35,8 +35,10 @@ export function use8dEngine(): EightDEngine {
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null)
   const [duration, setDuration] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
+  // Sliders default to 0 → pure clean dry audio (no HRTF sends). Raising one leans the
+  // spatial image toward that direction.
   const [mixerVolumes, setMixerVolumes] = useState<number[]>(() =>
-    new Array<number>(SPEAKER_COUNT).fill(100),
+    new Array<number>(SPEAKER_COUNT).fill(0),
   )
   const [isRendering, setIsRendering] = useState(false)
   const [albumArtUrl, setAlbumArtUrl] = useState<string | null>(null)
@@ -44,7 +46,7 @@ export function use8dEngine(): EightDEngine {
   // Audio engine refs
   const ctxRef = useRef<AudioContext | null>(null)
   const sourceRef = useRef<AudioBufferSourceNode | null>(null)
-  const userGainsRef = useRef<GainNode[] | null>(null)
+  const sendGainsRef = useRef<GainNode[] | null>(null)
   const masterRef = useRef<GainNode | null>(null)
 
   const generationRef = useRef(0)
@@ -52,7 +54,7 @@ export function use8dEngine(): EightDEngine {
   const startCtxTimeRef = useRef(0)
   const startOffsetSecRef = useRef(0)
 
-  const mixerVolumesRef = useRef<number[]>(new Array<number>(SPEAKER_COUNT).fill(100))
+  const mixerVolumesRef = useRef<number[]>(new Array<number>(SPEAKER_COUNT).fill(0))
   const isPlayingRef = useRef(false)
   const bufferRef = useRef<AudioBuffer | null>(null)
   const albumArtUrlRef = useRef<string | null>(null)
@@ -87,10 +89,10 @@ export function use8dEngine(): EightDEngine {
       try { src.stop() } catch {}
       try { src.disconnect() } catch {}
     }
-    userGainsRef.current?.forEach((n) => { try { n.disconnect() } catch {} })
+    sendGainsRef.current?.forEach((n) => { try { n.disconnect() } catch {} })
     if (masterRef.current) { try { masterRef.current.disconnect() } catch {} }
     sourceRef.current = null
-    userGainsRef.current = null
+    sendGainsRef.current = null
     masterRef.current = null
   }, [])
 
@@ -109,7 +111,7 @@ export function use8dEngine(): EightDEngine {
     const graph = build8dGraph(ctx, buf, params)
 
     sourceRef.current = graph.source
-    userGainsRef.current = graph.userGains
+    sendGainsRef.current = graph.sendGains
     masterRef.current = graph.master
 
     const now = ctx.currentTime
@@ -232,21 +234,22 @@ export function use8dEngine(): EightDEngine {
     setMixerVolumes((prev) => prev.map((old, idx) => (idx === i ? clamped : old)))
 
     const ctx = ctxRef.current
-    const userGains = userGainsRef.current
-    if (isPlayingRef.current && userGains && ctx) {
-      userGains[i].gain.setTargetAtTime(clamped / 100, ctx.currentTime, MIXER_SMOOTH)
+    const sendGains = sendGainsRef.current
+    if (isPlayingRef.current && sendGains && ctx) {
+      sendGains[i].gain.setTargetAtTime((clamped / 100) * SEND_SCALE, ctx.currentTime, MIXER_SMOOTH)
     }
   }, [])
 
+  // Reset to the clean state: all sends off (0), pure dry audio.
   const resetMixers = useCallback(() => {
-    const full = new Array<number>(SPEAKER_COUNT).fill(100)
-    mixerVolumesRef.current = full
-    setMixerVolumes(full)
+    const zeros = new Array<number>(SPEAKER_COUNT).fill(0)
+    mixerVolumesRef.current = zeros
+    setMixerVolumes(zeros)
     const ctx = ctxRef.current
-    const userGains = userGainsRef.current
-    if (isPlayingRef.current && userGains && ctx) {
+    const sendGains = sendGainsRef.current
+    if (isPlayingRef.current && sendGains && ctx) {
       for (let i = 0; i < SPEAKER_COUNT; i++) {
-        userGains[i].gain.setTargetAtTime(1, ctx.currentTime, MIXER_SMOOTH)
+        sendGains[i].gain.setTargetAtTime(0, ctx.currentTime, MIXER_SMOOTH)
       }
     }
   }, [])
