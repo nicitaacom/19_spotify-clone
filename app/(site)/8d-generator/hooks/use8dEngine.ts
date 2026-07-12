@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { toast } from "react-hot-toast"
 
-import { extractAlbumArt } from "../../slow-and-reverb/lib/id3AlbumArt"
+import { extractId3Metadata, Id3Metadata } from "../../slow-and-reverb/lib/id3AlbumArt"
 import { build8dGraph, EightDParams } from "../lib/build8dGraph"
 import { SPEAKER_COUNT, weightedPosition, positionAngle } from "../lib/speakers"
 import { renderOffline8d } from "../lib/renderOffline8d"
@@ -65,6 +65,7 @@ export function use8dEngine(): EightDEngine {
   const isPlayingRef = useRef(false)
   const bufferRef = useRef<AudioBuffer | null>(null)
   const albumArtUrlRef = useRef<string | null>(null)
+  const metadataRef = useRef<Id3Metadata | null>(null)
 
   useEffect(() => { bufferRef.current = buffer }, [buffer])
   useEffect(() => { isPlayingRef.current = isPlaying }, [isPlaying])
@@ -195,11 +196,15 @@ export function use8dEngine(): EightDEngine {
 
       const arrayBuffer = await file.arrayBuffer()
 
-      // Extract album art BEFORE decode (decode detaches the buffer).
+      // Extract ID3 metadata (art + title/artist/album) BEFORE decode (decode detaches
+      // the buffer). Kept so download() can re-embed it into the exported MP3.
+      const metadata = extractId3Metadata(arrayBuffer.slice(0))
+      metadataRef.current = metadata
+
       let newArtUrl: string | null = null
-      const artBlob = extractAlbumArt(arrayBuffer.slice(0))
-      if (artBlob) {
+      if (metadata.artData) {
         if (albumArtUrlRef.current) URL.revokeObjectURL(albumArtUrlRef.current)
+        const artBlob = new Blob([metadata.artData], { type: metadata.artMime })
         newArtUrl = URL.createObjectURL(artBlob)
         albumArtUrlRef.current = newArtUrl
       } else if (albumArtUrlRef.current) {
@@ -302,6 +307,7 @@ export function use8dEngine(): EightDEngine {
       albumArtUrlRef.current = null
     }
     // Mixer / enabled settings are kept across files (non-destructive).
+    metadataRef.current = null
     bufferRef.current = null
     setBuffer(null)
     setFileName(null)
@@ -331,7 +337,7 @@ export function use8dEngine(): EightDEngine {
 
       const blob = await encodeMp3(rendered, (pct) => {
         toast.loading(`Encoding… ${pct}%`, { id: "export" })
-      })
+      }, metadataRef.current ?? undefined)
 
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")

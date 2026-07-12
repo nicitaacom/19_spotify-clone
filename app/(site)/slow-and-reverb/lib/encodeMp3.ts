@@ -1,8 +1,12 @@
 import { Mp3Encoder } from "@breezystack/lamejs"
 
+import { Id3Metadata } from "./id3AlbumArt"
+import { buildId3Tag } from "./id3Writer"
+
 export async function encodeMp3(
   buffer: AudioBuffer,
   onProgress?: (pct: number) => void,
+  metadata?: Id3Metadata,
 ): Promise<Blob> {
   const sampleRate = buffer.sampleRate
   const numChannels = Math.min(2, buffer.numberOfChannels)
@@ -46,6 +50,11 @@ export async function encodeMp3(
 
   if (onProgress) onProgress(100)
 
-  const blob = new Blob(mp3Data, { type: "audio/mp3" })
+  // Prepend an ID3v2 tag so the source's cover art + title/artist/album survive the export
+  // (lamejs emits headerless MP3 frames). Empty tag when there's no metadata to carry.
+  const id3 = metadata ? buildId3Tag(metadata) : new Uint8Array(0)
+  const parts: BlobPart[] = id3.length > 0 ? [id3, ...mp3Data] : mp3Data
+
+  const blob = new Blob(parts, { type: "audio/mp3" })
   return blob
 }

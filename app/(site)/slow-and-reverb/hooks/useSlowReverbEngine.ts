@@ -6,7 +6,7 @@ import { toast } from "react-hot-toast"
 import { buildEffectsGraph, EffectsParams, semitonesToRatio } from "../lib/buildEffectsGraph"
 import { renderOffline } from "../lib/renderOffline"
 import { encodeMp3 } from "../lib/encodeMp3"
-import { extractAlbumArt } from "../lib/id3AlbumArt"
+import { extractId3Metadata, Id3Metadata } from "../lib/id3AlbumArt"
 
 export interface PresetValues {
   speed: number
@@ -78,6 +78,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
   const isPlayingRef = useRef(false)
   const bufferRef = useRef<AudioBuffer | null>(null)
   const albumArtUrlRef = useRef<string | null>(null)
+  const metadataRef = useRef<Id3Metadata | null>(null)
 
   // Sync refs
   useEffect(() => { speedRef.current = speed }, [speed])
@@ -208,13 +209,17 @@ export function useSlowReverbEngine(): SlowReverbEngine {
 
       const arrayBuffer = await file.arrayBuffer()
 
-      // Extract album art BEFORE decode (decode detaches the buffer)
+      // Extract ID3 metadata (art + title/artist/album) BEFORE decode (decode detaches
+      // the buffer). Kept so download() can re-embed it into the exported MP3.
+      const metadata = extractId3Metadata(arrayBuffer.slice(0))
+      metadataRef.current = metadata
+
       let newArtUrl: string | null = null
-      const artBlob = extractAlbumArt(arrayBuffer.slice(0))
-      if (artBlob) {
+      if (metadata.artData) {
         if (albumArtUrlRef.current) {
           URL.revokeObjectURL(albumArtUrlRef.current)
         }
+        const artBlob = new Blob([metadata.artData], { type: metadata.artMime })
         newArtUrl = URL.createObjectURL(artBlob)
         albumArtUrlRef.current = newArtUrl
       } else {
@@ -376,6 +381,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       URL.revokeObjectURL(albumArtUrlRef.current)
       albumArtUrlRef.current = null
     }
+    metadataRef.current = null
     bufferRef.current = null
     setBuffer(null)
     setFileName(null)
@@ -414,7 +420,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
 
       const blob = await encodeMp3(rendered, (pct) => {
         toast.loading(`Encoding… ${pct}%`, { id: "export" })
-      })
+      }, metadataRef.current ?? undefined)
 
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
