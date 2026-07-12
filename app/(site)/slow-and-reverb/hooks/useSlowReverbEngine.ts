@@ -139,11 +139,14 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     const data = bassFreqDataRef.current
     if (!analyser || !data || !isPlayingRef.current) return 0
     analyser.getByteFrequencyData(data)
-    // fftSize 1024 → binHz = sampleRate/1024 ≈ 43Hz; first ~6 bins ≈ 0-260Hz.
-    const bins = 6
-    let sum = 0
-    for (let i = 0; i < bins; i++) sum += data[i]
-    return sum / bins / 255
+    // fftSize 2048 → binHz = sampleRate/2048 ≈ 21Hz. Bin 0 is DC (skip). The kick/808
+    // fundamental lives ~20-150Hz → bins 1..7. Use the PEAK bin (not the average): a kick
+    // spikes one or two bins hard, and averaging over the band dilutes that spike.
+    let peak = 0
+    for (let i = 1; i <= 7; i++) {
+      if (data[i] > peak) peak = data[i]
+    }
+    return peak / 255
   }, [])
 
   const playFromOffset = useCallback((offsetSec: number) => {

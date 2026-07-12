@@ -44,9 +44,12 @@ export function buildEffectsGraph(
   // listener actually hears (kicks / 808s, including the Bass slider). It's a
   // passive tap — it never feeds destination, so it's inert on offline renders.
   const analyser = ctx.createAnalyser()
-  analyser.fftSize = 1024
-  // Low smoothing keeps kick transients sharp so onset (flux) detection works.
-  analyser.smoothingTimeConstant = 0.2
+  // Bigger FFT → finer low-end resolution (binHz = sampleRate/2048 ≈ 21Hz), so the
+  // kick/808 band (~20-150Hz) is several clean bins instead of a smeared handful.
+  analyser.fftSize = 2048
+  // Zero smoothing: the analyser must NOT time-average frames, or it blurs the very
+  // transient the onset detector keys on. All smoothing/decay lives in AlbumArt's env.
+  analyser.smoothingTimeConstant = 0
   lowshelf.connect(analyser)
 
   // topology with pitch shifter

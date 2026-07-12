@@ -18,11 +18,12 @@ const BASE_BRIGHTNESS = 0.4
 // the sudden RISE in low-end energy frame-to-frame (spectral flux), NOT the
 // absolute bass volume — so sustained bass/808 tails don't keep it scaled up.
 // Each detected transient injects into `env`, which then decays smoothly.
-const MAX_SCALE = 0.07 // +7% at a full-strength kick
+const MAX_SCALE = 0.08 // +8% at a full-strength kick
 const MAX_BLUR = 4 // px at a full-strength kick
-const FLUX_GAIN = 6 // amplify the rise so real kicks reach ~1
-const FLUX_GATE = 0.015 // ignore tiny fluctuations (noise floor)
-const DECAY = 0.12 // how fast the pulse eases back down each frame
+const FLUX_GAIN = 4 // amplify the rise so real kicks reach ~1 (raw, unsmoothed signal)
+const FLUX_GATE = 0.06 // ignore fluctuations below this rise (noise floor of the raw FFT)
+const ATTACK = 0.6 // how fast the pulse jumps toward a detected hit (0..1; punchy)
+const DECAY = 0.22 // how fast the pulse eases back down each frame (crisp return to rest)
 
 /**
  * Full-bleed background image built from the uploaded track's embedded cover.
@@ -70,13 +71,17 @@ export default function AlbumArt({
     wrap.style.transition = "none"
 
     const tick = () => {
-      const bass = getBassLevel() // 0..1
-      // Spectral flux: only the POSITIVE rise counts as a kick onset.
+      const bass = getBassLevel() // 0..1 (raw peak of the low band)
+      // Spectral flux: only the POSITIVE rise frame-to-frame counts as a kick onset,
+      // so sustained 808 tails don't keep it pinned up — only the attack pulses it.
       const rise = bass - prevBassRef.current
       prevBassRef.current = bass
       if (rise > FLUX_GATE) {
-        const hit = Math.min(1, rise * FLUX_GAIN)
-        if (hit > envRef.current) envRef.current = hit
+        const hit = Math.min(1, (rise - FLUX_GATE) * FLUX_GAIN)
+        // Attack toward the hit (fast but not instant → less single-frame jitter).
+        if (hit > envRef.current) {
+          envRef.current += (hit - envRef.current) * ATTACK
+        }
       }
 
       // Decay the pulse.
