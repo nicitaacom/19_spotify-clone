@@ -27,11 +27,14 @@ const EightDEditor = () => {
     isPlaying,
     getPosition,
     getCurrentGains,
+    getSourcePos,
     togglePlay,
     seek,
     mixerVolumes,
     setMixerVolume,
     resetMixers,
+    enabled,
+    setEnabled,
     isRendering,
     download,
   } = use8dEngine()
@@ -54,15 +57,27 @@ const EightDEditor = () => {
         <div className="rounded-xl border border-white/5 bg-elevated shadow-[0_4px_12px_rgba(0,0,0,0.5)] p-5">
           <div className="flex items-center justify-between mb-0.5">
             <span className="text-neutral-400 text-sm">Mixers</span>
-            <button
-              onClick={resetMixers}
-              className="flex items-center gap-1 text-neutral-400 hover:text-white text-xs transition-colors"
-              aria-label="Reset all mixers">
-              <BiReset size={14} /> Reset all
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setEnabled(!enabled)}
+                className={`px-3 py-1 rounded-md text-xs border transition ${
+                  enabled
+                    ? "bg-elevated border-neon/30 text-neon"
+                    : "bg-elevated border-white/10 text-neutral-400 hover:text-white"
+                }`}
+                aria-label={enabled ? "Disable 8D" : "Enable 8D"}>
+                {enabled ? "8D: ON" : "8D: OFF"}
+              </button>
+              <button
+                onClick={resetMixers}
+                className="flex items-center gap-1 text-neutral-400 hover:text-white text-xs transition-colors"
+                aria-label="Reset all mixers">
+                <BiReset size={14} /> Reset all
+              </button>
+            </div>
           </div>
           <p className="text-neutral-600 text-xs mb-1">
-            All at 0 = clean original. Raise a channel to push the sound that way.
+            Raise a channel to pull the sound that way. Toggle 8D to A/B against the original.
           </p>
           <div className="divide-y divide-white/5">
             {SPEAKERS.map((sp, i) => (
@@ -103,8 +118,9 @@ const EightDEditor = () => {
         {/* speaker ring */}
         <div className="rounded-xl border border-white/5 bg-elevated shadow-[0_4px_12px_rgba(0,0,0,0.5)] p-5">
           <SpeakerRing
-            isPlaying={isPlaying}
+            enabled={enabled}
             getCurrentGains={getCurrentGains}
+            getSourcePos={getSourcePos}
             mixerVolumes={mixerVolumes}
           />
         </div>

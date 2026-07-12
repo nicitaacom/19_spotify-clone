@@ -1,31 +1,31 @@
-import { SPEAKERS, SPEAKER_COUNT, speakerPosition } from "./speakers"
+import { weightedPosition } from "./speakers"
 
 export interface EightDParams {
-  mixerVolumes: number[] // length 8, each 0–1 (slider % / 100)
+  mixerVolumes: number[] // length 8, each 0–1 (slider % / 100) — the direction weights
+  enabled: boolean // 8D on/off (off = clean dry signal)
 }
 
 export interface EightDGraph {
   source: AudioBufferSourceNode
-  dryGain: GainNode // the clean, unspatialized backbone — always full
-  sendGains: GainNode[] // length 8 — per-direction HRTF send levels (the sliders)
+  dryGain: GainNode // clean path level (1 when 8D off)
+  wetGain: GainNode // spatialized path level (1 when 8D on)
+  panner: PannerNode // the SINGLE HRTF panner — only one, so no comb filtering
   master: GainNode
 }
 
-// How loud a fully-raised (100%) HRTF send is relative to the dry signal. Kept well
-// below 1 so a send adds a *hint* of direction on top of the clean dry backbone rather
-// than a second full-level delayed copy — that's what avoids the comb-filter "reeping".
-export const SEND_SCALE = 0.6
-
 /**
- * 8D graph as a DRY backbone + 8 additive HRTF sends.
+ * 8D as a DRY / WET crossfade around a SINGLE HRTF panner.
  *
- *   source ─► dryGain ───────────────────────────────► master ─► destination   (clean, no panner)
- *          └► sendGain[i] ─► PannerNode[i](HRTF) ─► master                       (×8, subtle)
+ *   source ─► dryGain ───────────────► master ─► destination   (clean, no panner)
+ *          └► wetGain ─► panner ─────► master                   (one HRTF position)
  *
- * With every send at 0 the output is exactly the clean original (no HRTF in the path, so
- * no comb filtering). Raising send[i] leans the spatial image toward direction i. Because
- * the dry signal is never spatialized and the sends are scaled by SEND_SCALE, you add
- * directional flavor without stacking 8 loud delayed copies.
+ * Why one panner: summing the same signal through multiple HRTF panners sums delayed
+ * copies → comb filtering (the "ripping"). With exactly one panner there's nothing to
+ * sum against on the wet path, so it stays clean. The 8 sliders don't each get a panner
+ * — together they steer the single panner's POSITION (weightedPosition).
+ *
+ * dry/wet are a crossfade, not a sum: 8D off → dry 1 / wet 0 (bit-clean original);
+ * 8D on → dry 0 / wet 1. The engine ramps between them so the toggle doesn't click.
  *
  * The builder does NOT start the source — callers own that.
  */
@@ -41,35 +41,28 @@ export function build8dGraph(
   master.gain.value = 1
   master.connect(ctx.destination)
 
-  // Dry backbone: the clean original, straight through, always on.
   const dryGain = ctx.createGain()
-  dryGain.gain.value = 1
+  dryGain.gain.value = params.enabled ? 0 : 1
+
+  const wetGain = ctx.createGain()
+  wetGain.gain.value = params.enabled ? 1 : 0
+
+  const pos = weightedPosition(params.mixerVolumes)
+  const panner = new PannerNode(ctx, {
+    panningModel: "HRTF",
+    distanceModel: "inverse",
+    refDistance: 1,
+    positionX: pos.x,
+    positionY: pos.y,
+    positionZ: pos.z,
+  })
+
   source.connect(dryGain)
   dryGain.connect(master)
 
-  const sendGainNodes: GainNode[] = []
+  source.connect(wetGain)
+  wetGain.connect(panner)
+  panner.connect(master)
 
-  for (let i = 0; i < SPEAKER_COUNT; i++) {
-    const pos = speakerPosition(SPEAKERS[i].angleDeg)
-
-    const sendGain = ctx.createGain()
-    sendGain.gain.value = params.mixerVolumes[i] * SEND_SCALE
-
-    const panner = new PannerNode(ctx, {
-      panningModel: "HRTF",
-      distanceModel: "inverse",
-      refDistance: 1,
-      positionX: pos.x,
-      positionY: pos.y,
-      positionZ: pos.z,
-    })
-
-    source.connect(sendGain)
-    sendGain.connect(panner)
-    panner.connect(master)
-
-    sendGainNodes.push(sendGain)
-  }
-
-  return { source, dryGain, sendGains: sendGainNodes, master }
+  return { source, dryGain, wetGain, panner, master }
 }

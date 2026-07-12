@@ -6,37 +6,46 @@ import { HiSpeakerWave } from "react-icons/hi2"
 import { SPEAKERS } from "../lib/speakers"
 
 interface SpeakerRingProps {
-  isPlaying: boolean
+  enabled: boolean
   getCurrentGains: () => number[]
+  getSourcePos: () => { angle: number; radius: number }
   mixerVolumes: number[]
 }
 
 // Chip radius as a fraction of the square container.
 const CHIP_RADIUS = 0.46
+const DOT_MAX_RADIUS = 0.4 // radius the source dot reaches at full spread
 
-const SpeakerRing = ({ isPlaying, getCurrentGains, mixerVolumes }: SpeakerRingProps) => {
+const SpeakerRing = ({ enabled, getCurrentGains, getSourcePos, mixerVolumes }: SpeakerRingProps) => {
   const chipRefs = useRef<(HTMLDivElement | null)[]>([])
+  const dotRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (!isPlaying) {
-      // At rest: no glow.
-      chipRefs.current.forEach((el) => {
-        if (!el) return
-        el.style.boxShadow = "none"
-        el.style.borderColor = ""
-      })
-      return
-    }
-
     const tick = () => {
       const gains = getCurrentGains()
+      const on = enabled
       chipRefs.current.forEach((el, i) => {
         if (!el) return
-        const g = gains[i] ?? 0
+        const g = on ? gains[i] ?? 0 : 0
         el.style.boxShadow = g > 0.001 ? `0 0 ${12 * g}px rgba(74,222,128,${0.6 * g})` : "none"
         el.style.borderColor = g > 0.001 ? `rgba(74,222,128,${0.5 * g})` : ""
       })
+
+      const dot = dotRef.current
+      if (dot) {
+        const { angle, radius } = getSourcePos()
+        if (on && radius > 0.001) {
+          const rad = ((angle - 90) * Math.PI) / 180 // -90 so 0° is at the top
+          const r = DOT_MAX_RADIUS * radius * 100
+          dot.style.left = `${50 + r * Math.cos(rad)}%`
+          dot.style.top = `${50 + r * Math.sin(rad)}%`
+          dot.style.opacity = "1"
+        } else {
+          dot.style.opacity = "0"
+        }
+      }
+
       rafRef.current = requestAnimationFrame(tick)
     }
     rafRef.current = requestAnimationFrame(tick)
@@ -45,7 +54,7 @@ const SpeakerRing = ({ isPlaying, getCurrentGains, mixerVolumes }: SpeakerRingPr
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
-  }, [isPlaying, getCurrentGains])
+  }, [enabled, getCurrentGains, getSourcePos])
 
   return (
     <div className="relative w-full max-w-[420px] aspect-square mx-auto">
@@ -58,12 +67,19 @@ const SpeakerRing = ({ isPlaying, getCurrentGains, mixerVolumes }: SpeakerRingPr
         <span className="text-neutral-600 text-xs uppercase tracking-widest">8D</span>
       </div>
 
+      {/* single 8D source dot at the weighted position */}
+      <div
+        ref={dotRef}
+        className="absolute w-3.5 h-3.5 rounded-full bg-neon shadow-neon-sm -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity"
+        style={{ left: "50%", top: "50%" }}
+      />
+
       {/* 8 speaker chips positioned on the ring circumference */}
       {SPEAKERS.map((sp, i) => {
         const rad = ((sp.angleDeg - 90) * Math.PI) / 180 // -90 so front (0°) is at the top
         const left = 50 + CHIP_RADIUS * 100 * Math.cos(rad)
         const top = 50 + CHIP_RADIUS * 100 * Math.sin(rad)
-        const active = mixerVolumes[i] > 0
+        const active = enabled && mixerVolumes[i] > 0
         return (
           <div
             key={sp.id}

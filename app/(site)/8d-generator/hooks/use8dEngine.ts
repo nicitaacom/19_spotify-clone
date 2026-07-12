@@ -4,12 +4,13 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { toast } from "react-hot-toast"
 
 import { extractAlbumArt } from "../../slow-and-reverb/lib/id3AlbumArt"
-import { build8dGraph, EightDParams, SEND_SCALE } from "../lib/build8dGraph"
-import { SPEAKER_COUNT } from "../lib/speakers"
+import { build8dGraph, EightDParams } from "../lib/build8dGraph"
+import { SPEAKER_COUNT, weightedPosition, positionAngle } from "../lib/speakers"
 import { renderOffline8d } from "../lib/renderOffline8d"
 import { encodeMp3 } from "../../slow-and-reverb/lib/encodeMp3"
 
-const MIXER_SMOOTH = 0.03 // s — time constant for live mixer-slider changes
+const POS_SMOOTH = 0.05 // s — time constant for smoothly gliding the panner position
+const XFADE_SMOOTH = 0.04 // s — time constant for the dry/wet (8D on/off) crossfade
 
 export interface EightDEngine {
   loadFile(file: File): Promise<void>
@@ -20,12 +21,15 @@ export interface EightDEngine {
   duration: number
   isPlaying: boolean
   getPosition(): number
-  getCurrentGains(): number[] // per-speaker mixer level (0–1) while playing — for SpeakerRing glow
+  getCurrentGains(): number[] // per-speaker slider level (0–1) — for SpeakerRing chip glow
+  getSourcePos(): { angle: number; radius: number } // where the single 8D source sits — for the ring dot
   togglePlay(): void
   seek(seconds: number): void
   mixerVolumes: number[]
-  setMixerVolume(i: number, v: number): void // 0–100 in UI, /100 in graph
+  setMixerVolume(i: number, v: number): void // 0–100 in UI
   resetMixers(): void
+  enabled: boolean
+  setEnabled(v: boolean): void
   isRendering: boolean
   download(): Promise<void>
 }
@@ -35,18 +39,20 @@ export function use8dEngine(): EightDEngine {
   const [buffer, setBuffer] = useState<AudioBuffer | null>(null)
   const [duration, setDuration] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
-  // Sliders default to 0 → pure clean dry audio (no HRTF sends). Raising one leans the
-  // spatial image toward that direction.
+  // Direction weights (0–100). All 0 = centered. Together they steer ONE panner position.
   const [mixerVolumes, setMixerVolumes] = useState<number[]>(() =>
     new Array<number>(SPEAKER_COUNT).fill(0),
   )
+  const [enabled, setEnabledState] = useState(true)
   const [isRendering, setIsRendering] = useState(false)
   const [albumArtUrl, setAlbumArtUrl] = useState<string | null>(null)
 
   // Audio engine refs
   const ctxRef = useRef<AudioContext | null>(null)
   const sourceRef = useRef<AudioBufferSourceNode | null>(null)
-  const sendGainsRef = useRef<GainNode[] | null>(null)
+  const dryGainRef = useRef<GainNode | null>(null)
+  const wetGainRef = useRef<GainNode | null>(null)
+  const pannerRef = useRef<PannerNode | null>(null)
   const masterRef = useRef<GainNode | null>(null)
 
   const generationRef = useRef(0)
@@ -55,6 +61,7 @@ export function use8dEngine(): EightDEngine {
   const startOffsetSecRef = useRef(0)
 
   const mixerVolumesRef = useRef<number[]>(new Array<number>(SPEAKER_COUNT).fill(0))
+  const enabledRef = useRef(true)
   const isPlayingRef = useRef(false)
   const bufferRef = useRef<AudioBuffer | null>(null)
   const albumArtUrlRef = useRef<string | null>(null)
@@ -72,11 +79,39 @@ export function use8dEngine(): EightDEngine {
     return Math.max(0, Math.min(pos, buf.duration))
   }, [])
 
-  // Per-speaker mixer level (0–1) for the SpeakerRing glow. All active while playing.
-  // rAF-safe (reads refs only).
+  // Per-speaker slider level (0–1) for the SpeakerRing chip glow. rAF-safe (reads refs).
   const getCurrentGains = useCallback((): number[] => {
-    if (!isPlayingRef.current) return new Array<number>(SPEAKER_COUNT).fill(0)
     return mixerVolumesRef.current.map((v) => v / 100)
+  }, [])
+
+  // Where the single 8D source currently sits (for the ring dot). radius 0 = centered.
+  const getSourcePos = useCallback((): { angle: number; radius: number } => {
+    if (!enabledRef.current) return { angle: 0, radius: 0 }
+    const p = weightedPosition(mixerVolumesRef.current.map((v) => v / 100))
+    return { angle: positionAngle(p.x, p.z), radius: p.radius }
+  }, [])
+
+  // Push the current weighted position onto the live panner (smooth glide, no jumps).
+  const applyPosition = useCallback(() => {
+    const ctx = ctxRef.current
+    const panner = pannerRef.current
+    if (!ctx || !panner) return
+    const p = weightedPosition(mixerVolumesRef.current.map((v) => v / 100))
+    const now = ctx.currentTime
+    panner.positionX.setTargetAtTime(p.x, now, POS_SMOOTH)
+    panner.positionY.setTargetAtTime(p.y, now, POS_SMOOTH)
+    panner.positionZ.setTargetAtTime(p.z, now, POS_SMOOTH)
+  }, [])
+
+  // Crossfade dry/wet to the current enabled flag (smooth, no click).
+  const applyEnabled = useCallback(() => {
+    const ctx = ctxRef.current
+    const dry = dryGainRef.current
+    const wet = wetGainRef.current
+    if (!ctx || !dry || !wet) return
+    const now = ctx.currentTime
+    dry.gain.setTargetAtTime(enabledRef.current ? 0 : 1, now, XFADE_SMOOTH)
+    wet.gain.setTargetAtTime(enabledRef.current ? 1 : 0, now, XFADE_SMOOTH)
   }, [])
 
   const stopCurrent = useCallback(() => {
@@ -89,10 +124,14 @@ export function use8dEngine(): EightDEngine {
       try { src.stop() } catch {}
       try { src.disconnect() } catch {}
     }
-    sendGainsRef.current?.forEach((n) => { try { n.disconnect() } catch {} })
+    if (dryGainRef.current) { try { dryGainRef.current.disconnect() } catch {} }
+    if (wetGainRef.current) { try { wetGainRef.current.disconnect() } catch {} }
+    if (pannerRef.current) { try { pannerRef.current.disconnect() } catch {} }
     if (masterRef.current) { try { masterRef.current.disconnect() } catch {} }
     sourceRef.current = null
-    sendGainsRef.current = null
+    dryGainRef.current = null
+    wetGainRef.current = null
+    pannerRef.current = null
     masterRef.current = null
   }, [])
 
@@ -105,13 +144,16 @@ export function use8dEngine(): EightDEngine {
 
     const params: EightDParams = {
       mixerVolumes: mixerVolumesRef.current.map((v) => v / 100),
+      enabled: enabledRef.current,
     }
 
     const clampedOffset = Math.max(0, Math.min(offsetSec, buf.duration))
     const graph = build8dGraph(ctx, buf, params)
 
     sourceRef.current = graph.source
-    sendGainsRef.current = graph.sendGains
+    dryGainRef.current = graph.dryGain
+    wetGainRef.current = graph.wetGain
+    pannerRef.current = graph.panner
     masterRef.current = graph.master
 
     const now = ctx.currentTime
@@ -232,27 +274,22 @@ export function use8dEngine(): EightDEngine {
     const clamped = Math.max(0, Math.min(100, Math.round(v)))
     mixerVolumesRef.current = mixerVolumesRef.current.map((old, idx) => (idx === i ? clamped : old))
     setMixerVolumes((prev) => prev.map((old, idx) => (idx === i ? clamped : old)))
+    if (isPlayingRef.current) applyPosition()
+  }, [applyPosition])
 
-    const ctx = ctxRef.current
-    const sendGains = sendGainsRef.current
-    if (isPlayingRef.current && sendGains && ctx) {
-      sendGains[i].gain.setTargetAtTime((clamped / 100) * SEND_SCALE, ctx.currentTime, MIXER_SMOOTH)
-    }
-  }, [])
-
-  // Reset to the clean state: all sends off (0), pure dry audio.
+  // Reset all weights to 0 (centered — no directional preference).
   const resetMixers = useCallback(() => {
     const zeros = new Array<number>(SPEAKER_COUNT).fill(0)
     mixerVolumesRef.current = zeros
     setMixerVolumes(zeros)
-    const ctx = ctxRef.current
-    const sendGains = sendGainsRef.current
-    if (isPlayingRef.current && sendGains && ctx) {
-      for (let i = 0; i < SPEAKER_COUNT; i++) {
-        sendGains[i].gain.setTargetAtTime(0, ctx.currentTime, MIXER_SMOOTH)
-      }
-    }
-  }, [])
+    if (isPlayingRef.current) applyPosition()
+  }, [applyPosition])
+
+  const setEnabled = useCallback((v: boolean) => {
+    enabledRef.current = v
+    setEnabledState(v)
+    if (isPlayingRef.current) applyEnabled()
+  }, [applyEnabled])
 
   const clear = useCallback(() => {
     stopCurrent()
@@ -264,7 +301,7 @@ export function use8dEngine(): EightDEngine {
       URL.revokeObjectURL(albumArtUrlRef.current)
       albumArtUrlRef.current = null
     }
-    // Mixer settings are kept across files (non-destructive).
+    // Mixer / enabled settings are kept across files (non-destructive).
     bufferRef.current = null
     setBuffer(null)
     setFileName(null)
@@ -284,6 +321,7 @@ export function use8dEngine(): EightDEngine {
 
     const params: EightDParams = {
       mixerVolumes: mixerVolumesRef.current.map((v) => v / 100),
+      enabled: enabledRef.current,
     }
 
     try {
@@ -331,11 +369,14 @@ export function use8dEngine(): EightDEngine {
     isPlaying,
     getPosition,
     getCurrentGains,
+    getSourcePos,
     togglePlay,
     seek,
     mixerVolumes,
     setMixerVolume,
     resetMixers,
+    enabled,
+    setEnabled,
     isRendering,
     download,
   }
