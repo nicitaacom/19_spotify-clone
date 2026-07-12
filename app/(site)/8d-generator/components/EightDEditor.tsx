@@ -1,6 +1,7 @@
 "use client"
 
 import { BiReset } from "react-icons/bi"
+import { IoIosPower } from "react-icons/io"
 
 import { use8dEngine } from "../hooks/use8dEngine"
 import { SPEAKERS } from "../lib/speakers"
@@ -60,13 +61,13 @@ const EightDEditor = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setEnabled(!enabled)}
-                className={`px-3 py-1 rounded-md text-xs border transition ${
+                className={`flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
                   enabled
-                    ? "bg-elevated border-neon/30 text-neon"
-                    : "bg-elevated border-white/10 text-neutral-400 hover:text-white"
+                    ? "border-neon/30 bg-neon/10 text-neon"
+                    : "border-transparent text-neutral-400 hover:text-white"
                 }`}
                 aria-label={enabled ? "Disable 8D" : "Enable 8D"}>
-                {enabled ? "8D: ON" : "8D: OFF"}
+                <IoIosPower size={14} /> {enabled ? "8D: ON" : "8D: OFF"}
               </button>
               <button
                 onClick={resetMixers}
