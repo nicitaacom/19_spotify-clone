@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation"
 import { useMemo } from "react"
 import { HiHome } from "react-icons/hi"
 import { BiSearch } from "react-icons/bi"
-import { TbPlaylist, TbWaveSine } from "react-icons/tb"
+import { TbPlaylist, TbWaveSine, TbRotate360 } from "react-icons/tb"
 import { MdMusicNote } from "react-icons/md"
 import { twMerge } from "tailwind-merge"
 
@@ -58,6 +58,12 @@ const Sidebar: React.FC<SidebarProps> = ({ children, songs, isOwner }) => {
         label: "Slow & Reverb",
         active: pathname.startsWith("/slow-and-reverb"),
         href: "/slow-and-reverb",
+      },
+      {
+        icon: TbRotate360,
+        label: "8D Generator",
+        active: pathname.startsWith("/8d-generator"),
+        href: "/8d-generator",
       },
     ],
     [pathname],
