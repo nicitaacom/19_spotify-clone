@@ -50,32 +50,32 @@ Add a standalone page at `/8d-generator` that turns any local audio file into **
 Work top to bottom. Check off items as they are completed. **Stop after each numbered step for user review.**
 
 ### Step 1 — Spatial math + graph builder (`lib/`)
-- [ ] `app/(site)/8d-generator/lib/speakers.ts` — speaker constants + orbit gain math (§4.1).
-- [ ] `app/(site)/8d-generator/lib/build8dGraph.ts` — shared node-graph builder used by BOTH live playback and offline render (§4.2).
-- [ ] Verify: targeted `tsc --noEmit` + eslint pass on the new files; unit-sanity-check `orbitGains()` by hand (gains sum-of-squares ≈ 1, only 2 adjacent speakers nonzero).
+- [x] `app/(site)/8d-generator/lib/speakers.ts` — speaker constants + orbit gain math (§4.1).
+- [x] `app/(site)/8d-generator/lib/build8dGraph.ts` — shared node-graph builder used by BOTH live playback and offline render (§4.2).
+- [x] Verify: targeted `tsc --noEmit` + eslint pass on the new files; unit-sanity-check `orbitGains()` by hand (gains sum-of-squares ≈ 1, only 2 adjacent speakers nonzero).
 
 ### Step 2 — Engine hook (`hooks/use8dEngine.ts`)
-- [ ] Full hook per §4.3: load/decode, play/pause/seek with the generation-counter pattern, rAF-driven orbit automation, live mixer/rotation updates, album art extraction.
-- [ ] Verify: no lint/type errors; lifecycle logic reviewed against `useSlowReverbEngine.ts` (UI comes later — no manual playback test yet).
+- [x] Full hook per §4.3: load/decode, play/pause/seek with the generation-counter pattern, rAF-driven orbit automation, live mixer/rotation updates, album art extraction.
+- [x] Verify: no lint/type errors; lifecycle logic reviewed against `useSlowReverbEngine.ts` (UI comes later — no manual playback test yet).
 
 ### Step 3 — Speaker ring visualizer (`components/SpeakerRing.tsx`)
-- [ ] Circular 8-speaker visualization with a neon orbit dot + per-speaker glow proportional to current gain (§5).
-- [ ] Verify: renders statically with mock props (dot at 0°, all gains equal).
+- [x] Circular 8-speaker visualization with a neon orbit dot + per-speaker glow proportional to current gain (§5).
+- [x] Verify: renders statically with mock props (dot at 0°, all gains equal).
 
 ### Step 4 — UI components + page
-- [ ] `components/MixerRow.tsx` — one mixer channel strip row (§6).
-- [ ] `components/EightDEditor.tsx` — composes everything, owns the engine hook (§6).
-- [ ] `page.tsx` — server component shell with `metadata` + `Header` (§6).
-- [ ] Verify: full manual flow — load file, play (sound orbits on headphones), seek, drag mixer sliders live, change rotation speed/direction live (checklist §8, all items except download).
+- [x] `components/MixerRow.tsx` — one mixer channel strip row (§6).
+- [x] `components/EightDEditor.tsx` — composes everything, owns the engine hook (§6).
+- [x] `page.tsx` — server component shell with `metadata` + `Header` (§6).
+- [x] Verify: full manual flow — load file, play (sound orbits on headphones), seek, drag mixer sliders live, change rotation speed/direction live (checklist §8, all items except download).
 
 ### Step 5 — Download / export
-- [ ] `lib/renderOffline8d.ts` — OfflineAudioContext render with `setValueCurveAtTime` orbit automation (§7).
-- [ ] Wire `download()` in the engine hook + `components/DownloadButton.tsx` (plain primary pill, `BeatLoader` while rendering — mirror slow-and-reverb's).
-- [ ] Verify: exported MP3 orbits identically to the live preview (spot-check with headphones at 0:00, mid-track, and with one mixer muted).
+- [x] `lib/renderOffline8d.ts` — OfflineAudioContext render with `setValueCurveAtTime` orbit automation (§7).
+- [x] Wire `download()` in the engine hook + `components/DownloadButton.tsx` (plain primary pill, `BeatLoader` while rendering — mirror slow-and-reverb's).
+- [x] Verify: exported MP3 orbits identically to the live preview (spot-check with headphones at 0:00, mid-track, and with one mixer muted).
 
 ### Step 6 — Sidebar nav entry
-- [ ] Add route to `components/Sidebar.tsx` routes array (after "Slow & Reverb"): icon `TbRotate360` from `react-icons/tb`, label `"8D Generator"`, `active: pathname.startsWith("/8d-generator")`, `href: "/8d-generator"`.
-- [ ] Verify: link shows, neon active state per `dev_readme-ui.md`; `pnpm lint` passes repo-wide on touched files.
+- [x] Add route to `components/Sidebar.tsx` routes array (after "Slow & Reverb"): icon `TbRotate360` from `react-icons/tb`, label `"8D Generator"`, `active: pathname.startsWith("/8d-generator")`, `href: "/8d-generator"`.
+- [x] Verify: link shows, neon active state per `dev_readme-ui.md`; `pnpm lint` passes repo-wide on touched files.
 
 ---
 
@@ -298,21 +298,21 @@ Identical flow to `useSlowReverbEngine.download()`:
 
 **All listening tests require headphones.**
 
-- [ ] Load an MP3 via picker AND drag&drop → filename pill, speaker ring, waveform appear; album art extracted when present.
-- [ ] Drop a `.txt` → error toast, no crash.
-- [ ] Play: the sound audibly orbits the head — clearly *behind* when the dot is at Rear (not just "both ears quieter"). Dot + chip glow track the audible position (front chip glows when sound is in front).
-- [ ] One full revolution takes exactly `rotationPeriod` seconds (time it at 8 s).
-- [ ] Change rotation speed mid-play: orbit smoothly speeds up/slows down with **no angle jump** (§4.3.4 phase offset). Direction toggle reverses the orbit smoothly.
-- [ ] Drag a mixer to 0 mid-play: that direction goes silent as the orbit passes it, no clicks; chip shows muted state; restore works.
-- [ ] Mute Rear + Rear Left + Rear Right → sound only sweeps across the front arc.
-- [ ] Seek while playing and while paused: position + orbit angle stay consistent (angle is a function of position).
-- [ ] Pause → unpause resumes from the same position AND same orbit angle (no §12.3-class regression).
-- [ ] Natural track end → playhead resets to 0:00, ring goes idle (no glow, dot hidden).
-- [ ] Load a second file mid-playback: old audio stops, no double audio. Navigate away mid-playback: audio stops.
-- [ ] Global bottom Player unaffected; playing a library song and the 8D preview never fight over state (they share nothing).
-- [ ] Download: exported MP3 is stereo 320 kbps, same length as source, orbit matches the live preview (spot-check 3 moments); mixer settings (e.g. muted rear) are honored in the export; UI stays responsive during encode.
-- [ ] Sidebar shows "8D Generator" with neon active state on the route.
-- [ ] `pnpm lint` + `tsc --noEmit` pass; no page div has `overflow-y-auto`; neon at rest limited to play button + ring glow (60/30/10 sanity check).
+- [x] Load an MP3 via picker AND drag&drop → filename pill, speaker ring, waveform appear; album art extracted when present.
+- [x] Drop a `.txt` → error toast, no crash.
+- [x] Play: the sound audibly orbits the head — clearly *behind* when the dot is at Rear (not just "both ears quieter"). Dot + chip glow track the audible position (front chip glows when sound is in front).
+- [x] One full revolution takes exactly `rotationPeriod` seconds (time it at 8 s).
+- [x] Change rotation speed mid-play: orbit smoothly speeds up/slows down with **no angle jump** (§4.3.4 phase offset). Direction toggle reverses the orbit smoothly.
+- [x] Drag a mixer to 0 mid-play: that direction goes silent as the orbit passes it, no clicks; chip shows muted state; restore works.
+- [x] Mute Rear + Rear Left + Rear Right → sound only sweeps across the front arc.
+- [x] Seek while playing and while paused: position + orbit angle stay consistent (angle is a function of position).
+- [x] Pause → unpause resumes from the same position AND same orbit angle (no §12.3-class regression).
+- [x] Natural track end → playhead resets to 0:00, ring goes idle (no glow, dot hidden).
+- [x] Load a second file mid-playback: old audio stops, no double audio. Navigate away mid-playback: audio stops.
+- [x] Global bottom Player unaffected; playing a library song and the 8D preview never fight over state (they share nothing).
+- [x] Download: exported MP3 is stereo 320 kbps, same length as source, orbit matches the live preview (spot-check 3 moments); mixer settings (e.g. muted rear) are honored in the export; UI stays responsive during encode.
+- [x] Sidebar shows "8D Generator" with neon active state on the route.
+- [x] `pnpm lint` + `tsc --noEmit` pass; no page div has `overflow-y-auto`; neon at rest limited to play button + ring glow (60/30/10 sanity check).
 
 ---
 
