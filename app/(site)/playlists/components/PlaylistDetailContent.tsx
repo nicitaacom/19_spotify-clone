@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "react-hot-toast"
 import { useSessionContext } from "@supabase/auth-helpers-react"
-import { AiOutlineArrowDown, AiOutlineArrowUp, AiOutlineDelete } from "react-icons/ai"
+import { AiOutlineArrowDown, AiOutlineArrowUp, AiOutlineMinusCircle } from "react-icons/ai"
 
 import AddToPlaylistButton from "@/components/AddToPlaylistButton"
 import Button from "@/components/Button"
@@ -278,11 +278,12 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
                   </button>
                   <button
                     type="button"
-                    aria-label={`Remove ${item.song.title}`}
+                    aria-label={`Remove ${item.song.title} from playlist`}
+                    title="Remove from playlist"
                     disabled={busySongId === item.song.id}
                     onClick={() => handleRemoveSong(item.song.id)}
-                    className="cursor-pointer text-red-300 transition hover:text-red-200 disabled:cursor-not-allowed disabled:opacity-40">
-                    <AiOutlineDelete size={20} />
+                    className="cursor-pointer text-neutral-300 transition hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40">
+                    <AiOutlineMinusCircle size={20} />
                   </button>
                 </>
               ) : null}
