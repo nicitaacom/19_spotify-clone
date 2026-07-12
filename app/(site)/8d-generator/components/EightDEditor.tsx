@@ -60,6 +60,12 @@ const EightDEditor = () => {
             <span className="text-neutral-400 text-sm">Mixers</span>
             <div className="flex items-center gap-3">
               <button
+                onClick={resetMixers}
+                className="flex items-center gap-1 text-neutral-400 hover:text-white text-xs transition-colors"
+                aria-label="Reset all mixers">
+                <BiReset size={14} /> Reset all
+              </button>
+              <button
                 onClick={() => setEnabled(!enabled)}
                 className={`flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors ${
                   enabled
@@ -67,13 +73,8 @@ const EightDEditor = () => {
                     : "border-transparent text-neutral-400 hover:text-white"
                 }`}
                 aria-label={enabled ? "Disable 8D" : "Enable 8D"}>
-                <IoIosPower size={14} /> {enabled ? "8D: ON" : "8D: OFF"}
-              </button>
-              <button
-                onClick={resetMixers}
-                className="flex items-center gap-1 text-neutral-400 hover:text-white text-xs transition-colors"
-                aria-label="Reset all mixers">
-                <BiReset size={14} /> Reset all
+                <IoIosPower size={14} />
+                <span className="w-11 whitespace-nowrap text-left">{enabled ? "8D: ON" : "8D: OFF"}</span>
               </button>
             </div>
           </div>
