@@ -1,6 +1,7 @@
 "use client"
 
-import { useRef, useEffect } from "react"
+import { useCallback, useRef, useEffect } from "react"
+import type { KeyboardEvent, PointerEvent } from "react"
 import { HiSpeakerWave } from "react-icons/hi2"
 
 import { SPEAKERS } from "../lib/speakers"
@@ -10,16 +11,97 @@ interface SpeakerRingProps {
   getCurrentGains: () => number[]
   getSourcePos: () => { angle: number; radius: number }
   mixerVolumes: number[]
+  onInteractionStart: () => void
+  onSourcePositionChange: (angle: number, radius: number) => void
 }
 
 // Chip radius as a fraction of the square container.
 const CHIP_RADIUS = 0.46
 const DOT_MAX_RADIUS = 0.4 // radius the source dot reaches at full spread
 
-const SpeakerRing = ({ enabled, getCurrentGains, getSourcePos, mixerVolumes }: SpeakerRingProps) => {
+const SpeakerRing = ({
+  enabled,
+  getCurrentGains,
+  getSourcePos,
+  mixerVolumes,
+  onInteractionStart,
+  onSourcePositionChange,
+}: SpeakerRingProps) => {
+  const ringRef = useRef<HTMLDivElement>(null)
   const chipRefs = useRef<(HTMLDivElement | null)[]>([])
   const dotRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number | null>(null)
+  const activePointerRef = useRef<number | null>(null)
+
+  const setPositionFromCartesian = useCallback((x: number, screenY: number) => {
+    const magnitude = Math.hypot(x, screenY)
+    const scale = magnitude > 1 ? 1 / magnitude : 1
+    const clampedX = x * scale
+    const clampedY = screenY * scale
+    const radius = Math.min(1, magnitude)
+    const angle = ((Math.atan2(clampedX, -clampedY) * 180) / Math.PI + 360) % 360
+    onSourcePositionChange(angle, radius)
+  }, [onSourcePositionChange])
+
+  const setPositionFromPointer = useCallback((clientX: number, clientY: number) => {
+    const ring = ringRef.current
+    if (!ring) return
+    const rect = ring.getBoundingClientRect()
+    const travelRadius = Math.min(rect.width, rect.height) * DOT_MAX_RADIUS
+    if (travelRadius <= 0) return
+    const x = (clientX - (rect.left + rect.width / 2)) / travelRadius
+    const screenY = (clientY - (rect.top + rect.height / 2)) / travelRadius
+    setPositionFromCartesian(x, screenY)
+  }, [setPositionFromCartesian])
+
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return
+    event.preventDefault()
+    onInteractionStart()
+    activePointerRef.current = event.pointerId
+    event.currentTarget.setPointerCapture(event.pointerId)
+    event.currentTarget.focus()
+    setPositionFromPointer(event.clientX, event.clientY)
+  }
+
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (activePointerRef.current !== event.pointerId) return
+    event.preventDefault()
+    setPositionFromPointer(event.clientX, event.clientY)
+  }
+
+  const finishPointerInteraction = (event: PointerEvent<HTMLDivElement>) => {
+    if (activePointerRef.current !== event.pointerId) return
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    activePointerRef.current = null
+  }
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const isArrow = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)
+    if (!isArrow && event.key !== "Home") return
+
+    event.preventDefault()
+    onInteractionStart()
+
+    if (event.key === "Home") {
+      onSourcePositionChange(0, 0)
+      return
+    }
+
+    const { angle, radius } = getSourcePos()
+    const rad = (angle * Math.PI) / 180
+    let x = Math.sin(rad) * radius
+    let screenY = -Math.cos(rad) * radius
+    const step = event.shiftKey ? 0.01 : 0.05
+
+    if (event.key === "ArrowUp") screenY -= step
+    if (event.key === "ArrowDown") screenY += step
+    if (event.key === "ArrowLeft") x -= step
+    if (event.key === "ArrowRight") x += step
+    setPositionFromCartesian(x, screenY)
+  }
 
   useEffect(() => {
     const tick = () => {
@@ -35,15 +117,16 @@ const SpeakerRing = ({ enabled, getCurrentGains, getSourcePos, mixerVolumes }: S
       const dot = dotRef.current
       if (dot) {
         const { angle, radius } = getSourcePos()
-        if (on && radius > 0.001) {
+        if (radius > 0.001) {
           const rad = ((angle - 90) * Math.PI) / 180 // -90 so 0° is at the top
           const r = DOT_MAX_RADIUS * radius * 100
           dot.style.left = `${50 + r * Math.cos(rad)}%`
           dot.style.top = `${50 + r * Math.sin(rad)}%`
-          dot.style.opacity = "1"
         } else {
-          dot.style.opacity = "0"
+          dot.style.left = "50%"
+          dot.style.top = "50%"
         }
+        dot.style.opacity = on ? "1" : "0.35"
       }
 
       rafRef.current = requestAnimationFrame(tick)
@@ -57,7 +140,17 @@ const SpeakerRing = ({ enabled, getCurrentGains, getSourcePos, mixerVolumes }: S
   }, [enabled, getCurrentGains, getSourcePos])
 
   return (
-    <div className="relative w-full max-w-[420px] aspect-square mx-auto">
+    <div
+      ref={ringRef}
+      role="group"
+      tabIndex={0}
+      aria-label="8D source position. Drag or use arrow keys to move; hold Shift for fine movement; press Home to center."
+      className="relative w-full max-w-[420px] aspect-square mx-auto touch-none select-none cursor-crosshair focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neon/70 focus-visible:ring-offset-2 focus-visible:ring-offset-elevated rounded-full"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={finishPointerInteraction}
+      onPointerCancel={finishPointerInteraction}
+      onKeyDown={handleKeyDown}>
       {/* rings — dark and subtle */}
       <div className="absolute inset-4 rounded-full border border-white/10" />
       <div className="absolute inset-16 rounded-full border border-white/5" />
@@ -70,7 +163,7 @@ const SpeakerRing = ({ enabled, getCurrentGains, getSourcePos, mixerVolumes }: S
       {/* single 8D source dot at the weighted position */}
       <div
         ref={dotRef}
-        className="absolute w-3.5 h-3.5 rounded-full bg-neon shadow-neon-sm -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity"
+        className="absolute z-10 w-3.5 h-3.5 rounded-full bg-neon shadow-neon-sm -translate-x-1/2 -translate-y-1/2 opacity-0 transition-opacity pointer-events-none"
         style={{ left: "50%", top: "50%" }}
       />
 

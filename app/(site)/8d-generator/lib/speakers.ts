@@ -17,6 +17,8 @@ export const SPEAKERS: readonly Speaker[] = [
 
 export const SPEAKER_COUNT = 8
 
+const POSITION_VECTOR_SCALE = SPEAKER_COUNT / 4
+
 /**
  * Position in Web Audio space for a speaker at `angleDeg` (clockwise from front),
  * on the unit circle at radius 1 (== refDistance, so distance attenuation is 1 for
@@ -27,32 +29,41 @@ export function speakerPosition(angleDeg: number): { x: number; y: number; z: nu
   return { x: Math.sin(rad), y: 0, z: -Math.cos(rad) } // front (0°) = (0, 0, -1)
 }
 
+/** Slider weights (0–1) whose cosine falloff reconstructs the requested source position. */
+export function weightsForPosition(angleDeg: number, radius: number): number[] {
+  const clampedRadius = Math.max(0, Math.min(1, radius))
+  return SPEAKERS.map((speaker) => {
+    const deltaRad = ((angleDeg - speaker.angleDeg) * Math.PI) / 180
+    return clampedRadius * ((1 + Math.cos(deltaRad)) / 2)
+  })
+}
+
 /**
- * The single 8D source position, steered by the 8 slider weights (each 0–1). Computed as
- * a weighted vector sum of the speaker directions on the unit circle — so the direction
- * wraps correctly (e.g. Left-ish 350° + 10° averages to front, not to the back) and the
- * "spread" (magnitude) shrinks as opposite channels balance out.
- *
- * Returns a position on/inside the unit circle: `radius` is how strongly the sound is
- * pulled to one side (1 = fully to a direction, 0 = centered/no preference).
- * With all weights 0 → radius 0 (centered).
+ * The single 8D source position, steered by 8 direct vector contributions (each 0–1).
+ * The scale is the inverse of `weightsForPosition`: for 8 evenly spaced speakers, its
+ * cosine falloff sums to exactly twice the requested unit vector. Arbitrary manual mixes
+ * are clamped to the unit circle so the panner never moves beyond its intended range.
  */
 export function weightedPosition(weights: number[]): { x: number; y: number; z: number; radius: number } {
   let x = 0
   let z = 0
-  let total = 0
   for (let i = 0; i < SPEAKER_COUNT; i++) {
-    const w = weights[i] ?? 0
+    const w = Math.max(0, Math.min(1, weights[i] ?? 0))
     if (w <= 0) continue
     const p = speakerPosition(SPEAKERS[i].angleDeg)
     x += p.x * w
     z += p.z * w
-    total += w
   }
-  if (total <= 0) return { x: 0, y: 0, z: 0, radius: 0 }
-  x /= total
-  z /= total
-  const radius = Math.min(1, Math.hypot(x, z))
+  x /= POSITION_VECTOR_SCALE
+  z /= POSITION_VECTOR_SCALE
+
+  const magnitude = Math.hypot(x, z)
+  if (magnitude > 1) {
+    x /= magnitude
+    z /= magnitude
+  }
+
+  const radius = Math.min(1, magnitude)
   return { x, y: 0, z, radius }
 }
 

@@ -5,7 +5,7 @@ import { toast } from "react-hot-toast"
 
 import { extractId3Metadata, Id3Metadata } from "../../slow-and-reverb/lib/id3AlbumArt"
 import { build8dGraph, EightDParams } from "../lib/build8dGraph"
-import { SPEAKER_COUNT, weightedPosition, positionAngle } from "../lib/speakers"
+import { SPEAKER_COUNT, weightedPosition, positionAngle, weightsForPosition } from "../lib/speakers"
 import { renderOffline8d } from "../lib/renderOffline8d"
 import { encodeMp3 } from "../../slow-and-reverb/lib/encodeMp3"
 
@@ -27,6 +27,7 @@ export interface EightDEngine {
   seek(seconds: number): void
   mixerVolumes: number[]
   setMixerVolume(i: number, v: number): void // 0–100 in UI
+  setSourcePosition(angle: number, radius: number): void
   resetMixers(): void
   enabled: boolean
   setEnabled(v: boolean): void
@@ -87,7 +88,6 @@ export function use8dEngine(): EightDEngine {
 
   // Where the single 8D source currently sits (for the ring dot). radius 0 = centered.
   const getSourcePos = useCallback((): { angle: number; radius: number } => {
-    if (!enabledRef.current) return { angle: 0, radius: 0 }
     const p = weightedPosition(mixerVolumesRef.current.map((v) => v / 100))
     return { angle: positionAngle(p.x, p.z), radius: p.radius }
   }, [])
@@ -282,6 +282,13 @@ export function use8dEngine(): EightDEngine {
     if (isPlayingRef.current) applyPosition()
   }, [applyPosition])
 
+  const setSourcePosition = useCallback((angle: number, radius: number) => {
+    const volumes = weightsForPosition(angle, radius).map((weight) => weight * 100)
+    mixerVolumesRef.current = volumes
+    setMixerVolumes(volumes)
+    if (isPlayingRef.current) applyPosition()
+  }, [applyPosition])
+
   // Reset all weights to 0 (centered — no directional preference).
   const resetMixers = useCallback(() => {
     const zeros = new Array<number>(SPEAKER_COUNT).fill(0)
@@ -380,6 +387,7 @@ export function use8dEngine(): EightDEngine {
     seek,
     mixerVolumes,
     setMixerVolume,
+    setSourcePosition,
     resetMixers,
     enabled,
     setEnabled,

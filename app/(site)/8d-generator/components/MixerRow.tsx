@@ -27,7 +27,9 @@ const MixerRow = ({ label, value, onChange }: MixerRowProps) => {
         />
       </div>
 
-      <span className="text-xs text-neutral-500 w-10 text-right tabular-nums">{value}%</span>
+      <span className="text-xs text-neutral-500 w-10 text-right tabular-nums">
+        {Math.round(value)}%
+      </span>
     </div>
   )
 }

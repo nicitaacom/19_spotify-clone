@@ -1,9 +1,10 @@
 # dev_readme — `/8d-generator` (steerable HRTF spatializer)
 
 A standalone client-side page that turns a local audio file into "8D" audio: the sound is
-placed at a point around the listener's head via a **single HRTF panner**, and 8 direction
-sliders steer *where* that point sits. An **8D on/off** toggle A/Bs it against the clean
-original. 100% in-browser — no Supabase, no API routes, no global `usePlayer` store.
+placed at a point around the listener's head via a **single HRTF panner**. A draggable source
+dot and 8 synchronized direction sliders steer *where* that point sits. An **8D on/off**
+toggle A/Bs it against the clean original. 100% in-browser — no Supabase, no API routes, no
+global `usePlayer` store.
 
 > **History / why it's built this way.** The original plan was an *orbiting* source (sound
 > rotates through 8 speakers). That was scrapped after testing: rotating felt wrong, and
@@ -19,12 +20,12 @@ All under `app/(site)/8d-generator/` unless noted.
 
 | File | Role |
 | --- | --- |
-| `lib/speakers.ts` | 8-speaker ring constants + the position math (`speakerPosition`, `weightedPosition`, `positionAngle`). Pure, no Web Audio. |
+| `lib/speakers.ts` | 8-speaker ring constants + reversible slider/position math (`weightsForPosition`, `weightedPosition`, `positionAngle`). Pure, no Web Audio. |
 | `lib/build8dGraph.ts` | The node graph: `source → dry/wet crossfade around ONE HRTF panner → master`. Shared by live + offline. |
 | `lib/renderOffline8d.ts` | `OfflineAudioContext` render for the MP3 export (same graph). |
 | `hooks/use8dEngine.ts` | Load/decode, play/pause/seek, live slider→panner steering, dry/wet toggle, album-art + metadata, download. |
 | `components/EightDEditor.tsx` | Owns the engine hook; two-column layout (mixers ⋮ ring + waveform). |
-| `components/SpeakerRing.tsx` | Circular 8-chip visualizer + the source dot at the weighted position. |
+| `components/SpeakerRing.tsx` | Circular 8-chip visualizer + draggable/keyboard-controlled source dot. |
 | `components/MixerRow.tsx` | One direction slider (0 = that direction off). |
 | `components/DownloadButton.tsx` | Primary pill, `BeatLoader` while rendering. |
 | `page.tsx` | Server shell (`metadata`, neon `Header`). |
@@ -68,24 +69,29 @@ source ─► dryGain ─────────────────► mas
 
 ## 4. Steering the panner (`weightedPosition`)
 
-The 8 slider weights (each 0..1) are combined as a **weighted vector sum** of the speaker
-directions:
+The 8 slider weights (each 0..1) are combined as **direct vector contributions** from the
+speaker directions:
 
 ```
-pos = Σ (speakerPosition(angle_i) · weight_i) / Σ weight_i
+pos = Σ (speakerPosition(angle_i) · weight_i) / 2
 radius = min(1, |pos|)
 ```
 
 - Vector sum (not an average of raw degrees) so directions **wrap correctly** — e.g. a pull
   toward 350° and 10° averages to *front*, not to the back.
-- `radius` is the "spread": 1 = pulled fully to one side, 0 = centered. Opposite channels
-  balancing out shrink the radius toward center.
+- The fixed divisor 2 is the inverse of the 8-way cosine falloff used by the draggable dot.
+  It lets the sliders reconstruct both its angle and its distance from center exactly.
+- `radius` is the strength: 1 = pulled fully to one side, 0 = centered. Arbitrary manual
+  mixes are clamped to the unit circle.
 - All weights 0 → radius 0 (centered). Raising e.g. Right 80 + Rear 70 places the point
   between Right and Rear, leaning Right.
 - `positionAngle(x, z)` inverts this back to a 0–360° angle for the ring dot.
 
-`setMixerVolume(i, v)` updates the weight and, while playing, glides the live panner's
-`positionX/Y/Z` with `setTargetAtTime` — the point moves smoothly, never jumps.
+Dragging at angle `a` and radius `r` generates all 8 weights with
+`r · (1 + cos(a - speakerAngle)) / 2`: the nearest speaker is strongest, the opposite is
+weakest, and every intermediate slider changes continuously. `setMixerVolume(i, v)` and
+`setSourcePosition(a, r)` both update the same weights and, while playing, glide the live
+panner's `positionX/Y/Z` with `setTargetAtTime` — the point moves smoothly, never jumps.
 
 ---
 
@@ -101,7 +107,8 @@ getPosition()                 // rAF-safe playhead
 getCurrentGains()             // per-slider level 0..1 (ring chip glow)
 getSourcePos()                // { angle, radius } of the single source (ring dot)
 togglePlay() / seek()
-mixerVolumes / setMixerVolume(i, v) / resetMixers()   // resetMixers → all 0 (centered)
+mixerVolumes / setMixerVolume(i, v) / setSourcePosition(angle, radius)
+resetMixers()                    // all 0 (centered)
 enabled / setEnabled(v)       // 8D on/off; smooth dry/wet crossfade while playing
 isRendering / download()      // OfflineAudioContext → encodeMp3 (320 kbps, "<base> (8D).mp3")
 ```
@@ -122,7 +129,10 @@ Follows `dev_readme-ui.md` (neon/dark, 60/30/10, single `<main>` scroll containe
   **8D: ON/OFF** toggle (power icon, neon fill when on, fixed-width label so it doesn't
   resize); right = filename pill, `SpeakerRing`, `Waveform`, download.
 - `SpeakerRing`: 8 chips on a ring (raised channels glow neon) + a single neon **source dot**
-  at `getSourcePos()` (angle + radius), driven by its own rAF loop (no setState).
+  at `getSourcePos()` (angle + radius), driven by its own rAF loop (no setState). Drag or
+  click/tap within the ring to reposition it; pointer capture keeps an active drag working
+  outside the ring. Arrow keys move it, Shift+Arrow moves it finely, and Home centers it.
+  Starting any ring interaction automatically enables 8D.
 - A "🎧 Use headphones" hint appears in both states (HRTF is meaningless on speakers).
 
 ---
@@ -133,6 +143,11 @@ Follows `dev_readme-ui.md` (neon/dark, 60/30/10, single `<main>` scroll containe
   artifact / no comb filtering in the dry path).
 - Raise **Right** → sound leans right, cleanly, no "ripping." Add **Rear** → the dot moves
   between them and the sound follows. Move sliders → the point glides, never jumps.
+- Drag/click/tap the dot to the four cardinal directions, between speakers, center, and the
+  outer boundary → all 8 sliders follow with smooth proximity falloff and the dot stays
+  under the pointer. Continue the drag beyond the ring → the dot stays clamped to its edge.
+- Turn 8D off, then drag or use Arrow/Shift+Arrow/Home while the ring is focused → 8D turns
+  on, the dot moves, and the sliders stay synchronized.
 - Load via picker + drag-drop; drop a `.txt` → error toast, no crash. Album art shows.
 - Pause/unpause resumes at the same position; natural end resets; new file mid-play stops the
   old audio; navigating away stops audio; the global bottom `Player` is unaffected (shared

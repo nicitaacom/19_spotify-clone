@@ -33,6 +33,7 @@ const EightDEditor = () => {
     seek,
     mixerVolumes,
     setMixerVolume,
+    setSourcePosition,
     resetMixers,
     enabled,
     setEnabled,
@@ -124,6 +125,10 @@ const EightDEditor = () => {
             getCurrentGains={getCurrentGains}
             getSourcePos={getSourcePos}
             mixerVolumes={mixerVolumes}
+            onInteractionStart={() => {
+              if (!enabled) setEnabled(true)
+            }}
+            onSourcePositionChange={setSourcePosition}
           />
         </div>
 
