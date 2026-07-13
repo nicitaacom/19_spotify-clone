@@ -62,7 +62,7 @@ const SlowReverbEditor = () => {
     download,
     clear,
     albumArtUrl,
-    getBassLevel,
+    getKickLevel,
   } = engine
 
   const { isDragging } = useDocumentDrag()
@@ -83,6 +83,24 @@ const SlowReverbEditor = () => {
       document.documentElement.style.removeProperty("--srv-bg")
     }
   }, [pitchEnabled, pitchSemitones])
+
+  // Spacebar toggles play/pause (unless typing in an input). Prevents the default page
+  // scroll and works no matter which control has focus, so pressing the play button and
+  // then Space doesn't get swallowed by the button's own click handling.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== "Space" && e.key !== " ") return
+      const el = document.activeElement as HTMLElement | null
+      const tag = el?.tagName
+      if (tag === "INPUT" || tag === "TEXTAREA" || el?.isContentEditable) return
+      if (!buffer) return
+      e.preventDefault()
+      el?.blur() // drop focus from the play button so it can't double-handle the key
+      togglePlay()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [buffer, togglePlay])
 
   const presetBtn = (active: boolean) =>
     twMerge(
@@ -146,7 +164,7 @@ const SlowReverbEditor = () => {
         pitchEnabled={pitchEnabled}
         pitchSemitones={pitchSemitones}
         isPlaying={isPlaying}
-        getBassLevel={getBassLevel}
+        getKickLevel={getKickLevel}
       />
 
       <div className="relative z-10 max-w-5xl mx-auto px-6 py-8 grid md:grid-cols-2 gap-8 items-start">

@@ -7,6 +7,7 @@ import { buildEffectsGraph, EffectsParams, semitonesToRatio } from "../lib/build
 import { renderOffline } from "../lib/renderOffline"
 import { encodeMp3 } from "../lib/encodeMp3"
 import { extractId3Metadata, Id3Metadata } from "../lib/id3AlbumArt"
+import { createKickDetector, KickDetector } from "../lib/kickDetector"
 
 export interface PresetValues {
   speed: number
@@ -39,7 +40,7 @@ export interface SlowReverbEngine {
   download(): Promise<void>
   clear(): void
   albumArtUrl: string | null
-  getBassLevel(): number
+  getKickLevel(): number
 }
 
 export function useSlowReverbEngine(): SlowReverbEngine {
@@ -62,8 +63,9 @@ export function useSlowReverbEngine(): SlowReverbEngine {
   const wetGainRef = useRef<GainNode | null>(null)
   const dryGainRef = useRef<GainNode | null>(null)
   const pitchShifterRef = useRef<ReturnType<typeof import("../lib/pitchShifter").createPitchShifter> | null>(null)
-  const analyserRef = useRef<AnalyserNode | null>(null)
-  const bassFreqDataRef = useRef<Uint8Array | null>(null)
+  const kickAnalyserRef = useRef<AnalyserNode | null>(null)
+  const kickTimeDataRef = useRef<Float32Array | null>(null)
+  const kickDetectorRef = useRef<KickDetector | null>(null)
 
   const generationRef = useRef(0)
   const pausedOffsetSecRef = useRef(0)
@@ -112,14 +114,16 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       try { ps.input.disconnect() } catch {}
       try { ps.output.disconnect() } catch {}
     }
-    const an = analyserRef.current
-    if (an) { try { an.disconnect() } catch {} }
+    const ka = kickAnalyserRef.current
+    if (ka) { try { ka.disconnect() } catch {} }
     sourceRef.current = null
     lowshelfRef.current = null
     wetGainRef.current = null
     dryGainRef.current = null
     pitchShifterRef.current = null
-    analyserRef.current = null
+    kickAnalyserRef.current = null
+    kickTimeDataRef.current = null
+    kickDetectorRef.current = null
   }, [])
 
   const getPosition = useCallback((): number => {
@@ -132,21 +136,20 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     return Math.max(0, Math.min(pos, buf.duration))
   }, [])
 
-  // Normalized low-end energy (0..1) for the bass-reactive background. Averages
-  // the lowest FFT bins (~0-250Hz — kicks / 808s) of the post-bass-boost signal.
-  const getBassLevel = useCallback((): number => {
-    const analyser = analyserRef.current
-    const data = bassFreqDataRef.current
-    if (!analyser || !data || !isPlayingRef.current) return 0
-    analyser.getByteFrequencyData(data)
-    // fftSize 2048 → binHz = sampleRate/2048 ≈ 21Hz. Bin 0 is DC (skip). The kick/808
-    // fundamental lives ~20-150Hz → bins 1..7. Use the PEAK bin (not the average): a kick
-    // spikes one or two bins hard, and averaging over the band dilutes that spike.
-    let peak = 0
-    for (let i = 1; i <= 7; i++) {
-      if (data[i] > peak) peak = data[i]
-    }
-    return peak / 255
+  // Kick onset strength (0..1) for the reactive background. Time-domain RMS of a 120 Hz
+  // lowpassed tap, compared to the track's OWN recent average (see lib/kickDetector.ts) —
+  // song-independent by construction, and blind to hats/claps/vocals because the tap is
+  // hard low-passed before we ever measure it. Returns 0 on non-onset frames.
+  const getKickLevel = useCallback((): number => {
+    const analyser = kickAnalyserRef.current
+    const data = kickTimeDataRef.current
+    const detector = kickDetectorRef.current
+    if (!analyser || !data || !detector || !isPlayingRef.current) return 0
+    analyser.getFloatTimeDomainData(data)
+    let sumSq = 0
+    for (let i = 0; i < data.length; i++) sumSq += data[i] * data[i]
+    const rms = Math.sqrt(sumSq / data.length)
+    return detector.update(rms, performance.now())
   }, [])
 
   const playFromOffset = useCallback((offsetSec: number) => {
@@ -170,8 +173,11 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     wetGainRef.current = graph.wetGain
     dryGainRef.current = graph.dryGain
     pitchShifterRef.current = graph.pitchShifter
-    analyserRef.current = graph.analyser
-    bassFreqDataRef.current = new Uint8Array(graph.analyser.frequencyBinCount)
+    kickAnalyserRef.current = graph.kickAnalyser
+    // Reused time-domain buffer for RMS reads. Fresh detector per play/seek → fresh history
+    // (a ~200 ms warm-up after each seek is accepted; kickDetector returns 0 during it).
+    kickTimeDataRef.current = new Float32Array(graph.kickAnalyser.fftSize)
+    kickDetectorRef.current = createKickDetector()
 
     const now = ctx.currentTime
     startCtxTimeRef.current = now
@@ -479,6 +485,6 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     download,
     clear,
     albumArtUrl,
-    getBassLevel,
+    getKickLevel,
   }
 }

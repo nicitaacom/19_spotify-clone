@@ -96,7 +96,7 @@ export interface SlowReverbEngine {
   download(): Promise<void>
   clear(): void
   albumArtUrl: string | null // object URL of embedded cover, or null
-  getBassLevel(): number // 0..1 live low-end energy (bg reactivity)
+  getKickLevel(): number // 0..1 kick/808 onset strength (bg reactivity); see lib/kickDetector.ts
 }
 ```
 
@@ -152,14 +152,14 @@ useSlowReverbEngine.ts  ── all state lives here ─────────�
             AudioBufferSourceNode → pitchShifter → lowshelf(bass)             │
                 → dry ─────────────┐                                          │
                 → convolver(reverb) → wet ─┴→ destination (speakers)          │
-                            lowshelf → analyser (tap, for getBassLevel)       │
+            source → lowpass×2(120Hz) → kickAnalyser (tap, getKickLevel)      │
                                                                               │
    returns SlowReverbEngine ───────────────────────────────────────────────┘
    │
    ▼
 SlowReverbEditor.tsx  (destructures the engine, lays out the two panels)
    │
-   ├─ AlbumArt        ← albumArtUrl, pitchEnabled, pitchSemitones, isPlaying, getBassLevel
+   ├─ AlbumArt        ← albumArtUrl, pitchEnabled, pitchSemitones, isPlaying, getKickLevel
    ├─ Waveform        ← buffer, duration, isPlaying, getPosition, onSeek, onTogglePlay
    ├─ EffectSliderRow ← speed/reverb/bass  + set*
    ├─ PitchToggleRow  ← pitchSemitones, pitchEnabled + set*
@@ -204,7 +204,7 @@ Supabase/Redis screenshot. Today it intentionally has none.
 | **Position / playhead**   | Seconds into the **original** track. Because sources are one-shot, it's computed from an anchor, not read from a node.                                                                                    |
 | **Anchor**                | `{ startCtxTimeRef, startOffsetSecRef }`. `position = startOffset + (ctx.currentTime - startCtxTime) * speed`.                                                                                            |
 | **Generation**            | `generationRef` counter. A one-shot source's `onended` compares its captured generation to the current one to tell a **natural end** from a **manual stop**.                                              |
-| **Bass reactivity**       | An `AnalyserNode` tapped post-bass-boost; `getBassLevel()` averages the lowest ~6 FFT bins (~0–260 Hz). The background scales/blurs on the **onset** (positive flux) of that energy = kicks/808s.         |
+| **Kick reactivity**       | A passive tap `source → lowpass×2(120 Hz) → kickAnalyser` (pre-effects, so hats/claps/vocals are filtered out before measurement). `getKickLevel()` takes the tap's time-domain RMS and `lib/kickDetector.ts` flags an onset when it spikes above the track's own recent average (energy-relative → song-independent). The background scales/blurs on those onsets = kicks/808s. |
 | **IR (impulse response)** | The reverb "room". Synthesized noise with exponential decay — no asset file.                                                                                                                              |
 | **Offline render**        | `OfflineAudioContext` re-runs the _same_ graph faster-than-realtime to produce the downloadable buffer.                                                                                                   |
 
@@ -217,10 +217,9 @@ Supabase/Redis screenshot. Today it intentionally has none.
 ```
                                    ┌────────────► dryGain ─────────┐
 AudioBufferSource ─► pitchShifter ─► lowshelf ─┤                    ├─► destination
-  (playbackRate=speed)  (ratio)     (bass dB)  └─► convolver ─► wetGain ┘
-                                                    (IR)     (reverb%)
-                                        │
-                                        └─► analyser (tap only; getBassLevel)
+  │ (playbackRate=speed) (ratio)    (bass dB)  └─► convolver ─► wetGain ┘
+  │                                                 (IR)     (reverb%)
+  └─► lowpass×2 (120 Hz) ─► kickAnalyser   (passive tap only; getKickLevel)
 ```
 
 - `buildEffectsGraph(ctx, buffer, params)` builds this for **both** the live
@@ -295,15 +294,17 @@ PRESET 3             speed 0.75  reverb 40%  pitch -7 st  bass 35%
 disables it. A preset button highlights only when **all four values + the toggle
 state** match current state.
 
-### 3.5 Bass-reactive background (vizzy.io-style)
+### 3.5 Kick-reactive background (vizzy.io-style)
 
 ```
+detection (engine, lib/kickDetector.ts): RMS of the 120Hz-lowpassed tap, compared
+   to the track's own recent ~0.7s average → onset strength when it spikes (song-independent).
+
 every animation frame (while playing):
-   bass  = getBassLevel()                 // 0..1, lowest ~6 FFT bins
-   rise  = bass - prevBass                 // spectral flux
-   if rise > GATE:  env = max(env, rise * GAIN)   // KICK ONSET, not volume
-   env  *= (1 - DECAY)                      // ease back down
-   background.scale  = 1 + env * MAX_SCALE
+   hit  = getKickLevel()                   // 0..1 onset strength (0 on non-kick frames)
+   if hit > env:  env = hit                 // instant attack — snap to the hit
+   env *= exp(-dt / DECAY_TAU_MS)           // time-based decay (frame-rate independent)
+   background.scale  = REST_SCALE + env * KICK_RANGE   // 0.94 → 1.0, never above 1.0
    background.blur   = env * MAX_BLUR
 on pause: 300 ms CSS transition eases scale/blur back to rest
 ```
