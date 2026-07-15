@@ -7,6 +7,8 @@ import { use8dEngine } from "../hooks/use8dEngine"
 import { SPEAKERS } from "../lib/speakers"
 import FileDropZone from "../../slow-and-reverb/components/FileDropZone"
 import Waveform from "../../slow-and-reverb/components/Waveform"
+import FullScreenDropOverlay from "../../slow-and-reverb/components/FullScreenDropOverlay"
+import { useDocumentDrag } from "../../slow-and-reverb/hooks/useDocumentDrag"
 import { formatTime } from "../../slow-and-reverb/lib/format"
 import SpeakerRing from "./SpeakerRing"
 import MixerRow from "./MixerRow"
@@ -41,6 +43,8 @@ const EightDEditor = () => {
     download,
   } = use8dEngine()
 
+  const { isDragging } = useDocumentDrag()
+
   const isEmpty = !buffer || !fileName
 
   if (isEmpty) {
@@ -48,12 +52,14 @@ const EightDEditor = () => {
       <div className="max-w-2xl mx-auto px-6 py-8 flex flex-col items-center gap-6">
         <HeadphonesHint />
         <FileDropZone onFile={loadFile} />
+        <FullScreenDropOverlay isDragging={isDragging} onFile={loadFile} />
       </div>
     )
   }
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 grid md:grid-cols-2 gap-8 items-start">
+      <FullScreenDropOverlay isDragging={isDragging} onFile={loadFile} />
       {/* LEFT column (mixers) */}
       <div className="md:order-1 flex flex-col gap-4">
         <div className="rounded-xl border border-white/5 bg-elevated shadow-[0_4px_12px_rgba(0,0,0,0.5)] p-5">
