@@ -24,6 +24,7 @@ export interface SlowReverbEngine {
   isPlaying: boolean
   getPosition(): number
   togglePlay(): void
+  pause(): void
   seek(seconds: number): void
   speed: number
   setSpeed(v: number): void
@@ -273,24 +274,30 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     }
   }, [stopCurrent])
 
+  const pause = useCallback(() => {
+    if (!isPlayingRef.current) return
+
+    pausedOffsetSecRef.current = getPosition()
+    stopCurrent()
+    isPlayingRef.current = false
+    setIsPlaying(false)
+  }, [getPosition, stopCurrent])
+
   const togglePlay = useCallback(() => {
     const ctx = ctxRef.current
     const buf = bufferRef.current
     if (!ctx || !buf) return
 
     if (isPlayingRef.current) {
-      const pos = getPosition()
-      pausedOffsetSecRef.current = pos
-      stopCurrent()
-      isPlayingRef.current = false
-      setIsPlaying(false)
-    } else {
-      ctx.resume().catch(() => {})
-      const offset = pausedOffsetSecRef.current
-      generationRef.current += 1 // bump to ensure pitch/speed survive resume (round 4 fix)
-      playFromOffset(offset)
+      pause()
+      return
     }
-  }, [getPosition, playFromOffset, stopCurrent])
+
+    ctx.resume().catch(() => {})
+    const offset = pausedOffsetSecRef.current
+    generationRef.current += 1 // bump to ensure pitch/speed survive resume (round 4 fix)
+    playFromOffset(offset)
+  }, [pause, playFromOffset])
 
   const seek = useCallback((seconds: number) => {
     const buf = bufferRef.current
@@ -469,6 +476,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
     isPlaying,
     getPosition,
     togglePlay,
+    pause,
     seek,
     speed,
     setSpeed,

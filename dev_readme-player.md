@@ -185,6 +185,35 @@ therefore attaches listeners to the HTML5 audio node owned by the Howl:
 
 The buffering spinner remains clickable so the user can cancel recovery and pause.
 
+## Exclusive playback across tabs
+
+The Account page has an opt-in **Stop music playing in other tabs** switch. Its value is stored by
+Zustand persist under `exclusive-playback-preference`, keyed by Supabase user ID. localStorage has
+no expiry; a `storage` listener rehydrates the store when another open tab changes the preference.
+
+When enabled, `PlaybackSyncProvider` connects to Pusher Channels cluster `eu` and subscribes to the
+authenticated user's `private-playback-{userId}` channel. Starting playback publishes a
+`playback-started` event through the authenticated `/api/pusher/playback` server route. Other tabs
+pause all registered playback engines. A same-browser `BroadcastChannel` sends the same event
+immediately so a newly opened tab cannot miss a Pusher event while its WebSocket is still
+subscribing.
+
+- the fixed site player
+- Slow & Reverb
+- 8D Generator
+
+The Pusher subscription authorization route only signs the private channel matching the current
+Supabase user. `PUSHER_APP_ID` and `PUSHER_SECRET` remain server-only;
+`NEXT_PUBLIC_PUSHER_APP_KEY` is the only credential included in the browser bundle.
+
+Required environment variables:
+
+```dotenv
+PUSHER_APP_ID=''
+NEXT_PUBLIC_PUSHER_APP_KEY=''
+PUSHER_SECRET=''
+```
+
 ## Keyboard shortcuts (Player.tsx)
 
 | Key | Action |

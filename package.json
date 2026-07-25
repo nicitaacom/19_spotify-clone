@@ -35,6 +35,8 @@
     "framer-motion": "^12.38.0",
     "next": "16.2.9",
     "postcss": "8.4.24",
+    "pusher": "5.3.4",
+    "pusher-js": "8.6.0",
     "query-string": "^8.1.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",

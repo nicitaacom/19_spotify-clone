@@ -13,6 +13,7 @@ import { formatTime } from "../../slow-and-reverb/lib/format"
 import SpeakerRing from "./SpeakerRing"
 import MixerRow from "./MixerRow"
 import DownloadButton from "./DownloadButton"
+import { useExclusivePlaybackSource } from "@/app/providers/PlaybackSyncProvider"
 
 const HeadphonesHint = () => (
   <div className="flex items-center justify-center gap-2 text-neutral-500 text-xs">
@@ -32,6 +33,7 @@ const EightDEditor = () => {
     getCurrentGains,
     getSourcePos,
     togglePlay,
+    pause,
     seek,
     mixerVolumes,
     setMixerVolume,
@@ -42,6 +44,11 @@ const EightDEditor = () => {
     isRendering,
     download,
   } = use8dEngine()
+
+  useExclusivePlaybackSource({
+    isPlaying,
+    onStop: pause,
+  })
 
   const { isDragging } = useDocumentDrag()
 

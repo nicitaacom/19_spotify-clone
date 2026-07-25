@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect } from "react"
+import { useCallback, useEffect } from "react"
 import { AiOutlineLoading3Quarters } from "react-icons/ai"
 
 import usePlayer from "@/hooks/usePlayer"
 import useLoadSongUrl from "@/hooks/useLoadSongUrl"
 import useGetSongById from "@/hooks/useGetSongById"
+import { useExclusivePlaybackSource } from "@/app/providers/PlaybackSyncProvider"
 
 import PlayerContent from "./PlayerContent"
 
@@ -13,12 +14,23 @@ const Player = () => {
   const {
     activeId,
     activeSong: currentStoreSong,
+    isPlaying,
     setActiveSong,
     progress,
     requestSeek,
+    requestPlaybackCommand,
     togglePlayback,
     stopPlayback,
   } = usePlayer()
+
+  const pauseForExternalPlayback = useCallback(() => {
+    if (usePlayer.getState().isPlaying) requestPlaybackCommand("pause")
+  }, [requestPlaybackCommand])
+
+  useExclusivePlaybackSource({
+    isPlaying,
+    onStop: pauseForExternalPlayback,
+  })
 
   const activeSong = currentStoreSong?.id === activeId ? currentStoreSong : undefined
   const { song: fetchedSong } = useGetSongById(activeSong ? undefined : activeId)

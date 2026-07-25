@@ -24,6 +24,7 @@ export interface EightDEngine {
   getCurrentGains(): number[] // per-speaker slider level (0–1) — for SpeakerRing chip glow
   getSourcePos(): { angle: number; radius: number } // where the single 8D source sits — for the ring dot
   togglePlay(): void
+  pause(): void
   seek(seconds: number): void
   mixerVolumes: number[]
   setMixerVolume(i: number, v: number): void // 0–100 in UI
@@ -246,23 +247,29 @@ export function use8dEngine(): EightDEngine {
     }
   }, [stopCurrent])
 
+  const pause = useCallback(() => {
+    if (!isPlayingRef.current) return
+
+    pausedOffsetSecRef.current = getPosition()
+    stopCurrent()
+    isPlayingRef.current = false
+    setIsPlaying(false)
+  }, [getPosition, stopCurrent])
+
   const togglePlay = useCallback(() => {
     const ctx = ctxRef.current
     const buf = bufferRef.current
     if (!ctx || !buf) return
 
     if (isPlayingRef.current) {
-      const pos = getPosition()
-      pausedOffsetSecRef.current = pos
-      stopCurrent()
-      isPlayingRef.current = false
-      setIsPlaying(false)
-    } else {
-      ctx.resume().catch(() => {})
-      generationRef.current += 1 // bump so a stale onended can't fire after resume
-      playFromOffset(pausedOffsetSecRef.current)
+      pause()
+      return
     }
-  }, [getPosition, playFromOffset, stopCurrent])
+
+    ctx.resume().catch(() => {})
+    generationRef.current += 1 // bump so a stale onended can't fire after resume
+    playFromOffset(pausedOffsetSecRef.current)
+  }, [pause, playFromOffset])
 
   const seek = useCallback((seconds: number) => {
     const buf = bufferRef.current
@@ -384,6 +391,7 @@ export function use8dEngine(): EightDEngine {
     getCurrentGains,
     getSourcePos,
     togglePlay,
+    pause,
     seek,
     mixerVolumes,
     setMixerVolume,

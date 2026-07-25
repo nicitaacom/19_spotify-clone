@@ -9,6 +9,7 @@ import Button from "@/components/Button"
 import { postData } from "@/libs/helpers"
 import useDbBackupModal from "@/app/features/backup/useDbBackupModal"
 import StorageUsageBar from "@/components/StorageUsageBar"
+import useExclusivePlaybackPreference from "@/hooks/useExclusivePlaybackPreference"
 
 const AccountContent = () => {
   const router = useRouter()
@@ -16,6 +17,12 @@ const AccountContent = () => {
   const dbBackupModal = useDbBackupModal()
 
   const [loading, setLoading] = useState(false)
+  const exclusivePlaybackHasHydrated = useExclusivePlaybackPreference(state => state.hasHydrated)
+  const exclusivePlaybackEnabled = useExclusivePlaybackPreference(state =>
+    user ? (state.enabledByUserId[user.id] ?? false) : false,
+  )
+  const setExclusivePlaybackEnabled = useExclusivePlaybackPreference(state => state.setEnabled)
+  const isPusherConfigured = Boolean(process.env.NEXT_PUBLIC_PUSHER_APP_KEY)
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -26,7 +33,7 @@ const AccountContent = () => {
   const redirectToCustomerPortal = async () => {
     setLoading(true)
     try {
-      const { url, error } = await postData({
+      const { url } = await postData({
         url: "/api/create-portal-link",
       })
       window.location.assign(url)
@@ -58,6 +65,50 @@ const AccountContent = () => {
           <Button disabled={loading || isLoading} onClick={redirectToCustomerPortal} className="w-[300px]">
             Open customer portal
           </Button>
+        </div>
+      )}
+
+      {user && (
+        <div className="mt-8 flex flex-col gap-y-3 border-t border-white/10 pt-6">
+          <p className="text-sm font-semibold text-neutral-300">Playback</p>
+          <div className="flex max-w-2xl items-center justify-between gap-6 rounded-lg border border-white/10 bg-elevated/60 p-4">
+            <div className="flex flex-col gap-y-1">
+              <label htmlFor="exclusive-playback-toggle" className="text-sm font-medium text-white">
+                Stop music playing in other tabs
+              </label>
+              <p className="text-xs leading-5 text-neutral-400">
+                Starting audio in the player, Slow &amp; Reverb, or 8D Generator pauses playback in
+                every other open tab signed into this account.
+              </p>
+              <p className="text-xs text-neutral-500">
+                Saved permanently in this browser until you turn it off or clear site data.
+              </p>
+              {!isPusherConfigured && (
+                <p className="text-xs text-amber-400">
+                  Playback synchronization is unavailable until Pusher Channels is configured.
+                </p>
+              )}
+            </div>
+            <button
+              id="exclusive-playback-toggle"
+              type="button"
+              role="switch"
+              aria-checked={exclusivePlaybackEnabled}
+              aria-label="Stop music playing in other tabs"
+              disabled={!exclusivePlaybackHasHydrated || !isPusherConfigured}
+              onClick={() => setExclusivePlaybackEnabled(user.id, !exclusivePlaybackEnabled)}
+              className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
+                exclusivePlaybackEnabled
+                  ? "border-neon/60 bg-neon/30"
+                  : "border-white/15 bg-neutral-700"
+              } disabled:cursor-not-allowed disabled:opacity-50`}>
+              <span
+                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  exclusivePlaybackEnabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
         </div>
       )}
 

@@ -11,6 +11,7 @@ import getSongsByUserId from "@/actions/getSongsByUserId"
 import Player from "@/components/Player"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { createServerComponentClient } from "@/libs/supabaseServer"
+import { PlaybackSyncProvider } from "./providers/PlaybackSyncProvider"
 
 export const metadata = {
   title: "Spotify clone",
@@ -43,11 +44,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ToasterProvider />
         <SupabaseProvider>
           <UserProvider>
-            <ModalProvider />
-            <Sidebar songs={userSongs} isOwner={isOwner}>
-              {children}
-            </Sidebar>
-            <Player />
+            <PlaybackSyncProvider>
+              <ModalProvider />
+              <Sidebar songs={userSongs} isOwner={isOwner}>
+                {children}
+              </Sidebar>
+              <Player />
+            </PlaybackSyncProvider>
           </UserProvider>
         </SupabaseProvider>
       </body>

@@ -14,6 +14,7 @@ import AlbumArt from "./AlbumArt"
 import FullScreenDropOverlay from "./FullScreenDropOverlay"
 import { useDocumentDrag } from "../hooks/useDocumentDrag"
 import { formatTime } from "../lib/format"
+import { useExclusivePlaybackSource } from "@/app/providers/PlaybackSyncProvider"
 
 interface Preset {
   label: string
@@ -46,6 +47,7 @@ const SlowReverbEditor = () => {
     isPlaying,
     getPosition,
     togglePlay,
+    pause,
     seek,
     speed,
     setSpeed,
@@ -64,6 +66,11 @@ const SlowReverbEditor = () => {
     albumArtUrl,
     getKickLevel,
   } = engine
+
+  useExclusivePlaybackSource({
+    isPlaying,
+    onStop: pause,
+  })
 
   const { isDragging } = useDocumentDrag()
 
