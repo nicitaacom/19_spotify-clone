@@ -11,6 +11,9 @@ import PlaylistDetailContent from "../components/PlaylistDetailContent"
 
 export const revalidate = 0
 
+const DEFAULT_PLAYLIST_DESCRIPTION =
+  "Even if the original video is deleted from YouTube years later, the music saved in this playlist will stay here."
+
 interface PlaylistDetailPageProps {
   params: Promise<{
     slug: string
@@ -33,6 +36,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
   const canManage = session?.user?.id === playlist.user_id
   const coverUrl = getSupabasePublicUrl("images", playlist.cover_image_path) ?? "/images/liked.png"
   const authorName = playlist.author.full_name || playlist.author.username
+  const description = playlist.description?.trim() || DEFAULT_PLAYLIST_DESCRIPTION
 
   return (
     <div className="bg-surface rounded-lg w-full h-full overflow-x-hidden">
@@ -48,6 +52,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
                 <PlaylistVisibilityBadge visibility={playlist.visibility} />
               </div>
               <h1 className="text-4xl font-bold text-white sm:text-5xl lg:text-7xl">{playlist.title}</h1>
+              <p className="max-w-3xl text-sm leading-6 text-neutral-300 sm:text-base">{description}</p>
               <p className="text-sm text-neutral-200">
                 By {authorName} · {playlist.songs.length} songs
               </p>

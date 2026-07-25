@@ -201,8 +201,6 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
         <span className="text-sm text-neutral-400">Playlist by {playlist.author.full_name || playlist.author.username}</span>
       </div>
 
-      {playlist.description ? <p className="max-w-3xl text-sm text-neutral-300">{playlist.description}</p> : null}
-
       {canManage ? (
         <div className="rounded-lg border border-white/10 bg-elevated p-4">
           <div className="mb-4">
