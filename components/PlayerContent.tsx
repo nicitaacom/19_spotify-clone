@@ -22,6 +22,24 @@ interface PlayerContentProps {
   songUrl: string
 }
 
+interface HowlWithHtml5Nodes {
+  _sounds?: Array<{
+    _node?: unknown
+    _paused?: boolean
+  }>
+}
+
+const STALL_RECOVERY_DELAY_MS = 5_000
+const MAX_STALL_RECOVERY_ATTEMPTS = 3
+
+const getHtml5AudioNode = (sound: unknown) => {
+  const sounds = (sound as HowlWithHtml5Nodes | null)?._sounds
+  if (!sounds?.length) return null
+
+  const activeSound = sounds.find(candidate => !candidate._paused) ?? sounds[0]
+  return activeSound._node instanceof HTMLAudioElement ? activeSound._node : null
+}
+
 const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
   const {
     ids,
@@ -45,14 +63,140 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
 
   const { volume, setVolume } = useVolumeStore()
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isBuffering, setIsBuffering] = useState(false)
 
-  const Icon = isLoading ? AiOutlineLoading3Quarters : isPlaying ? BsPauseFill : BsPlayFill
+  const Icon = isLoading || isBuffering ? AiOutlineLoading3Quarters : isPlaying ? BsPauseFill : BsPlayFill
   const VolumeIcon = volume === 0 ? HiSpeakerXMark : HiSpeakerWave
   const RepeatIcon = repeatMode === "one" ? BsRepeat1 : BsRepeat
 
   // Ref so mediaSession seekto handler always has the latest Howl instance
   const soundRef = useRef<ReturnType<typeof useSound>[1]["sound"]>(null)
   const isPlayingRef = useRef(false) // used by onReplay
+  const isBufferingRef = useRef(false)
+  const isRecoveringRef = useRef(false)
+  const ignoredPauseEventsRef = useRef(0)
+  const recoveryAttemptsRef = useRef(0)
+  const recoveryTimerRef = useRef<number | null>(null)
+  const nativeAudioRef = useRef<HTMLAudioElement | null>(null)
+  const recoverStalledPlaybackRef = useRef<() => void>(() => {})
+
+  const clearRecoveryTimer = useCallback(() => {
+    if (recoveryTimerRef.current === null) return
+    window.clearTimeout(recoveryTimerRef.current)
+    recoveryTimerRef.current = null
+  }, [])
+
+  const markPlaybackHealthy = useCallback(() => {
+    clearRecoveryTimer()
+    isBufferingRef.current = false
+    isRecoveringRef.current = false
+    recoveryAttemptsRef.current = 0
+    setIsBuffering(false)
+  }, [clearRecoveryTimer])
+
+  const scheduleStallRecovery = useCallback(() => {
+    clearRecoveryTimer()
+    recoveryTimerRef.current = window.setTimeout(
+      () => recoverStalledPlaybackRef.current(),
+      STALL_RECOVERY_DELAY_MS,
+    )
+  }, [clearRecoveryTimer])
+
+  const markPlaybackStalled = useCallback(() => {
+    if (!isPlayingRef.current) return
+    if (isBufferingRef.current) return
+    isBufferingRef.current = true
+    setIsBuffering(true)
+    scheduleStallRecovery()
+  }, [scheduleStallRecovery])
+
+  const detachNativeAudioListeners = useCallback(() => {
+    const audio = nativeAudioRef.current
+    if (!audio) return
+    audio.removeEventListener("waiting", markPlaybackStalled)
+    audio.removeEventListener("stalled", markPlaybackStalled)
+    audio.removeEventListener("error", markPlaybackStalled)
+    audio.removeEventListener("playing", markPlaybackHealthy)
+    nativeAudioRef.current = null
+  }, [markPlaybackHealthy, markPlaybackStalled])
+
+  const bindNativeAudioListeners = useCallback(() => {
+    const audio = getHtml5AudioNode(soundRef.current)
+    if (!audio || nativeAudioRef.current === audio) return
+
+    detachNativeAudioListeners()
+    audio.addEventListener("waiting", markPlaybackStalled)
+    audio.addEventListener("stalled", markPlaybackStalled)
+    audio.addEventListener("error", markPlaybackStalled)
+    audio.addEventListener("playing", markPlaybackHealthy)
+    nativeAudioRef.current = audio
+  }, [detachNativeAudioListeners, markPlaybackHealthy, markPlaybackStalled])
+
+  const recoverStalledPlayback = useCallback(() => {
+    if (!isBufferingRef.current || !isPlayingRef.current) return
+    if (!navigator.onLine) {
+      scheduleStallRecovery()
+      return
+    }
+
+    const currentSound = soundRef.current
+    if (!currentSound) {
+      scheduleStallRecovery()
+      return
+    }
+
+    if (recoveryAttemptsRef.current >= MAX_STALL_RECOVERY_ATTEMPTS) {
+      clearRecoveryTimer()
+      isRecoveringRef.current = false
+      isBufferingRef.current = false
+      isPlayingRef.current = false
+      setIsBuffering(false)
+      setIsPlaying(false)
+      setIsPlayingInStore(false)
+      currentSound.pause()
+      toast.error("Playback stopped because the audio connection could not recover.")
+      return
+    }
+
+    recoveryAttemptsRef.current += 1
+    isRecoveringRef.current = true
+
+    // The first retry goes through Howler so its paused/seek state stays in sync. If that retry is
+    // already waiting for `canplaythrough`, only restart the native request on later attempts;
+    // asking Howler to play again while its play lock is active would stack queued play commands.
+    if (recoveryAttemptsRef.current > 1) {
+      getHtml5AudioNode(currentSound)?.load()
+      scheduleStallRecovery()
+      return
+    }
+
+    ignoredPauseEventsRef.current += 1
+
+    const currentPosition = currentSound.seek()
+    currentSound.pause()
+    if (typeof currentPosition === "number") currentSound.seek(currentPosition)
+    getHtml5AudioNode(currentSound)?.load()
+    currentSound.play()
+    window.setTimeout(bindNativeAudioListeners, 0)
+    scheduleStallRecovery()
+  }, [
+    bindNativeAudioListeners,
+    clearRecoveryTimer,
+    scheduleStallRecovery,
+    setIsPlayingInStore,
+  ])
+
+  useEffect(() => {
+    recoverStalledPlaybackRef.current = recoverStalledPlayback
+  }, [recoverStalledPlayback])
+
+  const cancelStalledPlayback = useCallback(() => {
+    markPlaybackHealthy()
+    isPlayingRef.current = false
+    setIsPlaying(false)
+    setIsPlayingInStore(false)
+    soundRef.current?.pause()
+  }, [markPlaybackHealthy, setIsPlayingInStore])
 
   const onPlayNext = useCallback(() => {
     if (ids.length === 0) return
@@ -126,29 +270,68 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
       isPlayingRef.current = true
       setIsPlayingInStore(true)
       setIsLoading(false)
+      window.setTimeout(bindNativeAudioListeners, 0)
     },
     onend: () => handleEndRef.current(),
     onpause: () => {
+      if (ignoredPauseEventsRef.current > 0) {
+        ignoredPauseEventsRef.current -= 1
+        return
+      }
       if (!isPlayingRef.current) return
+      markPlaybackHealthy()
       setIsPlaying(false)
       isPlayingRef.current = false
       setIsPlayingInStore(false)
     },
     onloaderror: (_id: number, err: unknown) => {
+      if (isPlayingRef.current || isRecoveringRef.current) {
+        console.warn("[player] recoverable media error for", songUrl, err)
+        markPlaybackStalled()
+        return
+      }
+      markPlaybackHealthy()
       console.error("[player] load error for", songUrl, err)
       toast.error("Failed to load audio. The file may be missing or unsupported.")
+      setIsPlaying(false)
+      isPlayingRef.current = false
       setIsPlayingInStore(false)
       setIsLoading(false)
     },
     onplayerror: (_id: number, err: unknown) => {
+      if (isRecoveringRef.current) {
+        console.warn("[player] recovery play error for", songUrl, err)
+        return
+      }
+      markPlaybackHealthy()
       console.error("[player] play error for", songUrl, err)
       toast.error("Playback error. Try again.")
+      setIsPlaying(false)
+      isPlayingRef.current = false
       setIsPlayingInStore(false)
       setIsLoading(false)
     },
   })
 
-  useEffect(() => { soundRef.current = sound ?? null }, [sound])
+  useEffect(() => {
+    soundRef.current = sound ?? null
+    bindNativeAudioListeners()
+  }, [bindNativeAudioListeners, sound])
+
+  useEffect(() => {
+    const handleOnline = () => {
+      if (!isBufferingRef.current) return
+      clearRecoveryTimer()
+      recoverStalledPlaybackRef.current()
+    }
+
+    window.addEventListener("online", handleOnline)
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      clearRecoveryTimer()
+      detachNativeAudioListeners()
+    }
+  }, [clearRecoveryTimer, detachNativeAudioListeners])
 
   // Single guarded entry point for starting/resuming playback.
   //
@@ -254,9 +437,22 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     if (activeId !== song.id || isLoading || playbackCommandId === 0) return
     if (playbackCommandId === lastPlaybackCommandId.current) return
     lastPlaybackCommandId.current = playbackCommandId
-    if (playbackCommand === "pause") { pause(); return }
+    if (playbackCommand === "pause") {
+      if (isBufferingRef.current) cancelStalledPlayback()
+      else pause()
+      return
+    }
     if (playbackCommand === "play") playSound()
-  }, [activeId, isLoading, pause, playSound, playbackCommand, playbackCommandId, song.id])
+  }, [
+    activeId,
+    cancelStalledPlayback,
+    isLoading,
+    pause,
+    playSound,
+    playbackCommand,
+    playbackCommandId,
+    song.id,
+  ])
 
   useEffect(() => {
     if (activeId !== song.id || !sound || seekId === 0 || seekValue === undefined) return
@@ -265,7 +461,11 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
   }, [activeId, seekId, seekValue, sound, song.id])
 
   const handlePlay = () => {
-    if (isLoading) return
+    if (isLoading && !isPlayingRef.current) return
+    if (isBufferingRef.current) {
+      cancelStalledPlayback()
+      return
+    }
     if (!isPlaying) playSound()
     else pause()
   }
@@ -300,7 +500,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
         <div
           onClick={handlePlay}
           className="h-10 w-10 flex items-center justify-center rounded-full bg-neon p-1 cursor-pointer shadow-neon-sm hover:bg-neon-strong hover:shadow-neon transition">
-          <Icon size={38} className={isLoading ? "animate-spin text-black" : "text-black"} />
+          <Icon size={38} className={isLoading || isBuffering ? "animate-spin text-black" : "text-black"} />
         </div>
       </div>
 
@@ -320,7 +520,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
         <div
           onClick={handlePlay}
           className="flex items-center justify-center h-10 w-10 rounded-full bg-neon p-1 cursor-pointer shadow-neon-sm hover:bg-neon-strong hover:shadow-neon transition">
-          <Icon size={38} className={isLoading ? "animate-spin text-black" : "text-black"} />
+          <Icon size={38} className={isLoading || isBuffering ? "animate-spin text-black" : "text-black"} />
         </div>
         <AiFillStepForward
           onClick={onPlayNext}
