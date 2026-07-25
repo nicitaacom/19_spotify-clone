@@ -2,3 +2,13 @@
 # https://opennext.js.org/cloudflare/caching#static-assets-caching
 /_next/static/*
   Cache-Control: public,max-age=31536000,immutable
+
+/sw.js
+  Cache-Control: no-cache
+  Service-Worker-Allowed: /
+
+/offline.html
+  Cache-Control: no-cache
+
+/online.txt
+  Cache-Control: no-store

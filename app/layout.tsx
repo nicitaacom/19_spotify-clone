@@ -12,6 +12,7 @@ import Player from "@/components/Player"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { PlaybackSyncProvider } from "./providers/PlaybackSyncProvider"
+import OfflineProvider from "./providers/OfflineProvider"
 
 export const metadata = {
   title: "Spotify clone",
@@ -42,6 +43,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           />
         ) : null}
         <ToasterProvider />
+        <OfflineProvider />
         <SupabaseProvider>
           <UserProvider>
             <PlaybackSyncProvider>
