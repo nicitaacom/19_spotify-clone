@@ -170,6 +170,21 @@ The progress bar is driven by a `setInterval` in `usePreloadNextTrack` polling `
 - If the interval stops (e.g. `isPlaying` goes false), progress freezes at the last polled value — this is intentional while paused
 - `setProgress(0)` is also called in `PlayerContent` when `sound` becomes null during re-init
 
+### Network stalls
+
+Howler does not expose the native HTML media `waiting` or `stalled` events. `PlayerContent`
+therefore attaches listeners to the HTML5 audio node owned by the Howl:
+
+- `waiting`, `stalled`, and media `error` switch the control to a buffering spinner
+- `playing` clears buffering as soon as media is flowing again
+- a five-second watchdog reloads the stream and retries from the exact current position without
+  creating a second audio node
+- an `online` event retries immediately after connectivity returns
+- after three failed retries playback is paused and the user gets an error instead of an
+  indefinitely stuck pause button/progress bar
+
+The buffering spinner remains clickable so the user can cancel recovery and pause.
+
 ## Keyboard shortcuts (Player.tsx)
 
 | Key | Action |
