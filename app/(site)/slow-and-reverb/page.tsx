@@ -31,8 +31,11 @@ export default function SlowAndReverb() {
           vizzy.io
         </Link>
         <br />
-        🚀 Done with speed in: ~1h 51m | hire me&nbsp;
-        <Link className="text-blue-400 hover:text-blue-500 duration-75" href="https://nicitaa.com" target="_blank">
+        🚀 Done with speed in: ~1h 51m | talk to me&nbsp;
+        <Link
+          className="text-blue-400 hover:text-blue-500 duration-75"
+          href="https://nicitaa.com/appointment"
+          target="_blank">
           here
         </Link>
       </p>
