@@ -18,6 +18,10 @@ declare global {
       TURNSTILE_SECRET_KEY: string
 
       OWNER_IDS_ARR: string
+
+      PUSHER_APP_ID: string
+      NEXT_PUBLIC_PUSHER_APP_KEY: string
+      PUSHER_SECRET: string
     }
   }
 
