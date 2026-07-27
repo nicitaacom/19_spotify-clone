@@ -47,3 +47,6 @@ Deploys via OpenNext (`@opennextjs/cloudflare`). Must be committed, not regenera
   ```
 
 Redeploy: `pnpm deploy` (local, needs `npx wrangler login`). Git push to `production` isn't reliably auto-deploying — use `pnpm deploy` instead.
+
+
+// TODO - I would like to index this page and do google ads (ask Mikke and put some my money to this so I can help people find better music use slow&reverb and 8d for free)
