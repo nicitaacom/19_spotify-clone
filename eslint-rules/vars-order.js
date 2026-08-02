@@ -85,8 +85,12 @@ function parseExampleNames(filePath) {
 // stripped first, so a commented-out declaration counts for nothing. A name written twice keeps its
 // first line number only - the order check compares positions, and the first one is the position
 // that reads.
-function parseDeclarations(filePath) {
-  const lines = readLines(filePath)
+//
+// The lines come from ESLint's own source text, never from a second fs.readFileSync of the same
+// file. An editor lints the buffer you are typing in, so reading the file from disk compared the
+// SAVED copy instead - type a variable into the wrong spot, see no warning until you save. Only
+// .env.example is read from disk, because ESLint never hands it over.
+function parseDeclarations(lines) {
   if (lines === null) return null
 
   const interfaceIndex = lines.findIndex(line => /\binterface\s+ProcessEnv\b/.test(line))
@@ -177,11 +181,10 @@ module.exports = {
       const repoRoot = findRepoRoot(filename)
       if (repoRoot === null || path.resolve(filename) !== path.join(repoRoot, "env.d.ts")) return {}
 
-      const exampleNames = parseExampleNames(path.join(repoRoot, ".env.example"))
-      const parsed = parseDeclarations(path.join(repoRoot, "env.d.ts"))
-      if (exampleNames === null || parsed === null) return {}
-
       const sourceCode = context.sourceCode ?? context.getSourceCode()
+      const exampleNames = parseExampleNames(path.join(repoRoot, ".env.example"))
+      const parsed = parseDeclarations(sourceCode.lines)
+      if (exampleNames === null || parsed === null) return {}
 
       return {
         Program() {
