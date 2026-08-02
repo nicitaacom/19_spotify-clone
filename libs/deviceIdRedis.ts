@@ -29,6 +29,10 @@ function getDeviceIdByUserIdKey(userId: string): string {
   return `utm:device-id:by-user-id:${userId}`
 }
 
+function getDeviceIdOwnerKey(deviceId: string): string {
+  return `utm:device-id:owner:${deviceId}`
+}
+
 function getDeviceIdByIpKey(ip: string): string {
   return `utm:device-id:by-ip:${ip}`
 }
@@ -51,6 +55,26 @@ export async function getRedisDeviceIdByUserId(userId: string): Promise<string |
 export async function setRedisDeviceIdByUserId(userId: string, deviceId: string): Promise<void> {
   const redis = getRedisClient()
   await redis.set(getDeviceIdByUserIdKey(userId), deviceId, { ex: USER_ID_TTL_SECONDS })
+}
+
+/**
+ * Which account claimed this deviceId, so one device belongs to one account. Two people signing in
+ * on the same shared browser both resolve the same deviceId - that is correct, the machine is one
+ * visitor - but only the account that got there first keeps a cross-device mapping to it. Without
+ * this, the second person's own phone would resolve the first person's deviceId through layer 0.
+ *
+ * Same 30 days as the account mapping, refreshed whenever the owner visits, so a device the owner
+ * stopped using becomes claimable by whoever actually uses it.
+ */
+export async function getRedisDeviceIdOwner(deviceId: string): Promise<string | null> {
+  const redis = getRedisClient()
+
+  return redis.get<string>(getDeviceIdOwnerKey(deviceId))
+}
+
+export async function setRedisDeviceIdOwner(deviceId: string, userId: string): Promise<void> {
+  const redis = getRedisClient()
+  await redis.set(getDeviceIdOwnerKey(deviceId), userId, { ex: USER_ID_TTL_SECONDS })
 }
 
 export async function getRedisDeviceIdByIp(ip: string): Promise<string | null> {

@@ -11,9 +11,11 @@ import {
   getRedisDeviceIdByFingerprint,
   getRedisDeviceIdByIp,
   getRedisDeviceIdByUserId,
+  getRedisDeviceIdOwner,
   setRedisDeviceIdByFingerprint,
   setRedisDeviceIdByIp,
   setRedisDeviceIdByUserId,
+  setRedisDeviceIdOwner,
 } from "@/libs/deviceIdRedis"
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
@@ -100,10 +102,24 @@ async function resolveDeviceIdFromFingerprint(fingerprint: string): Promise<stri
 }
 
 /**
- * Re-points every layer at the winning id: the account key (skipped for a signed-out visitor), the
- * IP key (skipped for an untrustworthy IP), the fingerprint key (skipped when no fingerprint was
- * sent, which is every layer 0-3 hit), and the cookie - re-set only when the existing one decrypts
- * to a different id.
+ * One device belongs to one account. Two people signing in on the same shared browser both resolve
+ * the same deviceId - correct, the machine is one visitor - but only the account that claimed it
+ * keeps a layer 0 mapping to it. Without this the second person's own phone would resolve the first
+ * person's deviceId, and hold it for 30 days.
+ */
+async function claimDeviceIdForAccount(userId: string, deviceId: string): Promise<void> {
+  const getRedisDeviceIdOwnerResp = await getRedisDeviceIdOwner(deviceId)
+  if (getRedisDeviceIdOwnerResp && getRedisDeviceIdOwnerResp !== userId) return
+
+  await setRedisDeviceIdOwner(deviceId, userId)
+  await setRedisDeviceIdByUserId(userId, deviceId)
+}
+
+/**
+ * Re-points every layer at the winning id: the account key (skipped for a signed-out visitor, and
+ * for a device another account already claimed), the IP key (skipped for an untrustworthy IP), the
+ * fingerprint key (skipped when no fingerprint was sent, which is every layer 0-3 hit), and the
+ * cookie - re-set only when the existing one decrypts to a different id.
  */
 async function syncDeviceIdLayers({
   deviceId,
@@ -113,7 +129,7 @@ async function syncDeviceIdLayers({
   fingerprint,
   visitorDayEnd,
 }: SyncDeviceIdLayersParams): Promise<void> {
-  if (userId) await setRedisDeviceIdByUserId(userId, deviceId)
+  if (userId) await claimDeviceIdForAccount(userId, deviceId)
   if (trustworthyIp) await setRedisDeviceIdByIp(trustworthyIp, deviceId, visitorDayEnd)
   if (fingerprint) await setRedisDeviceIdByFingerprint(fingerprint, deviceId)
   if (cookieDeviceId === deviceId) return
