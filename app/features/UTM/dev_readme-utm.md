@@ -44,7 +44,7 @@ disappearing from the address bar a moment after the page appears.
   BROWSER                                    SERVER (trackVisitAction)          REDIS / SUPABASE
   ─────────────────────────────────────      ────────────────────────────       ──────────────────────────────
 
-  layer 0  supabase session  ─────────────►  getSessionUserId ────────────────►  utm:device-id:by-user-id:<uuid>
+  layer 0  supabase session  ─────────────►  getSessionUserId ────────────────►  utm:19:device-id:by-user-id:<uuid>
            (read server-side, never sent)                │                        ex = 30 days
                                                          │
   layer 1  localStorage "deviceIdStore"  ──► storedDeviceId ─┐
@@ -52,13 +52,13 @@ disappearing from the address bar a moment after the page appears.
                                                              ├─ resolveDeviceIdBeforeFingerprint
   layer 2  cookie "19_did"  (httpOnly)  ───► decryptDeviceId ─┤
            aes-256-gcm(deviceId)                             │
-                                                             └─► redis.get ──►  utm:device-id:by-ip:<ip>
+                                                             └─► redis.get ──►  utm:19:device-id:by-ip:<ip>
   layer 3  request IP  (x-real-ip)  ───────► getRequestIp                        exat = midnight, visitor's tz
 
            ── all four missed → server answers { needsFingerprint: true } ──
 
   layer 4  computeFingerprint()  ──────────► resolveDeviceIdFromFingerprint
-           sha256 of machine signals              └─► redis.get ─────────────►  utm:device-id:by-fingerprint:<sha256>
+           sha256 of machine signals              └─► redis.get ─────────────►  utm:19:device-id:by-fingerprint:<sha256>
                                                                                  ex = 600 (10 min)
            still nothing → createDeviceId()
 
@@ -180,7 +180,7 @@ they are not what makes an id unforgeable. The keyed check is still the thing th
 
 ### Layer 0 — the signed-in account
 
-Redis `utm:device-id:by-user-id:<account uuid>` → deviceId, `ex` 30 days, refreshed on every visit.
+Redis `utm:19:device-id:by-user-id:<account uuid>` → deviceId, `ex` 30 days, refreshed on every visit.
 
 This layer goes **first** because it is the only exact signal here: the Supabase session already
 proved who this is, while localStorage, the cookie, the IP and the fingerprint each only suggest it.
@@ -196,7 +196,7 @@ else's uuid and write `utm_stats` rows under their identity.
 
 #### One device belongs to one account
 
-Redis `utm:device-id:owner:<deviceId>` → the account uuid that claimed it, same 30 days.
+Redis `utm:19:device-id:owner:<deviceId>` → the account uuid that claimed it, same 30 days.
 
 Layer 0 is written back on every signed-in visit, and that write is what needed a guard. Two people
 signing in on one shared laptop both resolve the **same** deviceId through layer 1 — which is right,
@@ -247,7 +247,7 @@ the edited value never reaches `utm_stats`.
 
 ### Layer 3 — IP
 
-Redis `utm:device-id:by-ip:<ip>` → deviceId, expiring at midnight in the visitor's timezone.
+Redis `utm:19:device-id:by-ip:<ip>` → deviceId, expiring at midnight in the visitor's timezone.
 
 `getRequestIp` reads `x-real-ip` then `x-forwarded-for`, both of which arrive with the request, so
 `isTrustworthyIp` refuses anything `net.isIP` will not parse — otherwise a hand-written
@@ -261,7 +261,7 @@ into one row is a smaller error than counting one visitor as a new person every 
 
 ### Layer 4 — fingerprint
 
-Redis `utm:device-id:by-fingerprint:<sha256>` → deviceId, TTL **600s**. The hash covers machine, OS
+Redis `utm:19:device-id:by-fingerprint:<sha256>` → deviceId, TTL **600s**. The hash covers machine, OS
 and display signals only:
 
 ```
@@ -428,6 +428,14 @@ rather than `23_store`'s serialized metadata, and the shared table's `created_at
 
 - **Against a reverse index of every device an account has used.** One owner per device answers the
   only question being asked — "may this account map itself to this device" — in one Redis read.
+
+- **Against unprefixed Redis keys.** Projects 14/19/23/28/29 are one group and share a single Upstash
+  database, the same way they share `utm_stats`. Every key here therefore starts `utm:19:device-id`.
+  Without the `19`, all five projects wrote the same `utm:device-id:by-ip:<ip>` — and because each
+  project mints ids under its own prefix, each one read a value `isValidDeviceId` refuses and
+  immediately overwrote it. Layers 0, 3 and 4 would have missed for every project on every visit.
+
+  Nothing to migrate: the old unprefixed keys are simply never read again and expire on their own.
 
 - **Against the 30-day account TTL being shorter.** An account is exact, so the link stays good for a
   month and is refreshed on every visit. The IP gets one visitor day and the fingerprint 10 minutes,
