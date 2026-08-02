@@ -25,7 +25,7 @@ const getSongsById = async (): Promise<Song[]> => {
     console.log(23, "getSongsById error - ", error.message)
   }
 
-  return (data as any) || []
+  return (data as Song[]) || []
 }
 
 export default getSongsById

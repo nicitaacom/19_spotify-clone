@@ -25,7 +25,7 @@ const getSongsByUserId = async (): Promise<Song[]> => {
     console.log(25, "select songs eq user_id error in getSongsByUserId - ", error.message)
   }
 
-  return (data as any) || []
+  return (data as Song[]) || []
 }
 
 export default getSongsByUserId
