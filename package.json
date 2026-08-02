@@ -8,6 +8,8 @@
     "dev": "next dev",
     "start": "next start",
     "lint": "eslint .",
+    "type-check": "tsc --noEmit",
+    "test:unit": "vitest run --project unit",
     "update-types": "pnpm exec supabase gen types typescript --project-id eqhntdpwtnhqzcnpxegh > app/interfaces/types_db.ts",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
@@ -29,6 +31,7 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@types/uniqid": "^5.3.3",
+    "@upstash/redis": "^1.38.1",
     "autoprefixer": "10.4.14",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.7",
@@ -56,6 +59,7 @@
   "devDependencies": {
     "@opennextjs/cloudflare": "1.20.1",
     "supabase": "^1.106.1",
+    "vitest": "4.1.10",
     "wrangler": "4.107.1"
   }
 }
