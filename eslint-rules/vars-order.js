@@ -132,6 +132,15 @@ function findRepoRoot(filename) {
   return null
 }
 
+// Every report spans a whole line, start column 0 to the last character. Passing a single
+// { line, column } position makes an editor underline ONE character - the squiggle is there, but it
+// is a speck at the start of the line and reads as nothing at all.
+function getLineLoc(sourceCode, line) {
+  const text = sourceCode.lines[line - 1] ?? ""
+
+  return { start: { line, column: 0 }, end: { line, column: text.length } }
+}
+
 // The line a new declaration goes after: the nearest name ABOVE it in .env.example that is already
 // declared, so the added line lands where .env.example already puts it. When nothing above it is
 // declared yet, it goes directly under the `interface ProcessEnv {` line.
@@ -190,7 +199,7 @@ module.exports = {
         Program() {
           const lineByName = new Map(parsed.declarations.map(declaration => [declaration.name, declaration.line]))
           const exampleNameSet = new Set(exampleNames)
-          const interfaceLoc = { line: parsed.interfaceLine, column: 0 }
+          const interfaceLoc = getLineLoc(sourceCode, parsed.interfaceLine)
           const indent = parsed.declarations[0]?.indent || FALLBACK_INDENT
 
           for (const name of exampleNames) {
@@ -201,7 +210,7 @@ module.exports = {
             const anchorEnd = sourceCode.getIndexFromLoc({ line: anchorLine, column: anchorText.length })
 
             context.report({
-              loc: { line: anchorLine, column: 0 },
+              loc: getLineLoc(sourceCode, anchorLine),
               messageId: "missingDeclaration",
               data: { name },
               fix: fixer => fixer.insertTextAfterRange([anchorEnd, anchorEnd], `\n${indent}${name}: string`),
@@ -211,7 +220,7 @@ module.exports = {
           for (const declaration of parsed.declarations) {
             if (exampleNameSet.has(declaration.name)) continue
             context.report({
-              loc: { line: declaration.line, column: 0 },
+              loc: getLineLoc(sourceCode, declaration.line),
               messageId: "extraDeclaration",
               data: { name: declaration.name },
             })
@@ -242,7 +251,7 @@ module.exports = {
 
             const previousName = sharedFromExample[exampleIndex - 1]
             context.report({
-              loc: { line: declaration.line, column: 0 },
+              loc: getLineLoc(sourceCode, declaration.line),
               messageId: previousName ? "wrongOrder" : "wrongOrderFirst",
               data: { name: declaration.name, previousName: previousName ?? "" },
             })
