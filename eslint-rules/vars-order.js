@@ -14,15 +14,22 @@ const path = require("path")
 // and keeps .env.example itself grouped: the site URL variables, then Supabase, then Redis/Upstash,
 // then AWS, then Pusher, then the rest.
 //
-// Bad (.env.example lists it, env.d.ts has no declaration):
-//   .env.example   MY_IP=
-//   env.d.ts       -
-// Good:
-//   .env.example   MY_IP=
-//   env.d.ts       MY_IP: string
+// The two directions of drift are treated differently on purpose:
 //
-// The report always lands on env.d.ts - that is the file a developer edits to fix three of the four
-// checks, and firing on Program of that one file reports once per lint run instead of once per
+//   .env.example holds a name env.d.ts is missing  ->  fixed automatically. .env.example is the
+//                                                      source of truth, so the declaration is added
+//                                                      in the spot .env.example already gives it.
+//                                                      `pnpm lint --fix` settles it with no
+//                                                      decision from anyone.
+//
+//   env.d.ts holds a name .env.example is missing  ->  reported, never fixed. Only the owner knows
+//                                                      whether that variable is still in use: it
+//                                                      either belongs in .env.example, or the
+//                                                      declaration is left over and should go. The
+//                                                      message asks which.
+//
+// The report always lands on env.d.ts - that is the file a developer edits to settle three of the
+// four checks, and firing on Program of that one file reports once per lint run instead of once per
 // source file in the repo.
 
 // The order .env.example itself must run in. Rank 0 sits highest in the file, rank 5 lowest. A site
@@ -44,6 +51,7 @@ const GROUPS = [
 ]
 
 const OTHER_GROUP = { rank: 5, label: "everything else" }
+const FALLBACK_INDENT = "      "
 
 function getGroup(name) {
   return GROUPS.find(group => group.matches(name)) ?? OTHER_GROUP
@@ -94,10 +102,10 @@ function parseDeclarations(filePath) {
       depth -= 1
       if (depth <= 0) break
     }
-    const match = /^\s*([A-Za-z_$][\w$]*)\s*\??\s*:/.exec(withoutComment)
-    if (match && !alreadySeen.has(match[1])) {
-      alreadySeen.add(match[1])
-      declarations.push({ name: match[1], line: index + 1 })
+    const match = /^(\s*)([A-Za-z_$][\w$]*)\s*\??\s*:/.exec(withoutComment)
+    if (match && !alreadySeen.has(match[2])) {
+      alreadySeen.add(match[2])
+      declarations.push({ name: match[2], line: index + 1, indent: match[1] })
     }
   }
   return { declarations, interfaceLine: interfaceIndex + 1 }
@@ -120,10 +128,22 @@ function findRepoRoot(filename) {
   return null
 }
 
+// The line a new declaration goes after: the nearest name ABOVE it in .env.example that is already
+// declared, so the added line lands where .env.example already puts it. When nothing above it is
+// declared yet, it goes directly under the `interface ProcessEnv {` line.
+function findAnchorLine(missingName, exampleNames, lineByName, interfaceLine) {
+  for (let index = exampleNames.indexOf(missingName) - 1; index >= 0; index--) {
+    const previousLine = lineByName.get(exampleNames[index])
+    if (previousLine !== undefined) return previousLine
+  }
+  return interfaceLine
+}
+
 module.exports = {
   "envs-order": {
     meta: {
       type: "suggestion",
+      fixable: "code",
       docs: {
         description:
           "keep env.d.ts listing the same variables in the same order as .env.example, and keep .env.example " +
@@ -131,10 +151,13 @@ module.exports = {
       },
       schema: [],
       messages: {
-        missingDeclaration: '.env.example lists "{{name}}" but ProcessEnv has no declaration for it - add "{{name}}: string".',
+        missingDeclaration:
+          '.env.example lists "{{name}}" and ProcessEnv has no declaration for it - run `pnpm lint --fix` and ' +
+          '"{{name}}: string" is written into the spot .env.example already gives it.',
         extraDeclaration:
-          'ProcessEnv declares "{{name}}" but .env.example has no line for it - add a "{{name}}=" line there ' +
-          "so the example file stays complete.",
+          'ProcessEnv declares "{{name}}" and .env.example has no line for it. Two ways to settle it, and only ' +
+          'the owner knows which: add a "{{name}}=" line to .env.example if the app still reads this variable, ' +
+          "or delete the declaration from env.d.ts if it is left over. Never fixed automatically, for that reason.",
         wrongOrderFirst:
           '"{{name}}" should be the first declaration in ProcessEnv - .env.example lists it first, and both ' +
           "files must run in the same order.",
@@ -158,14 +181,28 @@ module.exports = {
       const parsed = parseDeclarations(path.join(repoRoot, "env.d.ts"))
       if (exampleNames === null || parsed === null) return {}
 
+      const sourceCode = context.sourceCode ?? context.getSourceCode()
+
       return {
         Program() {
           const lineByName = new Map(parsed.declarations.map(declaration => [declaration.name, declaration.line]))
           const exampleNameSet = new Set(exampleNames)
           const interfaceLoc = { line: parsed.interfaceLine, column: 0 }
+          const indent = parsed.declarations[0]?.indent || FALLBACK_INDENT
 
           for (const name of exampleNames) {
-            if (!lineByName.has(name)) context.report({ loc: interfaceLoc, messageId: "missingDeclaration", data: { name } })
+            if (lineByName.has(name)) continue
+
+            const anchorLine = findAnchorLine(name, exampleNames, lineByName, parsed.interfaceLine)
+            const anchorText = sourceCode.lines[anchorLine - 1] ?? ""
+            const anchorEnd = sourceCode.getIndexFromLoc({ line: anchorLine, column: anchorText.length })
+
+            context.report({
+              loc: { line: anchorLine, column: 0 },
+              messageId: "missingDeclaration",
+              data: { name },
+              fix: fixer => fixer.insertTextAfterRange([anchorEnd, anchorEnd], `\n${indent}${name}: string`),
+            })
           }
 
           for (const declaration of parsed.declarations) {
