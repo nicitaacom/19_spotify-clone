@@ -50,6 +50,9 @@ export const useVerifyHuman = (
     }
 
     let isCancelled = false
+    // copied here so the cleanup below clears the element this effect actually rendered into, rather
+    // than whatever turnstileRef points at by the time the cleanup runs
+    const turnstileElement = turnstileRef.current
 
     const renderTurnstileFn = () => {
       if (isCancelled || !turnstileRef.current || !window.turnstile || widgetIdRef.current) {
@@ -91,8 +94,8 @@ export const useVerifyHuman = (
         widgetIdRef.current = null
       }
 
-      if (turnstileRef.current) {
-        turnstileRef.current.innerHTML = ""
+      if (turnstileElement) {
+        turnstileElement.innerHTML = ""
       }
 
       clearVerificationFn()
