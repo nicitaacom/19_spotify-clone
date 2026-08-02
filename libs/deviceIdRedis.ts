@@ -3,9 +3,10 @@ import { Redis } from "@upstash/redis"
 /**
  * Layers 0, 3 and 4 of the visitor identity:
  *
- *   utm:device-id:by-user-id:<account uuid>  -> deviceId, expiring 30 days after the last visit
- *   utm:device-id:by-ip:<ip>                 -> deviceId, expiring at midnight in the visitor's timezone
- *   utm:device-id:by-fingerprint:<sha256>    -> deviceId, expiring 10 minutes after it was written
+ *   utm:19:device-id:by-user-id:<account uuid>  -> deviceId, expiring 30 days after the last visit
+ *   utm:19:device-id:owner:<deviceId>           -> account uuid, same 30 days
+ *   utm:19:device-id:by-ip:<ip>                 -> deviceId, expiring at midnight in the visitor's timezone
+ *   utm:19:device-id:by-fingerprint:<sha256>    -> deviceId, expiring 10 minutes after it was written
  *
  * Each expiry matches how much the key proves. A signed-in account is exact - the session says who
  * this is, so the link stays good for a month and is refreshed on every visit. An address is weaker
@@ -13,7 +14,13 @@ import { Redis } from "@upstash/redis"
  * probability - a different browser on similar hardware tells the server nothing definite - so 10
  * minutes means a coincidental match bridges one short session rather than claiming someone else's
  * deviceId for the rest of the day.
+ *
+ * `19` is in every key because projects 14/19/23/28/29 share one Upstash database. Without it all
+ * five write the same `utm:device-id:by-ip:<ip>`, and since each project mints ids under its own
+ * prefix, every project reads a value `isValidDeviceId` refuses and immediately overwrites it - so
+ * layers 0, 3 and 4 would miss for everyone, every time.
  */
+const PROJECT_KEY_PREFIX = "utm:19:device-id"
 const USER_ID_TTL_SECONDS = 60 * 60 * 24 * 30
 const FINGERPRINT_TTL_SECONDS = 600
 const FINGERPRINT_PATTERN = /^[0-9a-f]{64}$/
@@ -26,19 +33,19 @@ function getRedisClient(): Redis {
 }
 
 function getDeviceIdByUserIdKey(userId: string): string {
-  return `utm:device-id:by-user-id:${userId}`
+  return `${PROJECT_KEY_PREFIX}:by-user-id:${userId}`
 }
 
 function getDeviceIdOwnerKey(deviceId: string): string {
-  return `utm:device-id:owner:${deviceId}`
+  return `${PROJECT_KEY_PREFIX}:owner:${deviceId}`
 }
 
 function getDeviceIdByIpKey(ip: string): string {
-  return `utm:device-id:by-ip:${ip}`
+  return `${PROJECT_KEY_PREFIX}:by-ip:${ip}`
 }
 
 function getDeviceIdByFingerprintKey(fingerprint: string): string {
-  return `utm:device-id:by-fingerprint:${fingerprint}`
+  return `${PROJECT_KEY_PREFIX}:by-fingerprint:${fingerprint}`
 }
 
 /**
