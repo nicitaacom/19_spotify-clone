@@ -28,7 +28,8 @@ const FINGERPRINT_PATTERN = /^[0-9a-f]{64}$/
 let redisClient: Redis | null = null
 
 function getRedisClient(): Redis {
-  if (!redisClient) redisClient = Redis.fromEnv()
+  if (!redisClient)
+    redisClient = new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
   return redisClient
 }
 
