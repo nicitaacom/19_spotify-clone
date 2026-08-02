@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 
-import { Database } from "@/app/interfaces/types_db"
 import { upsertSpotifyUserFn } from "@/app/auth/callback/functions/upsertSpotifyUserFn"
 import { createRouteHandlerClient } from "@/libs/supabaseServer"
 import { checkAuthRateLimit } from "@/libs/authRateLimit"
@@ -16,7 +15,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const supabase = await createRouteHandlerClient<Database>()
+    const supabase = await createRouteHandlerClient()
     const { provider = "credentials" } = ((await request.json().catch(() => ({}))) as { provider?: string }) ?? {}
     const {
       data: { user },

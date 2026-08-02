@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect } from "react"
 import { useSessionContext, useSupabaseClient } from "@supabase/auth-helpers-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
@@ -12,8 +12,6 @@ import { MdOutlineErrorOutline } from "react-icons/md"
 import useAuthModal from "@/hooks/useAuthModal"
 import { useAuthStore } from "@/hooks/useAuthStore"
 import { getURL } from "@/app/utils/getURL"
-import { useVerifyHuman } from "@/hooks/useVerifyHuman"
-import { verifyTurnstileTokenFn } from "@/app/utils/verifyTurnstileToken"
 
 import Modal from "./Modal"
 import Button from "./Button"
@@ -23,11 +21,12 @@ import { AuthModeButton } from "./auth/form/AuthModeButton"
 import { LoginForm } from "./auth/form/LoginForm"
 import { RegisterForm } from "./auth/form/RegisterForm"
 import { RecoveryForm } from "./auth/form/RecoveryForm"
-import TurnstileChallenge from "./turnstile/TurnstileChallenge"
 import { AuthFormProps, SupabaseClient } from "./auth/form/types"
 
-const IS_PROD = process.env.NODE_ENV === "production"
-const isHumanGateEnabled = IS_PROD && Boolean(process.env.NEXT_PUBLIC_CLOUDFLARE_SITE_KEY)
+// The Turnstile gate is off here on purpose - `formProps` below passes isHumanGateEnabled: false and
+// ensureHumanVerifiedFn returns true. `hooks/useVerifyHuman.ts`,
+// `app/utils/verifyTurnstileToken.ts` and `components/turnstile/TurnstileChallenge.tsx` are what to
+// wire back up when it is turned on again.
 
 const statusStyles = {
   error: "border-rose-400/20 bg-rose-400/10 text-rose-100",

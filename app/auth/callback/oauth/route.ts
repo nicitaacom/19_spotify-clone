@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 
-import { Database } from "@/app/interfaces/types_db"
 import { createRouteHandlerClient } from "@/libs/supabaseServer"
 import { upsertSpotifyUserFn } from "../functions/upsertSpotifyUserFn"
 
@@ -29,7 +28,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const supabase = await createRouteHandlerClient<Database>()
+    const supabase = await createRouteHandlerClient()
     const {
       data: { user },
       error,

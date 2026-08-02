@@ -43,6 +43,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassNam
         .eq("song_id", songId)
         .maybeSingle()
 
+      if (error) console.log("select liked song error in LikeButton - ", error.message)
       if (data) {
         setIsLiked(true)
       }
