@@ -309,31 +309,28 @@ of asking a second time.
 
 ## 4. Tests
 
-`pnpm test:unit` — vitest "unit" project, node environment, config in
-[vitest.config.mts](../../../vitest.config.mts).
+**This project has no test runner, on purpose** — Nikita's call: no vitest, no cypress, nothing.
 
-**169 tests over 7 files.** They exercise the real crypto, the real IP parsing and the real timezone
-arithmetic; only Supabase, Redis and `next/headers` are replaced with recorders. Every test file
-hardcodes a throwaway fixture key, never the deployed one.
+The identity code is covered where the same files live under a runner:
 
-| File                                                                     | Covers                                                                     |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| [deviceId.test.ts](../../utils/deviceId.test.ts)                          | minting, the keyed check, 17 refusal cases, the transport form round trip   |
-| [deviceIdKeys.test.ts](../../utils/deviceIdKeys.test.ts)                  | key length/hex validation, the missing-env message, signing key derivation  |
-| [deviceIdCookie.test.ts](../../utils/deviceIdCookie.test.ts)              | round trip, a flipped bit in iv / auth tag / ciphertext, another key        |
-| [requestIp.test.ts](../../utils/requestIp.test.ts)                        | header order, forwarded chains, every private range, unparseable values     |
-| [visitorDayBounds.test.ts](../../utils/visitorDayBounds.test.ts)          | 6 timezones incl. 30/45-minute offsets, unknown zones, both clock changes   |
-| [deviceIdRedis.test.ts](../../../libs/deviceIdRedis.test.ts)              | all three key shapes, `ex 30d` / `exat` / `ex 600`, 9 refused values        |
-| [trackVisitAction.test.ts](../../actions/trackVisitAction.test.ts)        | layer 0-4 order, phase 1 writing nothing, dedup, cookie flags, the columns  |
+| Where                         | What runs                                                     |
+| ----------------------------- | ------------------------------------------------------------- |
+| `23_store` — `pnpm test:unit` | 167 tests over 7 files, vitest "unit" project                  |
+
+`23_store`'s `app/utils/deviceId.ts`, `deviceIdKeys.ts`, `deviceIdCookie.ts`, `requestIp.ts`,
+`visitorDayBounds.ts` and `app/libs/deviceIdRedis.ts` are this project's files apart from the `23-`
+prefix and the `23_did` cookie name, so the crypto, the keyed check, the transport form, the IP
+refusals, the visitor-day arithmetic and the three Redis key shapes are all exercised there.
+
+**What is NOT covered anywhere:** this project's own column mapping in
+[trackVisitAction.ts](../../actions/trackVisitAction.ts) — `source` / `medium` / `campaign` / `url`
+rather than `23_store`'s serialized metadata, and the shared table's `created_at` dedup. Change
+`insertDBUTMVisitAction` carefully; nothing will catch a wrong column name.
 
 ### What has actually been run
 
-```
- Test Files  7 passed (7)
-      Tests  169 passed (169)
-```
-
-- ✅ `pnpm test:unit` — 169 passed
+- ✅ the 7-file suite was written against this project's code and ran green here (169 passed) before
+  the runner was taken back out, so the port itself was verified — the files simply do not stay here
 - ✅ `pnpm type-check` — clean, no output
 - ✅ `pnpm lint` on every file this feature touches — exit 0, zero problems
 - ✅ `pnpm lint` repo-wide reports **0 warnings**. Two fixes got it there, both outside this feature:
@@ -425,13 +422,8 @@ hardcodes a throwaway fixture key, never the deployed one.
 - [ ] 🚨 Nikita — set `DEVICE_ID_ENCRYPTION_KEY`, `UPSTASH_REDIS_REST_URL` and
       `UPSTASH_REDIS_REST_TOKEN` in `.env.local` and in the Cloudflare environment. Until then no
       visit resolves an id and no `utm_stats` row is written. Every page still renders.
-- [ ] Clear the 55 pre-existing lint errors in the 34 files listed by `pnpm lint` — unrelated to this
-      feature. 30 are `no-explicit-any` in the backup/webhook/stripe route files (real typing work);
-      16 are `react-hooks/set-state-in-effect`, the `isMounted` mount-guard pattern in modals and
-      hooks, which changes component behaviour and wants the app running to verify. The remaining ~9
-      are mechanical.
-- [ ] Decide whether an e2e spec is worth adding here. `23_store` has one
-      (`cypress/e2e/utm-visit-tracking.cy.ts`, 9 scenarios); this project has no e2e runner set up.
-      Note for whoever adds it: every test on one machine shares a fingerprint, so layer 4 hands them
-      all the same deviceId and the once-per-day dedup then refuses the row a later test wants — give
-      each test an empty day rather than resetting Redis.
+- [ ] Clear the 42 remaining lint errors listed by `pnpm lint` — all predating this feature.
+      26 are `no-explicit-any`, 6 of those only `catch (error: any)`; the rest sit in the backup SDK
+      and the stripe / webhook routes and want real typing.
+      16 are `react-hooks/set-state-in-effect` — the mount-guard pattern in modals and hooks, which
+      changes component behaviour and wants the app running to verify.
