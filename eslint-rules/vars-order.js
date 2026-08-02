@@ -141,6 +141,37 @@ function getLineLoc(sourceCode, line) {
   return { start: { line, column: 0 }, end: { line, column: text.length } }
 }
 
+// A declaration with its own comment above it is left for a person to move by hand - shifting the
+// declaration line alone would leave the comment stranded on a variable it no longer describes.
+function isMovableLine(sourceCode, line) {
+  const above = (sourceCode.lines[line - 2] ?? "").trim()
+
+  return !above.startsWith("//") && !above.startsWith("*") && !above.startsWith("/*")
+}
+
+// Cuts one declaration line out and re-inserts it after another line. Both ranges are indices into
+// the ORIGINAL text, which is what ESLint applies fixes against, so the remove and the insert never
+// shift each other. Only one move is attached per pass: two declarations landing on the same anchor
+// in a single pass would fight, and ESLint re-runs the rule after each pass until it settles.
+function buildMoveFix(fixer, sourceCode, fromLine, afterLine) {
+  const lineText = sourceCode.lines[fromLine - 1]
+  const removeStart = sourceCode.getIndexFromLoc({ line: fromLine, column: 0 })
+
+  // Taking the line out from between two blank lines would leave the two of them touching, so one
+  // blank line goes with it and the spacing around the group it left stays as it was.
+  const isAboveBlank = (sourceCode.lines[fromLine - 2] ?? "x").trim() === ""
+  const isBelowBlank = (sourceCode.lines[fromLine] ?? "x").trim() === ""
+  const lineAfterRemoval = isAboveBlank && isBelowBlank ? fromLine + 2 : fromLine + 1
+  const removeEnd =
+    lineAfterRemoval <= sourceCode.lines.length
+      ? sourceCode.getIndexFromLoc({ line: lineAfterRemoval, column: 0 })
+      : removeStart + lineText.length
+  const anchorText = sourceCode.lines[afterLine - 1] ?? ""
+  const insertAt = sourceCode.getIndexFromLoc({ line: afterLine, column: anchorText.length })
+
+  return [fixer.removeRange([removeStart, removeEnd]), fixer.insertTextAfterRange([insertAt, insertAt], `\n${lineText}`)]
+}
+
 // The line a new declaration goes after: the nearest name ABOVE it in .env.example that is already
 // declared, so the added line lands where .env.example already puts it. When nothing above it is
 // declared yet, it goes directly under the `interface ProcessEnv {` line.
@@ -244,16 +275,22 @@ module.exports = {
             smallestAhead[index] = Math.min(smallestAhead[index + 1], nextExampleIndex)
           }
 
+          let hasMoveFix = false
           for (let index = 0; index < sharedDeclarations.length; index++) {
             const declaration = sharedDeclarations[index]
             const exampleIndex = exampleIndexByName.get(declaration.name)
             if (exampleIndex <= smallestAhead[index]) continue
 
             const previousName = sharedFromExample[exampleIndex - 1]
+            const anchorLine = previousName ? lineByName.get(previousName) : parsed.interfaceLine
+            const isFixable = !hasMoveFix && anchorLine !== undefined && isMovableLine(sourceCode, declaration.line)
+            if (isFixable) hasMoveFix = true
+
             context.report({
               loc: getLineLoc(sourceCode, declaration.line),
               messageId: previousName ? "wrongOrder" : "wrongOrderFirst",
               data: { name: declaration.name, previousName: previousName ?? "" },
+              fix: isFixable ? fixer => buildMoveFix(fixer, sourceCode, declaration.line, anchorLine) : undefined,
             })
           }
 
