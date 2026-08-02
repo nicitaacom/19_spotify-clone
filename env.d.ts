@@ -7,7 +7,6 @@ declare global {
       NEXT_PUBLIC_SUPABASE_ANON_KEY: string
       SUPABASE_SERVICE_ROLE_KEY: string
 
-      // layers 3 and 4 of the visitor identity - see app/features/UTM/dev_readme-utm.md
       UPSTASH_REDIS_REST_URL: string
       UPSTASH_REDIS_REST_TOKEN: string
       UPSTASH_REDIS_URL: string
@@ -28,8 +27,6 @@ declare global {
 
       OWNER_IDS_ARR: string
 
-      // 64 hex characters (32 bytes), `openssl rand -hex 32` - encrypts the 19_did cookie and
-      // derives the deviceId signing key. Without it no visit resolves an id and no row is written.
       DEVICE_ID_ENCRYPTION_KEY: string
     }
   }
