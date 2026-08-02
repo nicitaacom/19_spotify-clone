@@ -45,7 +45,9 @@ export function useDbBackup() {
   // progress event. Marks stall detection so a genuinely stuck operation is distinguishable from a
   // slow-but-alive one.
   const [isStalled, setIsStalled] = useState(false)
-  const lastProgressRef = useRef(Date.now())
+  // stamped when an operation starts, not at mount - reading Date.now() during render also made a
+  // page that sat idle before the first click report "stalled" on the ticker's very first tick
+  const lastProgressRef = useRef(0)
   const bumpProgress = () => {
     lastProgressRef.current = Date.now()
     setIsStalled(false)
@@ -71,6 +73,7 @@ export function useDbBackup() {
       setIsStalled(false)
       return
     }
+    lastProgressRef.current = Date.now()
     const timer = setInterval(() => {
       setIsStalled(Date.now() - lastProgressRef.current > STALL_THRESHOLD_MS)
     }, 1000)

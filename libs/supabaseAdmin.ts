@@ -72,7 +72,7 @@ const copyBillingDetailsToCustomer = async (uuid: string, payment_method: Stripe
   const customer = payment_method.customer as string
   const { name, phone, address } = payment_method.billing_details
   if (!name || !phone || !address) return
-  //@ts-ignore
+  // @ts-expect-error -- billing_details.address allows null members, Stripe's AddressParam does not
   await stripe.customers.update(customer, { name, phone, address })
   const { error } = await supabaseAdmin
     .from("19_users")
@@ -103,11 +103,11 @@ const manageSubscriptionStatusChange = async (subscriptionId: string, customerId
     id: subscription.id,
     user_id: uuid,
     metadata: subscription.metadata,
-    // @ts-ignore
+    // @ts-expect-error -- Stripe's status union is wider than the 19_subscriptions enum column
     status: subscription.status,
     price_id: subscription.items.data[0].price.id,
     //TODO check quantity on subscription
-    // @ts-ignore
+    // @ts-expect-error -- quantity moved onto the subscription items in the Stripe API this SDK targets
     quantity: subscription.quantity,
     cancel_at_period_end: subscription.cancel_at_period_end,
     cancel_at: subscription.cancel_at ? toDateTime(subscription.cancel_at).toISOString() : null,
@@ -127,7 +127,6 @@ const manageSubscriptionStatusChange = async (subscriptionId: string, customerId
   // For a new subscription copy the billing details to the customer object.
   // NOTE: This is a costly operation and should happen at the very end.
   if (createAction && subscription.default_payment_method && uuid)
-    //@ts-ignore
     await copyBillingDetailsToCustomer(uuid, subscription.default_payment_method as Stripe.PaymentMethod)
 }
 

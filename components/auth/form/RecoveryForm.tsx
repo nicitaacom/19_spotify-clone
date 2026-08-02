@@ -53,7 +53,7 @@ export function RecoveryForm({
     <form className="space-y-3" onSubmit={handleSubmit}>
       <InputEmail />
       <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-xs leading-5 text-white/60">
-        We'll send a recovery email to this address.
+        We&apos;ll send a recovery email to this address.
       </div>
       <SubmitFormButton isActionBlocked={isActionBlocked} />
       <button

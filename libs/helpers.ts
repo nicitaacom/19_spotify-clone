@@ -20,9 +20,9 @@ export const postData = async ({ url, data }: { url: string; data?: { price: Pri
 }
 
 export const toDateTime = (secs: number) => {
-  var t = new Date("1970-01-01T00:30:00Z")
-  t.setSeconds(secs)
-  return t
+  const dateTime = new Date("1970-01-01T00:30:00Z")
+  dateTime.setSeconds(secs)
+  return dateTime
 }
 
 const CYRILLIC_TO_LATIN_MAP: Record<string, string> = {
