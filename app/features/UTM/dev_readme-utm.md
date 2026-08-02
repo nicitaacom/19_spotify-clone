@@ -336,8 +336,13 @@ hardcodes a throwaway fixture key, never the deployed one.
 - ✅ `pnpm test:unit` — 169 passed
 - ✅ `pnpm type-check` — clean, no output
 - ✅ `pnpm lint` on every file this feature touches — exit 0, zero problems
-- ⚠️ `pnpm lint` repo-wide still reports 55 errors + 11 warnings across 34 **other** files. All of
-  them predate this work (`no-explicit-any`, `react-hooks/set-state-in-effect`, `ban-ts-comment`) —
+- ✅ `pnpm lint` repo-wide reports **0 warnings**. Two fixes got it there, both outside this feature:
+  `.open-next/**` added to `globalIgnores` (the Cloudflare build output was 23057 of the 23123
+  problems), and the 11 real warnings cleared — see `chore: eslint no-unused-vars` and
+  `chore: eslint exhaustive-deps`.
+- ⚠️ `pnpm lint` still reports **55 errors** across 34 **other** files, all predating this work:
+  30 `no-explicit-any`, 16 `react-hooks/set-state-in-effect`, 4 `ban-ts-comment`,
+  2 `no-empty-object-type`, plus `react-hooks/purity`, `no-unescaped-entities` and `no-var` —
   see the TODO.
 
 <br/>
@@ -421,7 +426,10 @@ hardcodes a throwaway fixture key, never the deployed one.
       `UPSTASH_REDIS_REST_TOKEN` in `.env.local` and in the Cloudflare environment. Until then no
       visit resolves an id and no `utm_stats` row is written. Every page still renders.
 - [ ] Clear the 55 pre-existing lint errors in the 34 files listed by `pnpm lint` — unrelated to this
-      feature, and 30 of them are `no-explicit-any` in the backup/webhook/route files.
+      feature. 30 are `no-explicit-any` in the backup/webhook/stripe route files (real typing work);
+      16 are `react-hooks/set-state-in-effect`, the `isMounted` mount-guard pattern in modals and
+      hooks, which changes component behaviour and wants the app running to verify. The remaining ~9
+      are mechanical.
 - [ ] Decide whether an e2e spec is worth adding here. `23_store` has one
       (`cypress/e2e/utm-visit-tracking.cy.ts`, 9 scenarios); this project has no e2e runner set up.
       Note for whoever adds it: every test on one machine shares a fingerprint, so layer 4 hands them
