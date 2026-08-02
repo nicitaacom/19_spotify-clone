@@ -166,8 +166,8 @@ module.exports = {
           '"{{name}}" should be the first declaration in ProcessEnv - .env.example lists it first, and both ' +
           "files must run in the same order.",
         wrongOrder:
-          '"{{name}}" sits in the wrong spot - .env.example puts it straight after "{{previousName}}", so move ' +
-          "the declaration there.",
+          '"{{name}}" comes too early - .env.example puts it straight after "{{previousName}}", so move this ' +
+          "declaration below that one.",
         wrongGroupOrder:
           '.env.example puts "{{name}}" ({{group}}) below "{{previousName}}" ({{previousGroup}}) - reorder ' +
           ".env.example so it runs: the site URL variables, then Supabase, then Redis/Upstash, then AWS, " +
@@ -219,19 +219,33 @@ module.exports = {
 
           // Order: compare only the names BOTH files hold. A name reported above as missing or extra
           // has no counterpart to line up with, so counting it here would push every later name one
-          // slot out and point the single order report at an innocent variable.
+          // slot out and point the order report at an innocent variable.
           const sharedFromExample = exampleNames.filter(name => lineByName.has(name))
-          const declaredNames = parsed.declarations.map(declaration => declaration.name)
-          const sharedFromTypes = declaredNames.filter(name => exampleNameSet.has(name))
-          for (let index = 0; index < sharedFromExample.length; index++) {
-            if (sharedFromTypes[index] === sharedFromExample[index]) continue
-            const name = sharedFromExample[index]
+          const exampleIndexByName = new Map(sharedFromExample.map((name, index) => [name, index]))
+          const sharedDeclarations = parsed.declarations.filter(declaration => exampleNameSet.has(declaration.name))
+
+          // Walking bottom-up, the smallest .env.example position still ahead of each declaration. A
+          // declaration whose own position is LARGER than that sits above something .env.example puts
+          // before it - so that declaration is the one to move, and the report belongs on its own
+          // line. Reporting the displaced name instead put the squiggle on an innocent line: move
+          // Stripe above Redis and the warning appeared on Redis, which is where it already belonged.
+          const smallestAhead = new Array(sharedDeclarations.length).fill(Infinity)
+          for (let index = sharedDeclarations.length - 2; index >= 0; index--) {
+            const nextExampleIndex = exampleIndexByName.get(sharedDeclarations[index + 1].name)
+            smallestAhead[index] = Math.min(smallestAhead[index + 1], nextExampleIndex)
+          }
+
+          for (let index = 0; index < sharedDeclarations.length; index++) {
+            const declaration = sharedDeclarations[index]
+            const exampleIndex = exampleIndexByName.get(declaration.name)
+            if (exampleIndex <= smallestAhead[index]) continue
+
+            const previousName = sharedFromExample[exampleIndex - 1]
             context.report({
-              loc: { line: lineByName.get(name), column: 0 },
-              messageId: index === 0 ? "wrongOrderFirst" : "wrongOrder",
-              data: { name, previousName: index === 0 ? "" : sharedFromExample[index - 1] },
+              loc: { line: declaration.line, column: 0 },
+              messageId: previousName ? "wrongOrder" : "wrongOrderFirst",
+              data: { name: declaration.name, previousName: previousName ?? "" },
             })
-            break
           }
 
           // Group order inside .env.example itself - the first variable sitting above a group that
