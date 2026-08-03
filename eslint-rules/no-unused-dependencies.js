@@ -81,7 +81,10 @@ const NEVER_REPORTED_PREFIXES = [
   "@eslint/",
 ]
 
-const IMPORT_PATTERN = /(?:from\s*|import\s*\(\s*|require\s*\(\s*)["']([^"']+)["']/g
+// `import "server-only"` is a bare side-effect import with no `from` and no parens - missing it
+// reported server-only as unused in 26_hot-delivery while app/functions/uploadAndTinifyImageFn.ts
+// imports it on line 3.
+const IMPORT_PATTERN = /(?:from\s*|import\s*\(\s*|require\s*\(\s*|import\s+)["']([^"']+)["']/g
 const IDENTIFIER_PATTERN = /[@\w][\w./-]*/g
 
 // One entry per repo root, filled by the first lint of that repo and reused for the rest of the
