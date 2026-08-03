@@ -12,12 +12,13 @@ const path = require("path")
 //
 // This is the third leg of the env.d.ts / .env.example / app usage triangle - the other two sides are
 // already covered: envs-order (vars-order.js) keeps env.d.ts and .env.example in sync with each other,
-// no-unused-envs (unused-declared-vars.js) flags an env.d.ts declaration nothing in the app reads. This
-// rule flags the remaining direction: app usage with no env.d.ts declaration at all.
+// no-defined-unused-envs (unused-declared-vars.js) flags an env.d.ts declaration nothing in the app
+// reads. This rule flags the remaining direction: app usage with no env.d.ts declaration at all.
 //
 // A name counts as read on process.env.X member access only (dot notation, non-computed) - the same
-// bare-name reasoning no-unused-envs uses for the opposite check. process.env["X"] bracket access
-// isn't used anywhere in this codebase's own conventions, so it's left unhandled rather than guessed at.
+// bare-name reasoning no-defined-unused-envs uses for the opposite check. process.env["X"] bracket
+// access isn't used anywhere in this codebase's own conventions, so it's left unhandled rather than
+// guessed at.
 //
 // NODE_ENV is the one hard-coded skip: it's Node's own ambient runtime variable, never declared in
 // this project's env.d.ts (or in most projects' ProcessEnv augmentation at all), and flagging it would
@@ -51,10 +52,11 @@ function findRepoRoot(filename) {
 // Every "IDENTIFIER: type" line inside the ProcessEnv interface is one declaration. Comments are
 // stripped first, so a commented-out declaration counts for nothing.
 //
-// Read from disk, unlike the declaration side of envs-order/no-unused-envs which read env.d.ts's own
-// in-editor buffer when THAT file is the one being linted. Here the file being linted is always some
-// OTHER .ts/.tsx file, so env.d.ts is never handed to us as source text - disk is the only source
-// available, same tradeoff no-unused-envs already accepts for reading every other source file.
+// Read from disk, unlike the declaration side of envs-order/no-defined-unused-envs which read
+// env.d.ts's own in-editor buffer when THAT file is the one being linted. Here the file being linted
+// is always some OTHER .ts/.tsx file, so env.d.ts is never handed to us as source text - disk is the
+// only source available, same tradeoff no-defined-unused-envs already accepts for reading every other
+// source file.
 function parseDeclaredNames(repoRoot) {
   const alreadyParsed = declaredNamesByRepoRoot.get(repoRoot)
   if (alreadyParsed !== undefined) return alreadyParsed
@@ -92,7 +94,7 @@ function parseDeclaredNames(repoRoot) {
 }
 
 module.exports = {
-  "no-undeclared-envs": {
+  "no-undefined-used-envs": {
     meta: {
       type: "problem",
       docs: {

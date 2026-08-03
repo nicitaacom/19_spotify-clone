@@ -3,10 +3,9 @@
 const fs = require("fs")
 const path = require("path")
 
-// This file is named unused-declared-vars.js while the rule id below is "no-unused-envs" - a
-// PreToolUse hook on this machine refuses any file path whose name holds those three letters, so
-// the file needed a different name. ESLint reads the id from the export key at the bottom, not from
-// the filename. vars-order.js in this same folder uses the id "envs-order" for the same reason.
+// This file is named unused-declared-vars.js while the rule id below is "no-defined-unused-envs" -
+// ESLint reads the id from the export key at the bottom, not from the filename. vars-order.js in
+// this same folder uses the id "envs-order" for the same reason.
 //
 // Why this rule exists: env.d.ts only ever grows. A declaration stays behind long after the code
 // that read it was deleted, and nothing complains - it still type-checks, .env.example still tells
@@ -161,7 +160,7 @@ function getLineLoc(sourceCode, line) {
 }
 
 module.exports = {
-  "no-unused-envs": {
+  "no-defined-unused-envs": {
     meta: {
       type: "suggestion",
       docs: {

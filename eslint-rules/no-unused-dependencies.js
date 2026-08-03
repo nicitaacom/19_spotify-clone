@@ -5,7 +5,7 @@
 // Why this rule exists: package.json only ever grows. 14_portfolio still ships `ioredis` from a rate
 // limiting idea that was never wired up - 2MB and its own dependency tree, installed on every CI run
 // for nothing, and no way to tell it apart from a package the app truly needs. Same shape as
-// no-unused-envs, which does this for env.d.ts declarations.
+// no-defined-unused-envs, which does this for env.d.ts declarations.
 //
 // It runs ON package.json through the local `json` processor, so the warning lands on the dependency
 // line itself.
@@ -25,7 +25,7 @@
 //   - eslint / eslint-config-* / eslint-plugin-* / @typescript-eslint/*   named in eslint config
 //   - the framework floor: next, react, react-dom, typescript, postcss, autoprefixer, tailwindcss
 //
-// Never fixable, on purpose - same reasoning as no-unused-envs. A reported package has two possible
+// Never fixable, on purpose - same reasoning as no-defined-unused-envs. A reported package has two possible
 // settlements and only the owner knows which: it is read somewhere this walk does not look (a
 // Dockerfile, a deploy script), or it is genuinely left over and the line should go. Removing it is
 // also not free: `pnpm remove` re-resolves the lockfile, and several of these repos pin dependencies

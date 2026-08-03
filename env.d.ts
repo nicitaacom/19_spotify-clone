@@ -5,12 +5,13 @@ declare global {
 
       NEXT_PUBLIC_SUPABASE_URL: string
       // read internally by @supabase/auth-helpers-nextjs, never an explicit process.env reference in this repo's own source
-      // eslint-disable-next-line local-rules/no-unused-envs
+      // eslint-disable-next-line local-rules/no-defined-unused-envs
       NEXT_PUBLIC_SUPABASE_ANON_KEY: string
       SUPABASE_SERVICE_ROLE_KEY: string
 
       UPSTASH_REDIS_REST_URL: string
       UPSTASH_REDIS_REST_TOKEN: string
+      UPSTASH_REDIS_URL: string
 
       PUSHER_APP_ID: string
       NEXT_PUBLIC_PUSHER_APP_KEY: string
