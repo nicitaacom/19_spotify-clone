@@ -51,6 +51,9 @@ const eslintConfig = defineConfig([
     },
     rules: {
       "local-rules/no-unused-dependencies": "warn",
+      // the json processor wraps package.json in "(...)" to make it a valid expression for espree -
+      // that's always a bare expression by construction, so this generic TS rule always misfires here
+      "@typescript-eslint/no-unused-expressions": "off",
     },
   },
 ])
