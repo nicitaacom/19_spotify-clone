@@ -31,7 +31,7 @@ Description: **required** — see the 🚨 TODO block below.
 - `chore: err -> error`
 - `chore: eslint fix imports-order`
 
-## 🚨 TODO — every description opens with this
+## 🚨 TODO — when something is waiting for me
 
 A commit that only says what changed leaves me opening the diff to find out whether a manual step is
 waiting. The description answers that first.
@@ -51,19 +51,43 @@ chore: check envs are valid
 is rejected: it says nothing about where to run it, what it changes, or how to tell it worked. An
 item names WHERE to go, WHAT to do there, and HOW you know it worked.
 
-**Nothing to do is still a description:**
+**Nothing waiting? Then there is NO block.** Write the why on its own:
 
 ```
-🚨 TODO
+chore: drop unused deps
 
-1. nothing - applied and verified here
+- removed 15 packages nothing in the repo imports
+- tsc clean, 197 tests still pass
 ```
 
-### Enforced, not remembered
+A filler `1. nothing - applied and verified here` is **rejected**. A block that keeps saying nothing
+trains me to skip every one of them, and then the one that matters gets skipped too.
 
-`~/.claude/hooks/commit-rule-emoji-guard.py` denies the `git commit` before git runs when the body is
-missing, does not open with `🚨 TODO`, holds no numbered items, or holds an item with no arrow chain
-and no file / url / `command` / "button" in it.
+**The block is required whenever the commit touches** `.env*`, `env.d.ts`, a migration, a `.sql`
+file, or a `dev_readme*sql*` doc — those always leave a variable to set or SQL to run.
+
+### Enforced, not remembered — two layers
+
+**1. Before git runs.** `~/.claude/hooks/commit-rule-emoji-guard.py` (PreToolUse on Bash, wired in
+`~/.claude/settings.json`) denies the commit when the body is missing, does not open with `🚨 TODO`,
+holds no numbered items, or holds an item with no arrow chain and no file / url / `command` /
+"button" in it. It reads `-m`, `-am`, `-mX`, `--message=`, `-F` and `--file=`, and denies a bare
+`git commit` or `--amend --no-edit` because those leave the message unreadable until after it lands.
+
+**2. Git's own check.** `.githooks/commit-msg` runs the same rules on the message git is about to
+record, so a commit made outside the AI loop is still caught. It is TRACKED, unlike `.git/hooks`,
+which every OS reinstall and every fresh clone wipes.
+
+### 🚨 After a fresh clone or an OS reinstall
+
+`core.hooksPath` is local config, so a clone does not inherit it. One line brings layer 2 back:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Layer 1 comes back with `~/.claude/` — the hooks are also copied to
+`/home/kali/Documents/txt/claude-hooks/`.
 
 ### Rules
 

@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# Two hard rules, checked on the message git is about to record.
+#
+#   1. no Claude/Anthropic co-author trailer - standing rule, see memory/feedback_commit_naming.md
+#   2. the description opens with a 🚨 TODO block of numbered CHAIN steps - see commit-patterns.md
+#
+# Rule 2 exists because a whole session of commits landed with a subject line and nothing else, and
+# one of them added two variables to .env.example without telling Nikita to set them anywhere. His
+# words: "TODO is A HARD RULE - it's even harder than eslint emoji ... TODO should ALWAYS be at a top".
+#
+# This file is TRACKED, and `git config core.hooksPath .githooks` points git at it. .git/hooks is
+# wiped by every OS reinstall and every fresh clone; this folder is not. The one thing a fresh clone
+# has to redo is that single config line - see commit-patterns.md.
+#
+# ~/.claude/hooks/commit-rule-emoji-guard.py runs the same TODO check EARLIER, inside the AI's own
+# loop, before git is called at all. This is the backstop for what that hook never sees.
+#
+# AI-only: Claude Code sets CLAUDECODE=1. Commits Nikita makes himself are never inspected.
+set -uo pipefail
+
+msg_file="$1"
+
+if grep -qiE '^Co-Authored-By:.*(claude|anthropic)' "$msg_file"; then
+  echo "commit-msg: remove the Claude/Anthropic co-author trailer - never included in this repo's commits." >&2
+  exit 1
+fi
+
+[ -n "${CLAUDECODE:-}" ] || exit 0
+
+# Body = everything after the subject, comments and blank lines dropped
+body=$(tail -n +2 "$msg_file" | sed '/^#/d' | sed '/^[[:space:]]*$/d')
+
+fail() {
+  echo "commit-msg: $1" >&2
+  cat >&2 <<'TEMPLATE'
+
+   Every description opens with this, each item a chain that needs no follow-up question:
+
+   🚨 TODO
+
+   1. open dev_readme-supbase-sql.md:878 -> copy the ## Keys check cron block -> open the
+      Supabase SQL editor -> replace YOUR_PRODUCTION_DOMAIN -> run it
+   2. Vercel -> Settings -> Environment Variables -> Production -> add CRON_SECRET
+   3. curl the webhook -> expect {"ok":true} -> send it twice, the second answers skipped
+
+   Nothing for him to do? One item: "1. nothing - applied and verified here".
+   Never a bare command - say where to run it, what it changes, how he checks it worked.
+   See commit-patterns.md.
+TEMPLATE
+  exit 1
+}
+
+[ -n "$body" ] || fail "the commit is a subject line and nothing else - a description is required"
+
+first_line=$(printf '%s\n' "$body" | head -1)
+case "$first_line" in
+  🚨*) has_todo=1 ;;
+  *) has_todo=0 ;;
+esac
+
+# Touching any of these means a human step is waiting - a variable to set, SQL to run, a migration
+# to apply - so the block is required. This is the case that started the rule: a commit added
+# NEXT_PUBLIC_SOLANA_ADDRESS to .env.example and never said to set it anywhere.
+triggers=$(git diff --cached --name-only | grep -iE '(^|/)\.env|(^|/)env\.d\.ts$|migrations?/|supabase|dev_readme.*sql|\.sql$' || true)
+
+if [ "$has_todo" = 0 ]; then
+  [ -z "$triggers" ] || fail "this commit touches $(printf '%s' "$triggers" | head -1) - a human step is waiting, so the description must open with a 🚨 TODO block"
+  exit 0
+fi
+
+items=$(printf '%s\n' "$body" | grep -cE '^[[:space:]]*[0-9]+[.)][[:space:]]*[^[:space:]]' || true)
+[ "$items" -gt 0 ] || fail "🚨 TODO has no numbered items - write 1. 2. 3., one step each"
+
+# A filler item is worse than no block: it trains him to stop reading every one of them.
+if printf '%s\n' "$body" | grep -qiE '^[[:space:]]*[0-9]+[.)].*\b(nothing|none|n/?a|no action|already (done|applied))\b'; then
+  fail "filler TODO - an item says there is nothing to do. Then drop the block entirely and write the why on its own"
+fi
+
+if ! printf '%s\n' "$body" | grep -qE '\->|→'; then
+  fail "no step chain - at least one item has to walk him through it with -> arrows"
+fi
+
+exit 0
