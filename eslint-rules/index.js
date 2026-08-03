@@ -8,4 +8,6 @@ module.exports = {
   // same here - the rule id is "no-unused-envs", see the header of unused-declared-vars.js
   ...require("./unused-declared-vars"),
   ...require("./no-undeclared-envs"),
+  // runs on package.json through ./json-processor.js
+  ...require("./no-unused-dependencies"),
 }
