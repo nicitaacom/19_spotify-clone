@@ -60,7 +60,7 @@ const UploadModal = () => {
   const { user, subscription } = useUser()
   const router = useRouter()
   const turnstileRef = useRef<HTMLDivElement>(null)
-  const isHumanGateEnabled = Boolean(process.env.NEXT_PUBLIC_CLOUDFLARE_SITE_KEY)
+  const isHumanGateEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
   const { isVerified, token, resetTurnstileFn } = useVerifyHuman(turnstileRef, {
     isEnabled: uploadModal.isOpen && requiresChallenge,
   })

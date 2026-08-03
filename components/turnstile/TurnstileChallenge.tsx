@@ -16,7 +16,7 @@ const TurnstileChallenge = ({ turnstileRef, isVerified, onDismiss }: TurnstileCh
     return () => clearTimeout(t)
   }, [isVerified, onDismiss])
 
-  if (!process.env.NEXT_PUBLIC_CLOUDFLARE_SITE_KEY) return null
+  if (!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) return null
 
   return (
     <div className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.03] p-3">

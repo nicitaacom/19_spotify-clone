@@ -12,7 +12,7 @@ export const useVerifyHuman = (
 ) => {
   const widgetIdRef = useRef<string | null>(null)
   const isDev = process.env.NODE_ENV !== "production"
-  const siteKey = process.env.NEXT_PUBLIC_CLOUDFLARE_SITE_KEY
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
   const [isVerified, setIsVerified] = useState(isDev)
   const [token, setToken] = useState(isDev ? "dev-token" : "")

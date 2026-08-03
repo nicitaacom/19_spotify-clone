@@ -2,6 +2,8 @@ declare global {
   namespace NodeJS {
     interface ProcessEnv {
       NEXT_PUBLIC_PRODUCTION_URL: string
+      NEXT_PUBLIC_SITE_URL: string
+      NEXT_PUBLIC_VERCEL_URL: string
 
       NEXT_PUBLIC_SUPABASE_URL: string
       // read internally by @supabase/auth-helpers-nextjs, never an explicit process.env reference in this repo's own source
@@ -30,7 +32,7 @@ declare global {
       STRIPE_SECRET_KEY: string
       STRIPE_WEBHOOK_SECRET: string
 
-      NEXT_PUBLIC_CLOUDFLARE_SITE_KEY: string
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: string
       TURNSTILE_SECRET_KEY: string
 
       OWNER_IDS_ARR: string
