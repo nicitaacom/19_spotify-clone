@@ -45,6 +45,7 @@ waiting. The description answers that first — but only when the step is genuin
 | an env var, a secret, an API key                | eslint, prettier, `tsc`, a build                 |
 | DNS, a domain, an OAuth consent screen          | editing a file, reading a diff                   |
 | my inbox, my phone, a 2FA prompt                | `git add` / `git commit` / `git checkout`        |
+| the runnable SQL, pasted into the body          | a `file:line` pointer to where the SQL lives     |
 | `git push` when pushing IS the step             | anything it already did (that is a `-` why line) |
 
 `git push` is denied in the AI's environment, so it belongs in the chat reply after every commit —
@@ -52,15 +53,32 @@ not in the body. It earns a numbered item only when the push itself is the step 
 a CI secret to pick up), never as a standing "and now push this" on each commit.
 
 ```
-chore: check envs are valid
+fix: restore users across databases
 
 🚨 TODO
 
-1. open dev_readme-supbase-sql.md:878 -> copy the ## Keys check cron block -> open the Supabase
-   SQL editor -> replace YOUR_PRODUCTION_DOMAIN -> run it
+1. open the Supabase SQL editor -> paste the line below -> run it -> password_reset_required
+   shows up in the 23_users table view
+
+ALTER TABLE public."23_users"
+  ADD COLUMN IF NOT EXISTS password_reset_required BOOLEAN NOT NULL DEFAULT false;
+
 2. Vercel -> Settings -> Environment Variables -> Production -> add CRON_SECRET
-3. BotFather -> /setwebhook -> paste the url -> expect "Webhook was set"
 ```
+
+**SQL goes IN the body — never behind a `file:line` pointer.** This one shipped and failed even
+though the line number was right:
+
+```
+❌ 1. open dev_readme-supbase-sql.md:97 -> copy the password_reset_required ALTER TABLE block
+     -> open the target Supabase Dashboard SQL Editor -> run it
+```
+
+That doc names the column twice: at `:94` inside `CREATE TABLE IF NOT EXISTS public."23_users"`,
+which no-ops on a table that already exists, and at `:99` in the real `ALTER TABLE ... ADD COLUMN IF
+NOT EXISTS`. The first one is what the eye lands on, so the whole step reads as already applied. His
+words: _"AI should just write migration directly in commit description so I copy paste it from commit
+description"_. The doc pointer may stay as a reference — what gets pasted comes from the commit.
 
 **Each item is a chain, never a bare command.** `1. supabase functions deploy sendTgNtfcnAppointment`
 is rejected: it says nothing about where to run it, what it changes, or how to tell it worked. An
@@ -99,7 +117,8 @@ or SQL to run. A file that merely holds the word (`app/libs/supabaseAdmin.ts`) d
 **1. Before git runs.** `~/.claude/hooks/commit-rule-emoji-guard.py` (PreToolUse on Bash, wired in
 `~/.claude/settings.json`) denies the commit when the body is missing, when a trigger path above is
 staged without a `🚨 TODO`, when an item is filler, when an item is a terminal command the AI runs
-itself, when an item names no out-of-reach place at all, or when no item has an arrow chain. It reads
+itself, when an item names no out-of-reach place at all, when an SQL item leaves the statement in a
+doc instead of the body, or when no item has an arrow chain. It reads
 `-m`, `-am`, `-mX`, `--message=`, `-F` and `--file=`, and denies a bare `git commit` or
 `--amend --no-edit` because those leave the message unreadable until after it lands.
 

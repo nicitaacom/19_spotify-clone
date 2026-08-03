@@ -48,11 +48,16 @@ fail() {
 
    🚨 TODO
 
-   1. open dev_readme-supbase-sql.md:878 -> copy the ## Keys check cron block -> open the
-      Supabase SQL editor -> replace YOUR_PRODUCTION_DOMAIN -> run it
-   2. Vercel -> Settings -> Environment Variables -> Production -> add CRON_SECRET
-   3. BotFather -> /setwebhook -> paste the url -> expect "Webhook was set"
+   1. open the Supabase SQL editor -> paste the line below -> run it -> the column shows up in
+      the 23_users table view
 
+   ALTER TABLE public."23_users"
+     ADD COLUMN IF NOT EXISTS password_reset_required BOOLEAN NOT NULL DEFAULT false;
+
+   2. Vercel -> Settings -> Environment Variables -> Production -> add CRON_SECRET
+
+   SQL goes IN the body - never "open <doc>:97 -> copy the block". That doc holds a CREATE TABLE
+   IF NOT EXISTS next to the real ALTER, and he read the no-op as the whole step.
    Belongs here: the Supabase SQL editor, a Vercel/Cloudflare/Stripe/PayPal dashboard, an env var
    or secret, DNS, an OAuth screen, his inbox, `git push`.
    Never here: anything the AI runs or edits itself - pnpm, cypress, playwright, vitest, eslint,
@@ -101,6 +106,12 @@ out_of_reach='supabase|vercel|cloudflare|netlify|railway|render\.com|fly\.io|her
 ai_doable='open (a|the|your) terminal|in (a|the|your) terminal|cd into|cd to|\bpnpm\b|\bnpm\b|\bnpx\b|\byarn\b|\bbun\b|\bpip\b|cypress|playwright|vitest|jest|storybook|eslint|prettier|\btsc\b|typecheck|type-check|run (the )?(tests?|test suite|lint(er)?|build|dev server|script)|git (add|commit|status|diff|log|checkout|switch|stash|rebase|merge|restore)|read (the )?(file|diff)|open (the )?diff'
 # ...unless the command stops at an account the AI has no key for. Those stay real TODOs.
 needs_login='supabase (login|link|db|functions|migration|secrets)|vercel (env|deploy|link|domains)|wrangler|flyctl|heroku|gh auth|(npm|pnpm|yarn) publish|eas (build|submit)|docker push'
+# An SQL item holds its statement IN the body. `open dev_readme-supbase-sql.md:97 -> copy the ALTER
+# TABLE block` pointed at the right line and still failed: that doc names the column at :94 inside a
+# CREATE TABLE IF NOT EXISTS, which no-ops on a table he already has, and again at :99 in the real
+# ALTER. He read the no-op as the whole step. Now he pastes it out of the commit itself.
+sql_item='\bsql\b|alter table|create (table|policy|index|function|trigger|type)|migration|add column|new column|\brls\b|\bpolicy\b|drop column'
+sql_statement='^[[:space:]]*(alter|create|insert|update|delete|drop|grant|revoke|comment|with|select|do[[:space:]]+\$\$)'
 
 while IFS= read -r item; do
   [ -n "$item" ] || continue
@@ -118,6 +129,10 @@ while IFS= read -r item; do
   stripped=$(printf '%s' "$item" | sed -E 's/`[^`]*`/ /g; s/"[^"]*"/ /g; s#[^ ]*/[^ ]+# #g')
   if ! printf '%s' "$stripped" | grep -qiE "$out_of_reach"; then
     fail "not a TODO - \"${item:0:70}\" names no place out of the AI's reach. Only a step it has no login for belongs here"
+  fi
+
+  if printf '%s' "$item" | grep -qiE "$sql_item" && ! printf '%s\n' "$body_raw" | grep -qiE "$sql_statement"; then
+    fail "SQL by reference - \"${item:0:70}\" sends him to a file for the statement. Paste the runnable SQL into the body so he copies it out of the commit itself"
   fi
 done <<EOF
 $items
