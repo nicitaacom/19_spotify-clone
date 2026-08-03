@@ -21,15 +21,20 @@ export async function POST(request: Request) {
   const requestHeaders = await headers()
   const sig = requestHeaders.get("Stripe-Signature")
 
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET_LIVE ?? process.env.STRIPE_WEBHOOK_SECRET
+  const webhookSecret =
+    process.env.NODE_ENV === "production"
+      ? process.env.STRIPE_WEBHOOK_SECRET_LIVE
+      : process.env.STRIPE_WEBHOOK_SECRET_TEST
+
   let event: Stripe.Event
 
   try {
     if (!sig || !webhookSecret) return
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret)
-  } catch (err: any) {
-    console.log(`❌ Error message: ${err.message}`)
-    return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.log(`❌ Error message: ${message}`)
+    return new NextResponse(`Webhook Error: ${message}`, { status: 400 })
   }
 
   console.log(34, "webhook triggered")
@@ -52,7 +57,7 @@ export async function POST(request: Request) {
           await manageSubscriptionStatusChange(
             subscription.id,
             subscription.customer as string,
-            event.type === "customer.subscription.created"
+            event.type === "customer.subscription.created",
           )
           break
         case "checkout.session.completed":
