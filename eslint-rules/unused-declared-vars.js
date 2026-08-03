@@ -18,10 +18,23 @@ const path = require("path")
 // (const { TELEGRAM_CHAT_ID } = process.env) or a template string, and a prefix-only match would
 // report all three of those as unused.
 //
-// Never fixable, on purpose. A declaration this rule reports has two possible settlements and only
-// the owner knows which: the variable is still read from somewhere outside the .ts/.tsx sources (a
-// CI workflow, a shell script, a Dockerfile), or it is genuinely left over and the declaration plus
-// its .env.example line should go. The message asks rather than deleting anything.
+// Never fixable, on purpose. A declaration this rule reports has five possible settlements and only
+// the owner knows which - each needs a different edit, and nothing in the sources tells them apart.
+// The message spells all five out, because "only the owner knows which" on its own leaves nothing to
+// act on:
+//
+//   1. used on a website, not in the codebase - GITHUB_CLIENT_ID lives in the Supabase setup
+//   2. a library reads it without being handed it - Redis.fromEnv()
+//   3. that same library also takes it as an argument - pass it, and the warning goes
+//   4. read by CI/CD, and by `pnpm storybook` in development only - CHROMATIC_PROJECT_TOKEN
+//   5. literally unused - delete the declaration and its .env.example line
+//
+// 1 is a COMMENT-OUT, not a suppression. A suppressed declaration still type-checks, so TS
+// autocomplete keeps offering a name no code reads - Nikita's words, "+1 more chaos in TS
+// autocomplete". Commenting it out in env.d.ts and in .env.example, with the live value left as a
+// commented line in .env.local, keeps the record without the ghost completion. It needs no
+// suppression either: parseDeclarations strips // comments before it matches, so the line stops
+// being a declaration and this rule goes quiet on its own.
 
 // Folders holding no source of this repo's own. node_modules alone is most of the walk, and
 // .next/out/build hold generated copies of files already counted from their real spot.
@@ -51,12 +64,37 @@ const DECLARATION_FILE = "env.d.ts"
 // this rule completely - UPSTASH_REDIS_URL is read by no code in 14/19/23, and stopped being
 // reported the moment the registry mentioned it.
 const CATALOGUE_FILES = new Set([DECLARATION_FILE, "checkKeys.ts"])
+const EXAMPLE_FILE = ".env.example"
 const IDENTIFIER_PATTERN = /[A-Za-z_$][\w$]*/g
+
+// The tail both messages end on. Newline-separated so an editor hover lists the five settlements
+// down the tooltip instead of running them into one paragraph, and each one names the shape of the
+// edit it needs - a comment, a suppression, an argument, or a deletion.
+const SETTLEMENTS =
+  "Settle it one of five ways:\n" +
+  "1. used on a website and not in the codebase, the way GITHUB_CLIENT_ID lives in the Supabase " +
+  "setup - comment this declaration out and name the website in it: // {{name}} - Supabase > " +
+  "Authentication > Providers. Comment its .env.example line out the same way, and keep the real " +
+  "value as a commented line in .env.local. A commented declaration is stripped before this rule " +
+  "parses, so the warning goes on its own - and TS autocomplete stops offering a name nothing reads\n" +
+  "2. a library reads it without being handed it, the way Redis.fromEnv() reads UPSTASH_REDIS_REST_" +
+  "URL - keep it, and suppress here: // eslint-disable-next-line local-rules/no-defined-unused-envs " +
+  "-- read by Redis.fromEnv() in proxy.ts\n" +
+  "3. that same library also takes it as an argument - hand it over explicitly instead of " +
+  "suppressing, createClientComponentClient({ supabaseKey: process.env.{{name}} }), and the warning " +
+  "goes on its own\n" +
+  "4. read by CI/CD and by a development-only command, the way CHROMATIC_PROJECT_TOKEN is read by " +
+  ".github/workflows/chromatic.yml and by `pnpm storybook` - keep it, and suppress with that " +
+  "workflow file named in the reason\n" +
+  "5. literally unused - delete this line, and its .env.example line if there is one\n" +
+  "Never fixed automatically: 1 comments the line out, 2 and 4 keep it and suppress, 3 swaps the " +
+  "suppression for an argument, 5 deletes it - and nothing in the sources tells them apart."
 
 // One entry per repo root, filled by the first lint of that repo and reused for the rest of the
 // process. env.d.ts holds dozens of declarations and each one asks the same question, so without
 // this the rule would walk the whole repo dozens of times per lint run.
 const usedNamesByRepoRoot = new Map()
+const exampleNamesByRepoRoot = new Map()
 
 // Same walk-up as vars-order.js - the nearest folder holding a package.json is the repo root, and
 // the declaration file sits directly in it.
@@ -73,6 +111,33 @@ function findRepoRoot(filename) {
     }
   }
   return null
+}
+
+// Every name .env.example asks a fresh checkout to fill in - the identifier before the first "=" of
+// each non-comment line, same parse vars-order.js runs. Only the opening sentence of the report
+// depends on this: a name .env.example still lists is the ordinary case and reads as "defined but
+// never used", while a name missing from it is a declaration nothing outside env.d.ts asks for at
+// all. Naming the wrong one sends the owner to a file that has no line to look at.
+function collectExampleNames(repoRoot) {
+  const alreadyRead = exampleNamesByRepoRoot.get(repoRoot)
+  if (alreadyRead !== undefined) return alreadyRead
+
+  const exampleNames = new Set()
+  let text
+  try {
+    text = fs.readFileSync(path.join(repoRoot, EXAMPLE_FILE), "utf8")
+  } catch {
+    text = ""
+  }
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim()
+    if (trimmed === "" || trimmed.startsWith("#")) continue
+    const match = /^(?:export\s+)?([A-Za-z_$][\w$]*)\s*=/.exec(trimmed)
+    if (match) exampleNames.add(match[1])
+  }
+
+  exampleNamesByRepoRoot.set(repoRoot, exampleNames)
+  return exampleNames
 }
 
 // Every identifier-shaped token of every .ts/.tsx file under the repo root, in one Set. Tokens
@@ -169,11 +234,13 @@ module.exports = {
       schema: [],
       messages: {
         unusedDeclaration:
-          'ProcessEnv declares "{{name}}" and no .ts/.tsx file in this repo mentions that name - not as ' +
-          "process.{{name}}, not through a decrypted object, not in a destructure. Two ways to settle it, and " +
-          "only the owner knows which: keep the declaration if something outside the sources reads it (a CI " +
-          "workflow, a shell script), or delete this line plus its .env.example line if it is left over. Never " +
-          "fixed automatically, for that reason.",
+          '.env.example defines "{{name}}" and env.d.ts declares it, but no .ts/.tsx file in this repo mentions ' +
+          "that name - not as process.{{name}}, not through a decrypted object, not in a destructure. " +
+          SETTLEMENTS,
+        unusedDeclarationNoExampleLine:
+          'env.d.ts declares "{{name}}" and neither .env.example nor any .ts/.tsx file in this repo mentions ' +
+          "that name - not as process.{{name}}, not through a decrypted object, not in a destructure. " +
+          SETTLEMENTS,
       },
     },
     create(context) {
@@ -190,13 +257,14 @@ module.exports = {
       return {
         Program() {
           const usedNames = collectUsedNames(repoRoot)
+          const exampleNames = collectExampleNames(repoRoot)
 
           for (const declaration of declarations) {
             if (usedNames.has(declaration.name)) continue
 
             context.report({
               loc: getLineLoc(sourceCode, declaration.line),
-              messageId: "unusedDeclaration",
+              messageId: exampleNames.has(declaration.name) ? "unusedDeclaration" : "unusedDeclarationNoExampleLine",
               data: { name: declaration.name },
             })
           }
