@@ -2,11 +2,18 @@
 # Two hard rules, checked on the message git is about to record.
 #
 #   1. no Claude/Anthropic co-author trailer - standing rule, see memory/feedback_commit_naming.md
-#   2. the description opens with a 🚨 TODO block of numbered CHAIN steps - see commit-patterns.md
+#   2. a description on every commit, and a 🚨 TODO block ONLY when a step is waiting that the AI has
+#      no way to do itself - see commit-patterns.md
 #
-# Rule 2 exists because a whole session of commits landed with a subject line and nothing else, and
-# one of them added two variables to .env.example without telling Nikita to set them anywhere. His
-# words: "TODO is A HARD RULE - it's even harder than eslint emoji ... TODO should ALWAYS be at a top".
+# Rule 2 was born twice. First a whole session of commits landed with a subject line and nothing
+# else, one of them adding two variables to .env.example without telling Nikita to set them
+# anywhere: "TODO is A HARD RULE - it's even harder than eslint emoji". So the block was made
+# mandatory - and the next batch of commits carried a make-work TODO each ("open a terminal -> run
+# pnpm exec cypress run -> expect 4 passing tests"), which he answered with "this is bad and you can
+# do it yourself - I need only meaningful TODO ... I expect only something that AI really have no
+# access to". Both shapes end the same way: he stops reading the block, and then misses the one that
+# matters. So the block is conditional, and every item in it has to name a place out of the AI's
+# reach - the Supabase SQL editor, a dashboard, an env var, DNS, his inbox, git push.
 #
 # This file is TRACKED, and `git config core.hooksPath .githooks` points git at it. .git/hooks is
 # wiped by every OS reinstall and every fresh clone; this folder is not. The one thing a fresh clone
@@ -27,24 +34,30 @@ fi
 
 [ -n "${CLAUDECODE:-}" ] || exit 0
 
-# Body = everything after the subject, comments and blank lines dropped
-body=$(tail -n +2 "$msg_file" | sed '/^#/d' | sed '/^[[:space:]]*$/d')
+# body_raw keeps its blank lines - they end a TODO item that runs across two lines. body is the same
+# text with the blanks dropped, for the "is there a description at all" check.
+body_raw=$(tail -n +2 "$msg_file" | sed '/^#/d')
+body=$(printf '%s\n' "$body_raw" | sed '/^[[:space:]]*$/d')
 
 fail() {
   echo "commit-msg: $1" >&2
   cat >&2 <<'TEMPLATE'
 
-   Every description opens with this, each item a chain that needs no follow-up question:
+   A description is required on every commit. The 🚨 TODO block is NOT - it appears only when a
+   step is waiting that the AI has no way to do:
 
    🚨 TODO
 
    1. open dev_readme-supbase-sql.md:878 -> copy the ## Keys check cron block -> open the
       Supabase SQL editor -> replace YOUR_PRODUCTION_DOMAIN -> run it
    2. Vercel -> Settings -> Environment Variables -> Production -> add CRON_SECRET
-   3. curl the webhook -> expect {"ok":true} -> send it twice, the second answers skipped
+   3. BotFather -> /setwebhook -> paste the url -> expect "Webhook was set"
 
-   Nothing for him to do? One item: "1. nothing - applied and verified here".
-   Never a bare command - say where to run it, what it changes, how he checks it worked.
+   Belongs here: the Supabase SQL editor, a Vercel/Cloudflare/Stripe/PayPal dashboard, an env var
+   or secret, DNS, an OAuth screen, his inbox, `git push`.
+   Never here: anything the AI runs or edits itself - pnpm, cypress, playwright, vitest, eslint,
+   tsc, a build, a file change. It does that now and reports the result as a fact.
+   Nothing out of reach in this commit? Then NO block - just the why.
    See commit-patterns.md.
 TEMPLATE
   exit 1
@@ -60,21 +73,55 @@ esac
 
 # Touching any of these means a human step is waiting - a variable to set, SQL to run, a migration
 # to apply - so the block is required. This is the case that started the rule: a commit added
-# NEXT_PUBLIC_SOLANA_ADDRESS to .env.example and never said to set it anywhere.
-triggers=$(git diff --cached --name-only | grep -iE '(^|/)\.env|(^|/)env\.d\.ts$|migrations?/|supabase|dev_readme.*sql|\.sql$' || true)
+# NEXT_PUBLIC_SOLANA_ADDRESS to .env.example and never said to set it anywhere. Tight on purpose:
+# `supabase` used to match any path holding the word, so app/libs/supabaseAdmin.ts demanded a block
+# for a refactor that changed nothing on his side - the trigger itself was breeding make-work TODOs.
+triggers=$(git diff --cached --name-only | grep -iE '(^|/)\.env|(^|/)env\.d\.ts$|(^|/)migrations?/|(^|/)supabase/|dev_readme.*sql|\.sql$' || true)
 
 if [ "$has_todo" = 0 ]; then
   [ -z "$triggers" ] || fail "this commit touches $(printf '%s' "$triggers" | head -1) - a human step is waiting, so the description must open with a 🚨 TODO block"
   exit 0
 fi
 
-items=$(printf '%s\n' "$body" | grep -cE '^[[:space:]]*[0-9]+[.)][[:space:]]*[^[:space:]]' || true)
-[ "$items" -gt 0 ] || fail "🚨 TODO has no numbered items - write 1. 2. 3., one step each"
+# One item per line, with the lines it runs across folded back in. A chain over ~100 chars is broken
+# across two lines in a real body, and the destination that makes it a real TODO ("-> open the
+# Supabase SQL editor") usually sits on the second one. An item ends at a blank or a "- why" line.
+items=$(printf '%s\n' "$body_raw" | awk '
+  /^[[:space:]]*[0-9]+[.)][[:space:]]*[^[:space:]]/ { if (cur != "") print cur; cur = $0; next }
+  /^[[:space:]]*$/ || /^[[:space:]]*[-*]/ { if (cur != "") print cur; cur = ""; next }
+  { if (cur != "") cur = cur " " $0 }
+  END { if (cur != "") print cur }
+')
 
-# A filler item is worse than no block: it trains him to stop reading every one of them.
-if printf '%s\n' "$body" | grep -qiE '^[[:space:]]*[0-9]+[.)].*\b(nothing|none|n/?a|no action|already (done|applied))\b'; then
-  fail "filler TODO - an item says there is nothing to do. Then drop the block entirely and write the why on its own"
-fi
+[ -n "$items" ] || fail "🚨 TODO has no numbered items - write 1. 2. 3., one step each"
+
+# Somewhere the AI holds no login for. This is what earns an item its place in the block.
+out_of_reach='supabase|vercel|cloudflare|netlify|railway|render\.com|fly\.io|heroku|aws\b|s3\b|stripe|paypal|printful|printify|resend|sendgrid|twilio|telegram|botfather|discord|openai|anthropic|gemini|upstash|sentry|chromatic|posthog|plausible|app ?store|play console|expo\b|testflight|dashboard|console|sql editor|admin ui|web ui|settings? (page|tab|panel)|environment variable|env var|secret|api key|access token|credential|password|\.env\.local|dns|registrar|namecheap|godaddy|domain|nameserver|oauth|consent screen|2fa|sign in|log ?in|logged in|account|inbox|your email|spam folder|your phone|your device|git push|github( actions| settings| secrets)|pull request|merge it'
+# Local tooling that needs no login - the AI runs all of it, so an item built on it is make-work.
+ai_doable='open (a|the|your) terminal|in (a|the|your) terminal|cd into|cd to|\bpnpm\b|\bnpm\b|\bnpx\b|\byarn\b|\bbun\b|\bpip\b|cypress|playwright|vitest|jest|storybook|eslint|prettier|\btsc\b|typecheck|type-check|run (the )?(tests?|test suite|lint(er)?|build|dev server|script)|git (add|commit|status|diff|log|checkout|switch|stash|rebase|merge|restore)|read (the )?(file|diff)|open (the )?diff'
+# ...unless the command stops at an account the AI has no key for. Those stay real TODOs.
+needs_login='supabase (login|link|db|functions|migration|secrets)|vercel (env|deploy|link|domains)|wrangler|flyctl|heroku|gh auth|(npm|pnpm|yarn) publish|eas (build|submit)|docker push'
+
+while IFS= read -r item; do
+  [ -n "$item" ] || continue
+
+  if printf '%s' "$item" | grep -qiE '\b(nothing|none|n/?a|no action|already (done|applied))\b'; then
+    fail "filler TODO - \"${item:0:60}\" says there is nothing to do. Then drop the block and write the why on its own"
+  fi
+
+  if printf '%s' "$item" | grep -qiE "$ai_doable" && ! printf '%s' "$item" | grep -qiE "$needs_login"; then
+    fail "you can do this yourself - \"${item:0:70}\" is a terminal command in this repo. Run it now and put the result in the body as a fact"
+  fi
+
+  # A `command`, a "label" and a path/url are dropped first: they smuggle the word in without
+  # meaning it. `check the button reads "Pay with PayPal"` is a file the AI edits, not a dashboard.
+  stripped=$(printf '%s' "$item" | sed -E 's/`[^`]*`/ /g; s/"[^"]*"/ /g; s#[^ ]*/[^ ]+# #g')
+  if ! printf '%s' "$stripped" | grep -qiE "$out_of_reach"; then
+    fail "not a TODO - \"${item:0:70}\" names no place out of the AI's reach. Only a step it has no login for belongs here"
+  fi
+done <<EOF
+$items
+EOF
 
 if ! printf '%s\n' "$body" | grep -qE '\->|→'; then
   fail "no step chain - at least one item has to walk him through it with -> arrows"
