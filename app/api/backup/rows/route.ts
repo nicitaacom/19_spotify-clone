@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { requireUser } from "../requireUser"
 import { BACKUP_TABLES, getTableConfig, assertBackupAccess } from "@/app/features/backup/backupTables"
+import { Database } from "@/app/interfaces/types_db"
+
+type TableName = keyof Database["public"]["Tables"]
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -32,7 +35,7 @@ export async function GET() {
       if (error) return NextResponse.json({ error: error.message, code: error.code, details: error.details, hint: error.hint }, { status: 500 })
       tables[table.name] = data ?? []
     } else {
-      const { data, error } = await supabaseAdmin.from(table.name as any).select("*")
+      const { data, error } = await supabaseAdmin.from(table.name as TableName).select("*")
       if (error) return NextResponse.json({ error: error.message, code: error.code, details: error.details, hint: error.hint }, { status: 500 })
       tables[table.name] = data ?? []
     }
@@ -73,7 +76,9 @@ export async function POST(req: Request) {
   const skipped = rows.length - ownedRows.length
   if (ownedRows.length === 0) return NextResponse.json({ rows: 0, skipped })
 
-  const { error } = await supabaseAdmin.from(config.name as any).upsert(ownedRows as any, { onConflict: config.onConflict })
+  // ownedRows' shape varies per dynamic table (backupConfig.ts), so no single table's upsert row type fits it
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await supabaseAdmin.from(config.name as TableName).upsert(ownedRows as any, { onConflict: config.onConflict })
   if (error) return NextResponse.json({ error: error.message, code: error.code, details: error.details, hint: error.hint }, { status: 500 })
   return NextResponse.json({ rows: ownedRows.length, skipped })
 }

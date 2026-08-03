@@ -115,8 +115,8 @@ async function readCsvEntries(file: File): Promise<Record<string, string>> {
   let tarBytes: Uint8Array
   try {
     tarBytes = await gunzipBufferClient(new Uint8Array(await file.arrayBuffer()))
-  } catch (error: any) {
-    throw new Error(`${file.name} is not a valid .tar.gz archive: ${error?.message ?? String(error)}`)
+  } catch (error: unknown) {
+    throw new Error(`${file.name} is not a valid .tar.gz archive: ${error instanceof Error ? error.message : String(error)}`)
   }
 
   const entries = parseTar(Buffer.from(tarBytes))
@@ -148,8 +148,8 @@ function coerceRowsForImport(config: BackupTableConfig, rows: Record<string, str
       } else if (parseJsonColumns.has(column)) {
         try {
           coerced[column] = JSON.parse(value)
-        } catch (error: any) {
-          throw new Error(`${config.name}.csv row ${rowIndex + 1}, column "${column}": not valid JSON — ${error?.message ?? String(error)}`)
+        } catch (error: unknown) {
+          throw new Error(`${config.name}.csv row ${rowIndex + 1}, column "${column}": not valid JSON — ${error instanceof Error ? error.message : String(error)}`)
         }
       }
     }
@@ -190,8 +190,8 @@ export async function importTables(
     let rows: Record<string, unknown>[]
     try {
       rows = coerceRowsForImport(table, parseCsv(csvByTable[table.name]))
-    } catch (error: any) {
-      throw new Error(`Failed to parse ${table.name}.csv: ${error?.message ?? String(error)}`)
+    } catch (error: unknown) {
+      throw new Error(`Failed to parse ${table.name}.csv: ${error instanceof Error ? error.message : String(error)}`)
     }
 
     let importedRows = 0
@@ -327,8 +327,8 @@ export async function importFiles(
   let tarBytes: Uint8Array
   try {
     tarBytes = await gunzipBufferClient(new Uint8Array(await file.arrayBuffer()))
-  } catch (error: any) {
-    throw new Error(`${file.name} is not a valid .tar.gz archive: ${error?.message ?? String(error)}`)
+  } catch (error: unknown) {
+    throw new Error(`${file.name} is not a valid .tar.gz archive: ${error instanceof Error ? error.message : String(error)}`)
   }
 
   const entries = parseTar(Buffer.from(tarBytes))
@@ -406,9 +406,9 @@ export async function importFiles(
       try {
         await uploadToSignedUrlWithProgress(target.signedUrl, uploadBlob, () => {})
         bumpStat(target.bucket, "files")
-      } catch (error: any) {
+      } catch (error: unknown) {
         bumpStat(target.bucket, "failed")
-        if (!firstErrorByBucket[target.bucket]) firstErrorByBucket[target.bucket] = error?.message ?? String(error)
+        if (!firstErrorByBucket[target.bucket]) firstErrorByBucket[target.bucket] = error instanceof Error ? error.message : String(error)
       }
     }
   }

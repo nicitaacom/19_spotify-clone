@@ -16,6 +16,7 @@
 // nests the whole schema. Plain `any` (not SupabaseClient<any,any,any>, which still recurses) is
 // the actual fix — routes still get full typing on `supabaseAdmin` itself at the call site; only
 // the parameter type of these config functions is loosened.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySupabaseClient = any
 
 // ── tables ────────────────────────────────────────────────────────────────────
@@ -44,8 +45,8 @@ export interface BackupTableConfig {
 
 async function scopeToOwnPlaylistSongs(admin: AnySupabaseClient, userId: string, rows: Record<string, unknown>[]) {
   const { data: userPlaylists } = await admin.from("19_playlists").select("id").eq("user_id", userId)
-  const ownedPlaylistIds = new Set((userPlaylists ?? []).map((playlist: any) => playlist.id))
-  return rows.filter((row: any) => ownedPlaylistIds.has(row.playlist_id))
+  const ownedPlaylistIds = new Set((userPlaylists ?? []).map((playlist: { id: string }) => playlist.id))
+  return rows.filter(row => ownedPlaylistIds.has(row.playlist_id as string))
 }
 
 export const BACKUP_TABLES: BackupTableConfig[] = [
@@ -86,7 +87,7 @@ export const BACKUP_TABLES: BackupTableConfig[] = [
     jsonColumns: [],
     scopeSelect: async (admin, userId) => {
       const { data: playlists } = await admin.from("19_playlists").select("id").eq("user_id", userId)
-      const playlistIds = (playlists ?? []).map((playlist: any) => playlist.id)
+      const playlistIds = (playlists ?? []).map((playlist: { id: string }) => playlist.id)
       if (playlistIds.length === 0) return { data: [], error: null }
       return admin.from("19_playlist_songs").select("*").in("playlist_id", playlistIds)
     },

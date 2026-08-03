@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { PostgrestError } from "@supabase/supabase-js"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { requireUser } from "../requireUser"
 import { BACKUP_BUCKETS, isBackupBucket, assertBackupAccess, listFiles, isOwnedFile, type BackupFileRef } from "@/app/features/backup/backupTables"
@@ -26,8 +27,9 @@ export async function GET() {
   let files: BackupFileRef[]
   try {
     files = await listFiles(supabaseAdmin, userId)
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message, code: error.code, details: error.details, hint: error.hint }, { status: 500 })
+  } catch (error: unknown) {
+    const pgError = error as PostgrestError
+    return NextResponse.json({ error: pgError.message, code: pgError.code, details: pgError.details, hint: pgError.hint }, { status: 500 })
   }
 
   return NextResponse.json({ files })

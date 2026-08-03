@@ -5,6 +5,7 @@ import {
   PlaylistOption,
   PlaylistSongWithSong,
   PlaylistSummary,
+  Song,
 } from "@/types"
 
 import { createServerComponentClient } from "@/libs/supabaseServer"
@@ -16,7 +17,11 @@ const FALLBACK_AUTHOR: PlaylistAuthor = {
   avatar_url: null,
 }
 
-const normalizePlaylist = (playlist: Record<string, any>): Playlist => ({
+// The raw row shape as it comes back from Supabase, before normalizePlaylist coerces `id` to a
+// string (Postgres returns it as a number) and fills in Playlist's other fields.
+type RawPlaylistRow = Omit<Playlist, "id"> & { id: string | number }
+
+const normalizePlaylist = (playlist: RawPlaylistRow): Playlist => ({
   id: String(playlist.id),
   created_at: playlist.created_at,
   updated_at: playlist.updated_at,
@@ -27,7 +32,15 @@ const normalizePlaylist = (playlist: Record<string, any>): Playlist => ({
   visibility: playlist.visibility,
 })
 
-const normalizePlaylistSong = (item: Record<string, any>): PlaylistSongWithSong | null => {
+type RawPlaylistSongRow = {
+  playlist_id: string | number
+  song_id: string | number
+  position: number
+  created_at: string
+  song: Omit<Song, "id"> & { id: string | number }
+}
+
+const normalizePlaylistSong = (item: RawPlaylistSongRow): PlaylistSongWithSong | null => {
   if (!item?.song) {
     return null
   }
@@ -99,7 +112,9 @@ export const getPlaylistSongsByPlaylistIds = async (playlistIds: string[]) => {
   const playlistSongsMap = new Map<string, PlaylistSongWithSong[]>()
 
   data.forEach(item => {
-    const normalizedItem = normalizePlaylistSong(item)
+    // Supabase infers the `song:19_songs(*)` to-one join as an array even though the FK guarantees
+    // one row, so the query result's static shape doesn't match the real single-object runtime shape.
+    const normalizedItem = normalizePlaylistSong(item as unknown as RawPlaylistSongRow)
 
     if (!normalizedItem) {
       return
@@ -114,7 +129,7 @@ export const getPlaylistSongsByPlaylistIds = async (playlistIds: string[]) => {
 }
 
 const buildPlaylistSummary = (
-  playlist: Record<string, any>,
+  playlist: RawPlaylistRow,
   authorsById: Map<string, PlaylistAuthor>,
   playlistSongsById: Map<string, PlaylistSongWithSong[]>,
 ): PlaylistSummary => {

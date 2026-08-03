@@ -68,11 +68,14 @@ export function useDbBackup() {
     return () => window.removeEventListener("beforeunload", handler)
   }, [isBusy])
 
+  const [prevIsBusy, setPrevIsBusy] = useState(isBusy)
+  if (isBusy !== prevIsBusy) {
+    setPrevIsBusy(isBusy)
+    if (!isBusy) setIsStalled(false)
+  }
+
   useEffect(() => {
-    if (!isBusy) {
-      setIsStalled(false)
-      return
-    }
+    if (!isBusy) return
     lastProgressRef.current = Date.now()
     const timer = setInterval(() => {
       setIsStalled(Date.now() - lastProgressRef.current > STALL_THRESHOLD_MS)
@@ -96,9 +99,9 @@ export function useDbBackup() {
       downloadBlob(blob, fileName)
       toast.success("Tables backup downloaded!")
       setTablesExportPhase("done")
-    } catch (err: any) {
+    } catch (err: unknown) {
       setTablesExportPhase("error")
-      const message = err?.message ?? "Tables export failed"
+      const message = err instanceof Error ? err.message : "Tables export failed"
       setTablesExportError(message)
       toast.error(message)
     }
@@ -120,9 +123,9 @@ export function useDbBackup() {
       downloadBlob(blob, fileName)
       toast.success("Files backup downloaded!")
       setFilesExportPhase("done")
-    } catch (err: any) {
+    } catch (err: unknown) {
       setFilesExportPhase("error")
-      const message = err?.message ?? "Files export failed"
+      const message = err instanceof Error ? err.message : "Files export failed"
       setFilesExportError(message)
       toast.error(message)
     }
@@ -150,9 +153,9 @@ export function useDbBackup() {
 
       const totalFiles = result.buckets.reduce((sum, bucket) => sum + bucket.files, 0)
       toast.success(`Restored ${totalFiles} files.`)
-    } catch (err: any) {
+    } catch (err: unknown) {
       setFilesImportPhase("error")
-      const message = err?.message ?? "Files import failed"
+      const message = err instanceof Error ? err.message : "Files import failed"
       setFilesImportError(message)
       toast.error(message)
     }
@@ -180,9 +183,9 @@ export function useDbBackup() {
 
       const totalRows = result.tables.reduce((sum, table) => sum + table.rows, 0)
       toast.success(`Restored ${totalRows} rows across ${result.tables.length} tables.`)
-    } catch (err: any) {
+    } catch (err: unknown) {
       setTablesImportPhase("error")
-      const message = err?.message ?? "Tables import failed"
+      const message = err instanceof Error ? err.message : "Tables import failed"
       setTablesImportError(message)
       toast.error(message)
     }
