@@ -43,6 +43,15 @@ const SKIPPED_FOLDERS = new Set([
 ])
 
 const DECLARATION_FILE = "env.d.ts"
+
+// Files that LIST every variable name by definition, so a mention inside them proves nothing about
+// the variable still being read anywhere real.
+//
+// checkKeys.ts is the key-check registry: it names every declaration on purpose, once in its entry
+// and often again in the comment beside it. Added 2026-08-03 after that file went in and silenced
+// this rule completely - UPSTASH_REDIS_URL is read by no code in 14/19/23, and stopped being
+// reported the moment the registry mentioned it.
+const CATALOGUE_FILES = new Set([DECLARATION_FILE, "checkKeys.ts"])
 const IDENTIFIER_PATTERN = /[A-Za-z_$][\w$]*/g
 
 // One entry per repo root, filled by the first lint of that repo and reused for the rest of the
@@ -93,8 +102,8 @@ function collectUsedNames(repoRoot) {
         continue
       }
       if (!entry.name.endsWith(".ts") && !entry.name.endsWith(".tsx")) continue
-      // The declaration file itself proves nothing - every name in it appears there by definition.
-      if (entry.name === DECLARATION_FILE) continue
+      // A catalogue file proves nothing - every name in it appears there by definition.
+      if (CATALOGUE_FILES.has(entry.name)) continue
 
       let text
       try {
