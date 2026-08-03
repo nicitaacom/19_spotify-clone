@@ -1,7 +1,12 @@
 import Header from "@/components/Header"
+import { getIsOwner } from "@/libs/getIsOwner"
 import AccountContent from "./components/AccountContent"
 
-export default function Page() {
+export const revalidate = 0
+
+export default async function Page() {
+  const isOwner = await getIsOwner()
+
   return (
     <div className="bg-surface rounded-lg w-full h-full overflow-x-hidden">
       <Header className="from-[#0f1f14] via-[#0b0f0c]">
@@ -9,7 +14,7 @@ export default function Page() {
           <h1 className="text-white text-3xl font-semibold">Account Settings</h1>
         </div>
       </Header>
-      <AccountContent />
+      <AccountContent isOwner={isOwner} />
     </div>
   )
 }

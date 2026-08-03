@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { FiDownload } from "react-icons/fi"
+import { FiDownload, FiUpload } from "react-icons/fi"
 
 import { useUser } from "@/hooks/useUser"
 import Button from "@/components/Button"
@@ -10,11 +10,17 @@ import { postData } from "@/libs/helpers"
 import useDbBackupModal from "@/app/features/backup/useDbBackupModal"
 import StorageUsageBar from "@/components/StorageUsageBar"
 import useExclusivePlaybackPreference from "@/hooks/useExclusivePlaybackPreference"
+import useUploadModal from "@/hooks/useUploadModal"
 
-const AccountContent = () => {
+interface AccountContentProps {
+  isOwner: boolean
+}
+
+const AccountContent = ({ isOwner }: AccountContentProps) => {
   const router = useRouter()
   const { isLoading, subscription, user } = useUser()
   const dbBackupModal = useDbBackupModal()
+  const uploadModal = useUploadModal()
 
   const [loading, setLoading] = useState(false)
   const exclusivePlaybackHasHydrated = useExclusivePlaybackPreference(state => state.hasHydrated)
@@ -117,6 +123,33 @@ const AccountContent = () => {
           <p className="text-sm font-semibold text-neutral-300">Storage</p>
           <p className="text-sm text-neutral-400">Total song storage used across the Supabase free tier.</p>
           <StorageUsageBar />
+        </div>
+      )}
+
+      {user && (
+        <div className="mt-8 flex flex-col gap-y-3 border-t border-white/10 pt-6">
+          <p className="text-sm font-semibold text-neutral-300">Uploads</p>
+          {isOwner ? (
+            <>
+              <p className="text-sm text-neutral-400">This account can add new songs to the library.</p>
+              <button
+                onClick={uploadModal.onOpen}
+                className="flex w-[300px] items-center justify-center gap-x-2 rounded-md border border-neon/30 bg-elevated px-4 py-2.5 text-sm font-semibold text-neon transition hover:border-neon/60 hover:bg-elevated/80">
+                <FiUpload size={15} />
+                Upload song
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-neutral-400">
+                Only the library owner can add songs. Backup and restore below is open to every signed-in account, so
+                having it does not grant uploading.
+              </p>
+              <p className="text-sm text-neutral-400">
+                This account id: <span className="select-all font-mono text-neutral-200">{user.id}</span>
+              </p>
+            </>
+          )}
         </div>
       )}
 

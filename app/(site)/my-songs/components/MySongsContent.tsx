@@ -5,18 +5,20 @@ import { useRouter } from "next/navigation"
 import { useSupabaseClient } from "@supabase/auth-helpers-react"
 import toast from "react-hot-toast"
 import { MdMusicNote } from "react-icons/md"
-import { FiTrash2, FiPlus, FiEdit2 } from "react-icons/fi"
+import { FiTrash2, FiPlus, FiEdit2, FiUpload } from "react-icons/fi"
 
 import { Song } from "@/types"
 import { useUser } from "@/hooks/useUser"
 import useLoadImage from "@/hooks/useLoadImage"
 import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
 import useEditSongModal from "@/hooks/useEditSongModal"
+import useUploadModal from "@/hooks/useUploadModal"
 import Button from "@/components/Button"
 import CoverImage from "@/components/CoverImage"
 
 interface MySongsContentProps {
   songs: Song[]
+  isOwner: boolean
 }
 
 function SongRow({ song, onDelete, onUpdate }: { song: Song; onDelete: (id: string) => void; onUpdate: (updated: Song) => void }) {
@@ -90,9 +92,10 @@ function SongRow({ song, onDelete, onUpdate }: { song: Song; onDelete: (id: stri
   )
 }
 
-const MySongsContent: React.FC<MySongsContentProps> = ({ songs: initialSongs }) => {
+const MySongsContent: React.FC<MySongsContentProps> = ({ songs: initialSongs, isOwner }) => {
   const router = useRouter()
   const { isLoading, user } = useUser()
+  const uploadModal = useUploadModal()
   const [songs, setSongs] = useState<Song[]>(initialSongs)
 
   useEffect(() => {
@@ -121,9 +124,16 @@ const MySongsContent: React.FC<MySongsContentProps> = ({ songs: initialSongs }) 
           <p className="mt-3 max-w-md text-sm text-neutral-400">
             Songs you upload will appear here. You can delete any of them from this page.
           </p>
-          <Button className="mt-6 w-auto px-6 py-3" onClick={() => router.push("/")}>
-            Go home
-          </Button>
+          {isOwner ? (
+            <Button className="mt-6 flex w-auto items-center justify-center gap-x-2 px-6 py-3" onClick={uploadModal.onOpen}>
+              <FiUpload size={16} />
+              Upload song
+            </Button>
+          ) : (
+            <Button className="mt-6 w-auto px-6 py-3" onClick={() => router.push("/")}>
+              Go home
+            </Button>
+          )}
         </div>
       </div>
     )
@@ -137,8 +147,18 @@ const MySongsContent: React.FC<MySongsContentProps> = ({ songs: initialSongs }) 
         <p className="mt-2 max-w-2xl text-sm text-neutral-300">
           Delete any song you uploaded. Removing it will also remove the audio and image files permanently.
         </p>
-        <div className="mt-3 inline-block rounded-full border border-white/10 bg-black/30 px-4 py-2 text-sm font-medium text-white">
-          {songs.length} {songs.length === 1 ? "song" : "songs"}
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <div className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-sm font-medium text-white">
+            {songs.length} {songs.length === 1 ? "song" : "songs"}
+          </div>
+          {isOwner && (
+            <button
+              onClick={uploadModal.onOpen}
+              className="flex items-center gap-x-2 rounded-full border border-neon/30 bg-elevated px-4 py-2 text-sm font-semibold text-neon transition hover:border-neon/60 hover:bg-elevated/80">
+              <FiUpload size={15} />
+              Upload song
+            </button>
+          )}
         </div>
       </div>
 
