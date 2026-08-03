@@ -103,13 +103,11 @@ const AccountContent = ({ isOwner }: AccountContentProps) => {
               aria-label="Stop music playing in other tabs"
               disabled={!exclusivePlaybackHasHydrated || !isPusherConfigured}
               onClick={() => setExclusivePlaybackEnabled(user.id, !exclusivePlaybackEnabled)}
-              className={`relative h-7 w-12 shrink-0 rounded-full border transition ${
-                exclusivePlaybackEnabled
-                  ? "border-neon/60 bg-neon/30"
-                  : "border-white/15 bg-neutral-700"
+              className={`relative h-7 w-12 shrink-0 rounded-full ring-1 ring-inset transition ${
+                exclusivePlaybackEnabled ? "bg-neon/30 ring-neon/60" : "bg-neutral-700 ring-white/15"
               } disabled:cursor-not-allowed disabled:opacity-50`}>
               <span
-                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${
                   exclusivePlaybackEnabled ? "translate-x-5" : "translate-x-0"
                 }`}
               />
