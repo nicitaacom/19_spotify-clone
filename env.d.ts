@@ -4,7 +4,7 @@ declare global {
       NEXT_PUBLIC_PRODUCTION_URL: string
 
       NEXT_PUBLIC_SUPABASE_URL: string
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: string
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: string // eslint-disable-line local-rules/no-unused-envs -- read internally by @supabase/auth-helpers-nextjs, never an explicit process.env reference in this repo's own source
       SUPABASE_SERVICE_ROLE_KEY: string
 
       UPSTASH_REDIS_REST_URL: string
@@ -17,6 +17,12 @@ declare global {
 
       GITHUB_CLIENT_ID: string
       GITHUB_CLIENT_SECRET: string
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_TEST: string
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY_LIVE: string
+      STRIPE_SECRET_KEY_TEST: string
+      STRIPE_SECRET_KEY_LIVE: string
+      STRIPE_WEBHOOK_SECRET_TEST: string
+      STRIPE_WEBHOOK_SECRET_LIVE: string
 
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: string
       STRIPE_SECRET_KEY: string
