@@ -27,12 +27,18 @@ const SearchModal = () => {
   const onPlay = useOnPlay(songs)
   const { isOwner } = useOwnerStore()
 
-  useEffect(() => {
+  const resetKey = `${isOpen}:${debouncedSearchValue}`
+  const [prevResetKey, setPrevResetKey] = useState(resetKey)
+  if (resetKey !== prevResetKey) {
+    setPrevResetKey(resetKey)
     if (!isOpen || !debouncedSearchValue) {
       setSongs([])
       setPlaylists([])
-      return
     }
+  }
+
+  useEffect(() => {
+    if (!isOpen || !debouncedSearchValue) return
 
     const fetchFn = async () => {
       setErrorMessage("")

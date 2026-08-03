@@ -1,10 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { AiOutlineEye, AiOutlineEyeInvisible } from "react-icons/ai"
 import { useAuthStore } from "@/hooks/useAuthStore"
 import useDebounce from "@/hooks/useDebounce"
-import { validatePasswordDetailed, PasswordValidationResult } from "@/app/utils/authValidation"
+import { validatePasswordDetailed } from "@/app/utils/authValidation"
 
 const strengthColors: Record<string, string> = {
   weak: "bg-rose-500",
@@ -24,31 +24,26 @@ export function InputPassword() {
   const { passwordInputValue, setPasswordInputValue, passwordInputError, setPasswordInputError, authMode, isLoading } =
     useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
-  const [passwordStrength, setPasswordStrength] = useState<PasswordValidationResult | null>(null)
-  const [isValidating, setIsValidating] = useState(false)
 
   const debouncedPassword = useDebounce(passwordInputValue, 1000)
 
-  useEffect(() => {
-    if (authMode !== "register") return
-    if (!debouncedPassword.trim()) {
-      setPasswordStrength(null)
-      setIsValidating(false)
-      return
-    }
-    setIsValidating(true)
-    const result = validatePasswordDetailed(debouncedPassword)
-    setPasswordStrength(result)
-    setIsValidating(false)
+  // validatePasswordDetailed is synchronous, so the result is a pure function of the debounced
+  // value - no effect needed to compute it.
+  const passwordStrength = useMemo(() => {
+    if (authMode !== "register" || !debouncedPassword.trim()) return null
+    return validatePasswordDetailed(debouncedPassword)
   }, [debouncedPassword, authMode])
+
+  // True for the gap between a keystroke and the debounce catching up to it.
+  const isValidating =
+    authMode === "register" && Boolean(passwordInputValue.trim()) && passwordInputValue !== debouncedPassword
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       setPasswordInputValue(e.target.value)
       if (passwordInputError) setPasswordInputError("")
-      if (authMode === "register" && e.target.value.trim()) setIsValidating(true)
     },
-    [authMode, passwordInputError, setPasswordInputValue, setPasswordInputError],
+    [passwordInputError, setPasswordInputValue, setPasswordInputError],
   )
 
   const placeholder =

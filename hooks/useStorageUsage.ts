@@ -27,7 +27,10 @@ export const useStorageUsage = () => {
   }, [])
 
   useEffect(() => {
-    fetchFn()
+    const runFetchFn = async () => {
+      await fetchFn()
+    }
+    runFetchFn()
   }, [fetchFn])
 
   return {

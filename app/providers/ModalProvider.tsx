@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
 
 import AuthModal from "../../components/AuthModal"
 import AddToPlaylistModal from "../../components/AddToPlaylistModal"
@@ -10,12 +10,14 @@ import SearchModal from "../../components/SearchModal"
 import UploadModal from "../../components/UploadModal"
 import { AreYouSureModalsProvider } from "../../components/modals/AreYouSureModalsProvider"
 
-export default function ModalProvider() {
-  const [isMounted, setIsMounted] = useState(false)
+const emptySubscribe = () => () => {}
 
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
+export default function ModalProvider() {
+  const isMounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  )
 
   if (!isMounted) {
     return null

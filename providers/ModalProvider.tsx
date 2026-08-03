@@ -2,14 +2,16 @@
 
 import AuthModal from "@/components/AuthModal"
 import UploadModal from "@/components/UploadModal"
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
+
+const emptySubscribe = () => () => {}
 
 export default function ModalProvider() {
-  const [isMounted, setIsMounted] = useState(false)
-
-  useEffect(() => {
-    setIsMounted(true)
-  }, [])
+  const isMounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  )
 
   if (!isMounted) {
     return null

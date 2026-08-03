@@ -1,25 +1,15 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
 
 import { isIframeAuthFromSearch } from "@/app/utils/isIframeAuth"
 
-const getIsIframeAuth = () => {
-  if (typeof window === "undefined") {
-    return false
-  }
+const getIsIframeAuth = () => isIframeAuthFromSearch(window.location.search)
 
-  return isIframeAuthFromSearch(window.location.search)
-}
+const emptySubscribe = () => () => {}
 
 const useIsIframeAuth = () => {
-  const [isIframe, setIsIframe] = useState(getIsIframeAuth)
-
-  useEffect(() => {
-    setIsIframe(getIsIframeAuth())
-  }, [])
-
-  return isIframe
+  return useSyncExternalStore(emptySubscribe, getIsIframeAuth, () => false)
 }
 
 export default useIsIframeAuth

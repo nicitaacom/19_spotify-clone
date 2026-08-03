@@ -34,7 +34,10 @@ export const useVerifyHuman = (
   useEffect(() => {
     if (isDev || !isEnabled || !siteKey) {
       if (!isDev) {
-        clearVerificationFn()
+        const runClearVerification = async () => {
+          clearVerificationFn()
+        }
+        runClearVerification()
       }
 
       if (widgetIdRef.current && window.turnstile) {
