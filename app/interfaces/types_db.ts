@@ -1,6 +1,14 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
 
-export interface Database {
+// A type alias, not an interface: postgrest-js constrains its schema generic to an index-signature
+// shape, and an interface never satisfies that, so every Row/Insert quietly resolved to never and
+// each .insert()/.update() call was an error. See 23_store's app/ts/types_db.ts, same shape.
+export type Database = {
+  // Read by @supabase/postgrest-js to pick its query-builder types. Without it every Row and Insert
+  // resolves to never and each .insert()/.update() call is an error - see 23_store's app/ts/types_db.ts.
+  __InternalSupabase: {
+    PostgrestVersion: "12"
+  }
   public: {
     Tables: {
       "19_customers": {

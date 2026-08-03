@@ -1,10 +1,12 @@
 import { useEffect, useState, createContext, useContext } from "react"
-import { useUser as useSupaUser, useSessionContext, User } from "@supabase/auth-helpers-react"
+import { Session, User } from "@supabase/supabase-js"
 
+import supabaseClient from "@/libs/supabaseClient"
 import { UserDetails, Subscription } from "@/types"
 
 type UserContextType = {
   accessToken: string | null
+  session: Session | null
   user: User | null
   userDetails: UserDetails | null
   isLoading: boolean
@@ -14,47 +16,77 @@ type UserContextType = {
 export const UserContext = createContext<UserContextType | undefined>(undefined)
 
 export interface Props {
-  [propName: string]: any
+  [propName: string]: unknown
 }
 
 export const MyUserContextProvider = (props: Props) => {
-  const { session, isLoading: isLoadingUser, supabaseClient: supabase } = useSessionContext()
-  const user = useSupaUser()
-  const accessToken = session?.access_token ?? null
+  const [session, setSession] = useState<Session | null>(null)
+  const [isLoadingUser, setIsLoadingUser] = useState(true)
   const [isLoadingData, setIsloadingData] = useState(false)
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null)
   const [subscription, setSubscription] = useState<Subscription | null>(null)
 
-  const getUserDetails = () => supabase.from("19_users").select("*").maybeSingle()
+  const user = session?.user ?? null
+  const accessToken = session?.access_token ?? null
+
+  // Takes over from SessionContextProvider: read the session once, then follow it.
+  // onAuthStateChange fires on sign in, sign out and every token refresh, so no other component has
+  // to know how the session arrived - they all read it from this context.
+  useEffect(() => {
+    let isActive = true
+
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (!isActive) return
+      setSession(data.session)
+      setIsLoadingUser(false)
+    })
+
+    const {
+      data: { subscription: authSubscription },
+    } = supabaseClient.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession)
+      setIsLoadingUser(false)
+    })
+
+    return () => {
+      isActive = false
+      authSubscription.unsubscribe()
+    }
+  }, [])
+
+  const getUserDetails = () => supabaseClient.from("19_users").select("*").maybeSingle()
   const getSubscription = () =>
-    supabase
+    supabaseClient
       .from("19_subscriptions")
       .select("*, 19_prices(*, 19_products(*))")
       .in("status", ["trialing", "active"])
       .maybeSingle()
 
   useEffect(() => {
-    if (user && !isLoadingData && !userDetails && !subscription) {
-      setIsloadingData(true)
-      Promise.allSettled([getUserDetails(), getSubscription()]).then(results => {
+    const runFetchUserData = async () => {
+      if (user && !isLoadingData && !userDetails && !subscription) {
+        setIsloadingData(true)
+        const results = await Promise.allSettled([getUserDetails(), getSubscription()])
         const userDetailsPromise = results[0]
         const subscriptionPromise = results[1]
 
-        if (userDetailsPromise.status === "fulfilled") setUserDetails(userDetailsPromise.value.data as UserDetails)
+        if (userDetailsPromise.status === "fulfilled") setUserDetails(userDetailsPromise.value.data as unknown as UserDetails)
 
         if (subscriptionPromise.status === "fulfilled") setSubscription(subscriptionPromise.value.data as Subscription)
 
         setIsloadingData(false)
-      })
-    } else if (!user && !isLoadingUser && !isLoadingData) {
-      setUserDetails(null)
-      setSubscription(null)
+      } else if (!user && !isLoadingUser && !isLoadingData) {
+        setUserDetails(null)
+        setSubscription(null)
+      }
     }
+    runFetchUserData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isLoadingUser])
 
   const value = {
     accessToken,
+    session,
     user,
     userDetails,
     isLoading: isLoadingUser || isLoadingData,

@@ -4,7 +4,6 @@ import { useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { twMerge } from "tailwind-merge"
-import { useSupabaseClient } from "@supabase/auth-helpers-react"
 import { RxCaretLeft, RxCaretRight } from "react-icons/rx"
 import { HiHome } from "react-icons/hi"
 import { BiSearch } from "react-icons/bi"
@@ -17,6 +16,7 @@ import usePlayer from "@/hooks/usePlayer"
 import { getProductionAuthUrl, handleAuthAction, shouldUseExternalAuth } from "@/app/utils/handleAuthAction"
 import useIsIframeAuth from "@/hooks/useIsIframeAuth"
 import useSearchModal from "@/hooks/useSearchModal"
+import supabaseClient from "@/libs/supabaseClient"
 
 interface HeaderProps {
   children: React.ReactNode
@@ -27,7 +27,6 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
   const player = usePlayer()
   const router = useRouter()
 
-  const supabaseClient = useSupabaseClient()
   const { user } = useUser()
   const isIframe = useIsIframeAuth()
   const authUrl = getProductionAuthUrl()

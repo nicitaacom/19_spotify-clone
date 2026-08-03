@@ -3,12 +3,12 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "react-hot-toast"
-import { useSessionContext } from "@supabase/auth-helpers-react"
 
 import useCreatePlaylistModal from "@/hooks/useCreatePlaylistModal"
 import { useUser } from "@/hooks/useUser"
 import { PlaylistVisibility } from "@/types"
 import { getPlaylistSlug } from "@/libs/helpers"
+import supabaseClient from "@/libs/supabaseClient"
 
 import Button from "./Button"
 import Input from "./Input"
@@ -20,7 +20,7 @@ const MAX_SLUG_ATTEMPTS = 10
 const CreatePlaylistModal = () => {
   const router = useRouter()
   const createPlaylistModal = useCreatePlaylistModal()
-  const { supabaseClient } = useSessionContext()
+
   const { user } = useUser()
 
   const [title, setTitle] = useState("")

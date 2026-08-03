@@ -4,12 +4,12 @@ import { MouseEvent, useEffect, useState } from "react"
 import { AiOutlineHeart, AiFillHeart } from "react-icons/ai"
 import { useRouter } from "next/navigation"
 import { toast } from "react-hot-toast"
-import { useSessionContext } from "@supabase/auth-helpers-react"
 import { twMerge } from "tailwind-merge"
 
 import { useUser } from "@/hooks/useUser"
 import useIsIframeAuth from "@/hooks/useIsIframeAuth"
 import { handleAuthAction } from "@/app/utils/handleAuthAction"
+import supabaseClient from "@/libs/supabaseClient"
 
 interface LikeButtonProps {
   songId: string
@@ -21,7 +21,7 @@ interface LikeButtonProps {
 
 const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassName, size = 25, onToggle }) => {
   const router = useRouter()
-  const { supabaseClient } = useSessionContext()
+
   const { user } = useUser()
   const isIframe = useIsIframeAuth()
 
@@ -29,18 +29,21 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassNam
 
   const [isLiked, setIsLiked] = useState<boolean>(false)
 
+  const [prevUserId, setPrevUserId] = useState(user?.id)
+  if (user?.id !== prevUserId) {
+    setPrevUserId(user?.id)
+    if (!user?.id) setIsLiked(false)
+  }
+
   useEffect(() => {
-    if (!user?.id) {
-      setIsLiked(false)
-      return
-    }
+    if (!user?.id) return
 
     const fetchData = async () => {
       const { data, error } = await supabaseClient
         .from("19_liked_songs")
         .select("*")
         .eq("user_id", user.id)
-        .eq("song_id", songId)
+        .eq("song_id", Number(songId))
         .maybeSingle()
 
       if (error) console.log("select liked song error in LikeButton - ", error.message)
@@ -50,7 +53,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassNam
     }
 
     fetchData()
-  }, [songId, supabaseClient, user?.id])
+  }, [songId, user?.id])
 
   const Icon = isLiked ? AiFillHeart : AiOutlineHeart
 
@@ -62,7 +65,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassNam
     }
 
     if (isLiked) {
-      const { error } = await supabaseClient.from("19_liked_songs").delete().eq("user_id", user.id).eq("song_id", songId)
+      const { error } = await supabaseClient.from("19_liked_songs").delete().eq("user_id", user.id).eq("song_id", Number(songId))
 
       if (error) {
         toast.error(error.message)
@@ -72,7 +75,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassNam
       }
     } else {
       const { error } = await supabaseClient.from("19_liked_songs").insert({
-        song_id: songId,
+        song_id: Number(songId),
         user_id: user.id,
       })
 

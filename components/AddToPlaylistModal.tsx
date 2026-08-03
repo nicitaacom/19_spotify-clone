@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "react-hot-toast"
-import { useSessionContext } from "@supabase/auth-helpers-react"
 
 import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
 import useCreatePlaylistModal from "@/hooks/useCreatePlaylistModal"
 import { PlaylistOption } from "@/types"
 import { useUser } from "@/hooks/useUser"
+import supabaseClient from "@/libs/supabaseClient"
 
 import Button from "./Button"
 import Modal from "./Modal"
@@ -17,18 +17,22 @@ const AddToPlaylistModal = () => {
   const router = useRouter()
   const addToPlaylistModal = useAddToPlaylistModal()
   const createPlaylistModal = useCreatePlaylistModal()
-  const { supabaseClient } = useSessionContext()
+
   const { user } = useUser()
 
   const [playlists, setPlaylists] = useState<PlaylistOption[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [loadingPlaylistId, setLoadingPlaylistId] = useState<string>()
 
+  const resetKey = `${addToPlaylistModal.isOpen}:${user?.id ?? ""}`
+  const [prevResetKey, setPrevResetKey] = useState(resetKey)
+  if (resetKey !== prevResetKey) {
+    setPrevResetKey(resetKey)
+    if (!addToPlaylistModal.isOpen || !user) setPlaylists([])
+  }
+
   useEffect(() => {
-    if (!addToPlaylistModal.isOpen || !user) {
-      setPlaylists([])
-      return
-    }
+    if (!addToPlaylistModal.isOpen || !user) return
 
     const fetchPlaylists = async () => {
       setIsLoading(true)
@@ -57,7 +61,7 @@ const AddToPlaylistModal = () => {
     }
 
     fetchPlaylists()
-  }, [addToPlaylistModal.isOpen, supabaseClient, user])
+  }, [addToPlaylistModal.isOpen, user])
 
   const onChange = (open: boolean) => {
     if (!open) {
@@ -93,7 +97,7 @@ const AddToPlaylistModal = () => {
 
       const { error: insertError } = await supabaseClient.from("19_playlist_songs").insert({
         playlist_id: playlistId,
-        song_id: addToPlaylistModal.song.id,
+        song_id: Number(addToPlaylistModal.song.id),
         position: nextPosition,
       })
 

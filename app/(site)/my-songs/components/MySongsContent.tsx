@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useSupabaseClient } from "@supabase/auth-helpers-react"
 import toast from "react-hot-toast"
 import { MdMusicNote } from "react-icons/md"
 import { FiTrash2, FiPlus, FiEdit2, FiUpload } from "react-icons/fi"
@@ -15,6 +14,7 @@ import useEditSongModal from "@/hooks/useEditSongModal"
 import useUploadModal from "@/hooks/useUploadModal"
 import Button from "@/components/Button"
 import CoverImage from "@/components/CoverImage"
+import supabaseClient from "@/libs/supabaseClient"
 
 interface MySongsContentProps {
   songs: Song[]
@@ -24,7 +24,7 @@ interface MySongsContentProps {
 function SongRow({ song, onDelete, onUpdate }: { song: Song; onDelete: (id: string) => void; onUpdate: (updated: Song) => void }) {
   const imagePath = useLoadImage(song)
   const [deleting, setDeleting] = useState(false)
-  const supabaseClient = useSupabaseClient()
+
   const addToPlaylistModal = useAddToPlaylistModal()
   const editSongModal = useEditSongModal()
 
@@ -32,7 +32,7 @@ function SongRow({ song, onDelete, onUpdate }: { song: Song; onDelete: (id: stri
     if (!confirm(`Delete "${song.title}"? This cannot be undone.`)) return
     setDeleting(true)
     try {
-      const { error: dbError } = await supabaseClient.from("19_songs").delete().eq("id", song.id)
+      const { error: dbError } = await supabaseClient.from("19_songs").delete().eq("id", Number(song.id))
 
       if (dbError) {
         toast.error(dbError.message)

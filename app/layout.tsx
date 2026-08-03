@@ -3,7 +3,6 @@ import "./globals.css"
 import Script from "next/script"
 
 import Sidebar from "../components/Sidebar"
-import SupabaseProvider from "./providers/SupabaseProvider"
 import UserProvider from "./providers/UserProvider"
 import ModalProvider from "./providers/ModalProvider"
 import ToasterProvider from "./providers/ToastProvider"
@@ -40,17 +39,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ToasterProvider />
         <OfflineProvider />
         <UTMTracker />
-        <SupabaseProvider>
-          <UserProvider>
-            <PlaybackSyncProvider>
-              <ModalProvider />
-              <Sidebar songs={userSongs} isOwner={isOwner}>
-                {children}
-              </Sidebar>
-              <Player />
-            </PlaybackSyncProvider>
-          </UserProvider>
-        </SupabaseProvider>
+        <UserProvider>
+          <PlaybackSyncProvider>
+            <ModalProvider />
+            <Sidebar songs={userSongs} isOwner={isOwner}>
+              {children}
+            </Sidebar>
+            <Player />
+          </PlaybackSyncProvider>
+        </UserProvider>
       </body>
     </html>
   )

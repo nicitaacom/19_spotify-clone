@@ -1,9 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "react-hot-toast"
-import { useSessionContext } from "@supabase/auth-helpers-react"
 import { AiOutlineArrowDown, AiOutlineArrowUp, AiOutlineMinusCircle } from "react-icons/ai"
 
 import AddToPlaylistButton from "@/components/AddToPlaylistButton"
@@ -17,6 +16,7 @@ import useOnPlay from "@/hooks/useOnPlay"
 import useOwnerStore from "@/hooks/useOwnerStore"
 import { PlaylistDetail, PlaylistSongWithSong, PlaylistVisibility } from "@/types"
 import { useAreYouSureModals } from "@/store/modals/useAreYouSureModals"
+import supabaseClient from "@/libs/supabaseClient"
 
 interface PlaylistDetailContentProps {
   canManage: boolean
@@ -31,7 +31,7 @@ const reindexPlaylistSongs = (songs: PlaylistSongWithSong[]) =>
 
 const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage, playlist }) => {
   const router = useRouter()
-  const { supabaseClient } = useSessionContext()
+
   const { isOwner } = useOwnerStore()
   const { openModal } = useAreYouSureModals()
 
@@ -43,12 +43,16 @@ const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage
   const [isDeletingPlaylist, setIsDeletingPlaylist] = useState(false)
   const [busySongId, setBusySongId] = useState<string>()
 
-  useEffect(() => {
+  // Resets local edit state whenever the server hands us a new playlist object (e.g. after
+  // router.refresh()) - done during render, not an effect, so there's no extra render pass.
+  const [prevPlaylist, setPrevPlaylist] = useState(playlist)
+  if (playlist !== prevPlaylist) {
+    setPrevPlaylist(playlist)
     setTitle(playlist.title)
     setDescription(playlist.description ?? "")
     setVisibility(playlist.visibility)
     setSongs(playlist.songs)
-  }, [playlist])
+  }
 
   const queueSongs = useMemo(() => songs.map(item => item.song), [songs])
   const onPlay = useOnPlay(queueSongs)

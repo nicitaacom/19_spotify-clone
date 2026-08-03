@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect } from "react"
-import { useSessionContext, useSupabaseClient } from "@supabase/auth-helpers-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import toast from "react-hot-toast"
 import { FaGithub } from "react-icons/fa"
@@ -11,7 +10,9 @@ import { MdOutlineErrorOutline } from "react-icons/md"
 
 import useAuthModal from "@/hooks/useAuthModal"
 import { useAuthStore } from "@/hooks/useAuthStore"
+import { useUser } from "@/hooks/useUser"
 import { getURL } from "@/app/utils/getURL"
+import supabaseClient from "@/libs/supabaseClient"
 
 import Modal from "./Modal"
 import Button from "./Button"
@@ -35,12 +36,11 @@ const statusStyles = {
 } as const
 
 const AuthModal = () => {
-  const { session } = useSessionContext()
+  const { session } = useUser()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { onClose, onOpen, isOpen } = useAuthModal()
-  const supabaseClient = useSupabaseClient()
 
   const { authMode, authMessage, authStatus, setAuthMessage, setAuthStatus, setIsLoading, resetAuthState } =
     useAuthStore()

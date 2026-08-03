@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { useSessionContext } from "@supabase/auth-helpers-react"
 
 import { Song } from "@/types"
 import { useUser } from "@/hooks/useUser"
+import supabaseClient from "@/libs/supabaseClient"
 
 import useLoadSongUrl from "./useLoadSongUrl"
 import usePlayer from "./usePlayer"
@@ -34,7 +34,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
     setPreloadedSongId,
     setProgress,
   } = usePlayer()
-  const { supabaseClient } = useSessionContext()
+
   const { user } = useUser()
 
   const preloadAudioRef = useRef<HTMLAudioElement | null>(null)
@@ -104,7 +104,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
 
       if (nextProgress >= PLAY_RECORD_THRESHOLD && !hasRecordedPlayRef.current && user) {
         hasRecordedPlayRef.current = true
-        supabaseClient.from("song_plays").insert({ song_id: currentSong.id, user_id: user.id })
+        supabaseClient.from("song_plays").insert({ song_id: Number(currentSong.id), user_id: user.id })
       }
     }
 
@@ -115,7 +115,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [currentSong.id, isPlaying, isPlayingInStore, nextSongId, preloadedSongId, setPreloadedSongId, setProgress, sound, supabaseClient, user])
+  }, [currentSong.id, isPlaying, isPlayingInStore, nextSongId, preloadedSongId, setPreloadedSongId, setProgress, sound, user])
 
   useEffect(() => {
     if (!nextSongId || !nextSongUrl || preloadedSongId !== nextSongId) {

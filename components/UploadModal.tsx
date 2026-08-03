@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useRef, useState, useEffect, useCallback } from "react"
-import { useSessionContext } from "@supabase/auth-helpers-react"
 import { FieldValues, SubmitHandler, useForm } from "react-hook-form"
 import { toast } from "react-hot-toast"
 import { useRouter } from "next/navigation"
@@ -14,6 +13,7 @@ import { useUser } from "@/hooks/useUser"
 import { useVerifyHuman } from "@/hooks/useVerifyHuman"
 import { verifyTurnstileTokenFn } from "@/app/utils/verifyTurnstileToken"
 import { PlaylistOption } from "@/types"
+import supabaseClient from "@/libs/supabaseClient"
 
 import Modal from "./Modal"
 import Input from "./Input"
@@ -56,7 +56,7 @@ const UploadModal = () => {
 
   const uploadModal = useUploadModal()
   const createPlaylistModal = useCreatePlaylistModal()
-  const { supabaseClient } = useSessionContext()
+
   const { user, subscription } = useUser()
   const router = useRouter()
   const turnstileRef = useRef<HTMLDivElement>(null)
@@ -70,11 +70,22 @@ const UploadModal = () => {
     defaultValues: { author: "", title: "", song: null, image: null },
   })
 
+  const [prevModalIsOpen, setPrevModalIsOpen] = useState(uploadModal.isOpen)
+  if (uploadModal.isOpen !== prevModalIsOpen) {
+    setPrevModalIsOpen(uploadModal.isOpen)
+    if (!uploadModal.isOpen) setRequiresChallenge(false)
+  }
+
   useEffect(() => {
-    if (uploadModal.isOpen) {
-      setRequiresChallenge(Math.random() < TURNSTILE_PROBABILITY)
-    } else {
-      setRequiresChallenge(false)
+    if (!uploadModal.isOpen) return
+    let isCancelled = false
+    const rollChallenge = async () => {
+      await Promise.resolve()
+      if (!isCancelled) setRequiresChallenge(Math.random() < TURNSTILE_PROBABILITY)
+    }
+    rollChallenge()
+    return () => {
+      isCancelled = true
     }
   }, [uploadModal.isOpen])
 
@@ -100,15 +111,24 @@ const UploadModal = () => {
       // If we had a selected playlist, keep it in sync (e.g. after rename)
       setSelectedPlaylist(prev => (prev ? (mapped.find(p => p.id === prev.id) ?? null) : null))
     }
-  }, [supabaseClient, user])
+  }, [user])
 
-  useEffect(() => {
+  const playlistsResetKey = `${uploadModal.isOpen}:${user?.id ?? ""}`
+  const [prevPlaylistsResetKey, setPrevPlaylistsResetKey] = useState(playlistsResetKey)
+  if (playlistsResetKey !== prevPlaylistsResetKey) {
+    setPrevPlaylistsResetKey(playlistsResetKey)
     if (!uploadModal.isOpen || !user) {
       setPlaylists([])
       setSelectedPlaylist(null)
-      return
     }
-    fetchPlaylists()
+  }
+
+  useEffect(() => {
+    if (!uploadModal.isOpen || !user) return
+    const runFetchPlaylists = async () => {
+      await fetchPlaylists()
+    }
+    runFetchPlaylists()
   }, [uploadModal.isOpen, user, fetchPlaylists])
 
   // Re-fetch playlists when create modal closes (user may have just created one)
@@ -167,14 +187,14 @@ const UploadModal = () => {
       }
 
       xhr.onload = () => {
-        let body: any = {}
+        let body: { id?: number; error?: string } = {}
         try {
           body = JSON.parse(xhr.responseText)
         } catch {
           // ignore parse failure, handled by status check below
         }
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(body)
+          resolve(body as { id: number })
         } else {
           reject(new Error(body?.error ?? `Upload failed (${xhr.status})`))
         }
@@ -263,9 +283,9 @@ const UploadModal = () => {
 
       try {
         await uploadViaApi(formData)
-      } catch (err: any) {
+      } catch (err: unknown) {
         setIsLoading(false)
-        return toast.error(err?.message ?? "Upload failed")
+        return toast.error(err instanceof Error ? err.message : "Upload failed")
       }
 
       router.refresh()
