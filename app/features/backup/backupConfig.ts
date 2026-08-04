@@ -9,6 +9,9 @@
 // user_id (or, for 19_playlist_songs, via the playlists that user owns), and a file may only be
 // read/written if its path is one of that user's own 19_songs.song_path/image_path.
 
+import { buildSupabasePublicUrl } from "@/libs/supabasePublicUrl"
+import { isFilePathOwnedExclusively, remapAndFilterOwnedRows, remapRowsToCurrentUser } from "./backupOwnership"
+
 // Untyped on purpose: the routes pass a client typed to this project's full generated Database
 // schema (SupabaseClient<Database>). Threading that specific generic through every function here
 // causes TypeScript's inference to recurse ("Type instantiation is excessively deep") once a
@@ -49,6 +52,18 @@ async function scopeToOwnPlaylistSongs(admin: AnySupabaseClient, userId: string,
   return rows.filter(row => ownedPlaylistIds.has(row.playlist_id as string))
 }
 
+async function scopeOwnedSongs(admin: AnySupabaseClient, userId: string, rows: Record<string, unknown>[]) {
+  const { data, error } = await admin.from("19_songs").select("id,user_id,song_path,image_path")
+  if (error) throw error
+  return remapAndFilterOwnedRows(rows, data ?? [], userId, "id", ["song_path", "image_path"])
+}
+
+async function scopeOwnedPlaylists(admin: AnySupabaseClient, userId: string, rows: Record<string, unknown>[]) {
+  const { data, error } = await admin.from("19_playlists").select("id,user_id")
+  if (error) throw error
+  return remapAndFilterOwnedRows(rows, data ?? [], userId, "id")
+}
+
 export const BACKUP_TABLES: BackupTableConfig[] = [
   {
     name: "19_songs",
@@ -57,7 +72,7 @@ export const BACKUP_TABLES: BackupTableConfig[] = [
     arrayColumns: [],
     jsonColumns: [],
     scopeSelect: async (admin, userId) => await admin.from("19_songs").select("*").eq("user_id", userId),
-    scopeRows: async (_admin, userId, rows) => rows.filter(row => ("user_id" in row ? row.user_id === userId : true)),
+    scopeRows: scopeOwnedSongs,
   },
   {
     // types_db.ts: 19_liked_songs has no id column — Row is { created_at, song_id, user_id },
@@ -68,7 +83,7 @@ export const BACKUP_TABLES: BackupTableConfig[] = [
     arrayColumns: [],
     jsonColumns: [],
     scopeSelect: async (admin, userId) => await admin.from("19_liked_songs").select("*").eq("user_id", userId),
-    scopeRows: async (_admin, userId, rows) => rows.filter(row => ("user_id" in row ? row.user_id === userId : true)),
+    scopeRows: async (_admin, userId, rows) => remapRowsToCurrentUser(rows, userId),
   },
   {
     name: "19_playlists",
@@ -77,7 +92,7 @@ export const BACKUP_TABLES: BackupTableConfig[] = [
     arrayColumns: [],
     jsonColumns: [],
     scopeSelect: async (admin, userId) => await admin.from("19_playlists").select("*").eq("user_id", userId),
-    scopeRows: async (_admin, userId, rows) => rows.filter(row => ("user_id" in row ? row.user_id === userId : true)),
+    scopeRows: scopeOwnedPlaylists,
   },
   {
     name: "19_playlist_songs",
@@ -117,6 +132,11 @@ export interface BackupFileRef {
   contentType: string
 }
 
+export const BACKUP_STORAGE_PATHS = {
+  songs: { table: "19_songs", column: "song_path" },
+  images: { table: "19_songs", column: "image_path" },
+} as const satisfies Record<BackupBucket, { table: "19_songs"; column: "song_path" | "image_path" }>
+
 // ── file ownership ───────────────────────────────────────────────────────────
 //
 // Per-user: a file is owned if its path is one of this user's own 19_songs.song_path/image_path.
@@ -139,10 +159,11 @@ export async function listFiles(admin: AnySupabaseClient, userId: string): Promi
 }
 
 export async function isOwnedFile(admin: AnySupabaseClient, userId: string, bucket: string, path: string): Promise<boolean> {
-  const songs = await loadOwnedSongs(admin, userId)
-  if (bucket === "songs") return songs.some(song => song.song_path === path)
-  if (bucket === "images") return songs.some(song => song.image_path === path)
-  return false
+  if (!isBackupBucket(bucket)) return false
+  const { column } = BACKUP_STORAGE_PATHS[bucket]
+  const { data, error } = await admin.from("19_songs").select("user_id").eq(column, path)
+  if (error) throw error
+  return isFilePathOwnedExclusively(data ?? [], userId)
 }
 
 // ── access boundary ─────────────────────────────────────────────────────────
@@ -158,8 +179,7 @@ export async function assertBackupAccess(_userId: string, _admin: AnySupabaseCli
 //
 // Builds the public CDN URL the browser downloads each stored file from during a files export.
 export function getPublicUrl(bucket: string, path: string): string {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!supabaseUrl) throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set — cannot build public file URLs")
-  const base = supabaseUrl.endsWith("/") ? supabaseUrl.slice(0, -1) : supabaseUrl
-  return `${base}/storage/v1/object/public/${bucket}/${path}`
+  const url = buildSupabasePublicUrl(process.env.NEXT_PUBLIC_SUPABASE_URL, bucket, path)
+  if (!url) throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set — cannot build public file URLs")
+  return url
 }

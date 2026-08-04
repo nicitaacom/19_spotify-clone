@@ -8,6 +8,7 @@
     "dev": "next dev",
     "start": "next start",
     "lint": "eslint .",
+    "test:backup": "node --experimental-strip-types --test app/features/backup/*.test.mjs libs/*.test.mjs",
     "type-check": "tsc --noEmit",
     "update-types": "pnpm exec supabase gen types typescript --project-id eqhntdpwtnhqzcnpxegh > app/interfaces/types_db.ts",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",

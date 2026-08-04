@@ -368,7 +368,8 @@ export function DbBackupModal() {
 
         <p className="text-xs text-neutral-400">
           Import merges data — existing rows and files are <span className="text-white">replaced</span>, nothing is
-          deleted. Import tables before files so restored files are recognized as yours.
+          deleted. Rows or file paths owned by another user are skipped. Import tables before files so restored files are
+          recognized as yours.
         </p>
       </div>
     </ModalContainer>

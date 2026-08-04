@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { toast } from "react-hot-toast"
 import { exportTables, exportFiles, importTables, importFiles, downloadBlob, TablesImportResult, FilesImportResult } from "./BackupSDK"
 
@@ -11,6 +12,7 @@ type FilesImportPhase = "idle" | "importing" | "done" | "error"
 const STALL_THRESHOLD_MS = 10_000
 
 export function useDbBackup() {
+  const router = useRouter()
   // Tables export state
   const [tablesExportPhase, setTablesExportPhase] = useState<TablesExportPhase>("idle")
   const [tablesExportDone, setTablesExportDone] = useState(0)
@@ -150,6 +152,7 @@ export function useDbBackup() {
       })
       setFilesImportResult(result)
       setFilesImportPhase("done")
+      router.refresh()
 
       const totalFiles = result.buckets.reduce((sum, bucket) => sum + bucket.files, 0)
       toast.success(`Restored ${totalFiles} files.`)
@@ -180,6 +183,7 @@ export function useDbBackup() {
       })
       setTablesImportResult(result)
       setTablesImportPhase("done")
+      router.refresh()
 
       const totalRows = result.tables.reduce((sum, table) => sum + table.rows, 0)
       toast.success(`Restored ${totalRows} rows across ${result.tables.length} tables.`)

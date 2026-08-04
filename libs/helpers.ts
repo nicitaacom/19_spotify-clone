@@ -1,4 +1,5 @@
 import { Price } from "@/types"
+import { buildSupabasePublicUrl } from "./supabasePublicUrl"
 
 export const postData = async ({ url, data }: { url: string; data?: { price: Price } }) => {
   console.log("POST REQUEST", url, data)
@@ -85,19 +86,7 @@ export const slugifyFilePart = (value: string) => {
 export const getPlaylistSlug = (value: string) => slugifyFilePart(value)
 
 export const getSupabasePublicUrl = (bucket: string, path?: string | null) => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-
-  if (!supabaseUrl || !path) {
-    return null
-  }
-
-  const normalizedBaseUrl = supabaseUrl.endsWith("/") ? supabaseUrl.slice(0, -1) : supabaseUrl
-  const encodedPath = path
-    .split("/")
-    .map(part => encodeURIComponent(part))
-    .join("/")
-
-  return `${normalizedBaseUrl}/storage/v1/object/public/${bucket}/${encodedPath}`
+  return buildSupabasePublicUrl(process.env.NEXT_PUBLIC_SUPABASE_URL, bucket, path)
 }
 
 export const getSafeStoragePath = ({

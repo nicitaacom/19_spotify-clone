@@ -157,6 +157,44 @@ backup never waits on file downloads, and the large-data path (files) never touc
 path is found in one of your own `19_songs` rows (the ownership check — see [Security](#security));
 if the rows aren't there yet, every file is skipped as "not yours."
 
+### Cross-project owner mapping
+
+Table archives are user-scoped, but a Supabase Auth UUID belongs to one project. During import,
+every archived `user_id` is therefore replaced with the currently authenticated target user's UUID.
+The server does not enumerate Auth users and does not create Auth accounts or public `19_users`
+profiles. This is sufficient because the four backed-up tables reference `auth.users` directly and
+none requires a `19_users` row. The current session already proves the target Auth account exists.
+
+The mapping remains inside the caller's ownership boundary:
+
+- `19_songs` and `19_playlists` rows are accepted only when their primary key is new or already
+  owned by the target user. A key owned by somebody else is skipped.
+- A restored song is also skipped when its `song_path` or `image_path` is already referenced by
+  another user. Signed upload URLs are issued only when every row referencing that exact path is
+  owned by the caller, preventing a file restore from overwriting another user's object.
+- `19_liked_songs.user_id` is remapped to the caller. `19_playlist_songs` still passes the existing
+  owned-playlist check, after playlists have been restored first.
+- Repeating the import updates the same caller-owned rows, so retries are safe.
+
+No passwords, password hashes, Auth metadata, or other users' profiles enter the archive.
+
+### Why Storage URL relinking is not used here
+
+The complete backed-up schema stores bucket-relative keys, not public URLs:
+
+| Table column | Bucket | Stored value |
+| --- | --- | --- |
+| `19_songs.song_path` | `songs` | relative object key |
+| `19_songs.image_path` | `images` | relative object key |
+
+The other three backup tables contain no Storage columns. Rendering calls
+`getSupabasePublicUrl(bucket, path)`, which now shares the pure `buildSupabasePublicUrl()` helper
+with backup export and builds the URL from the target project's `NEXT_PUBLIC_SUPABASE_URL`.
+Consequently a hostname change requires no row rewrite. External/current/invalid/data URLs and
+nested JSON URL cases are not present in these archive columns, so adding a relink endpoint would
+add privileged code without any eligible data to process. Focused tests verify target-host URL
+construction for nested relative paths.
+
 **Tables CSV format:** each cell is written per RFC 4180 (`csvClient.ts`). Cells come back as
 strings; PostgREST coerces most of them to the real column type on upsert (timestamp / uuid / enum
 / bool). Three kinds need explicit coercion, declared per-table in `backupConfig.ts` and applied
@@ -239,9 +277,9 @@ GET /api/backup/rows → { tables: { "19_songs": [...], ... } }
 
 Accepts a `.tar.gz` (decompressed with `gunzipBufferClient` + `parseTar` in the browser) or loose
 `.csv` files (table name read from the filename). For each table present, in FK-safe order,
-`parseCsv()` then `POST /api/backup/rows { table, rows }` in ≤500-row batches. The route scopes each
-batch to the session user (foreign `user_id` rows skipped; `19_playlist_songs` filtered to owned
-playlists) and returns `{ rows, skipped }` or the raw Postgres error.
+`parseCsv()` then `POST /api/backup/rows { table, rows }` in ≤500-row batches. The route remaps each
+archived owner to the session user, skips primary-key/path collisions with other users, and filters
+`19_playlist_songs` to owned playlists. It returns `{ rows, skipped }` or the raw Postgres error.
 
 ### Export files — `exportFiles()` in `BackupSDK.ts`
 
@@ -319,8 +357,9 @@ Nothing is ever deleted.
 
 | What | Behavior |
 | --- | --- |
-| Row already exists (same PK) | **Overwritten** with backup values |
+| Caller-owned row already exists (same PK) | **Overwritten** with backup values |
 | Row is new | **Inserted** |
+| Row key/path belongs to another user | **Skipped** |
 | Row not in backup | **Untouched** |
 | Storage file already exists | **Overwritten** at the same path |
 | Storage file is new | **Uploaded** |
@@ -360,10 +399,12 @@ back off on the next progress event. The modal shows an amber "Taking longer tha
 - **Import ownership is the security boundary.** The server uses `supabaseAdmin` (service role), so
   RLS does not apply — the scoping in `backupConfig.ts` is what prevents one user from writing
   another's data:
-  - Rows are filtered by each table's `scopeRows()` — a foreign `user_id` row is skipped on upsert.
+  - Archived owners are mapped to the authenticated caller. Song/playlist primary keys and song
+    file paths that collide with another user's rows are skipped before upsert.
   - A file gets a signed upload URL **only** if `isOwnedFile()` returns true — in this project, only
-    if its path is in one of the user's own `19_songs` rows. The browser's file list is untrusted;
-    the server decides what may be written. (This is also why tables must be imported before files.)
+    if its path is referenced and every referencing `19_songs` row belongs to the caller. The
+    browser's file list is untrusted; the server decides what may be written. (This is also why
+    tables must be imported before files.)
 
 <br/>
 
