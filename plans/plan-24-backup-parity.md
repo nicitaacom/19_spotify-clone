@@ -70,27 +70,25 @@ folder name goes stale the moment it is restored — the bug this plan exists to
 
 **Answered in chat: 1️⃣.**
 
-**Refined shape, also decided in chat:** a literal `playlists/` segment sits in front of the owner
-key, inside the existing `songs` and `images` buckets — no third bucket, `playlists` is a folder,
-not a bucket. Reasoning given: leaves room for another top-level folder later (e.g. a `liked/`
-namespace for songs that don't belong to any playlist) without touching this tree.
-
-**No `<playlist-slug>` level underneath, decided in chat:** `19_playlist_songs` is a join table — one
-song can sit in many playlists. Nesting by playlist slug would mean copying the file once per
-playlist it belongs to (DRY violation, wasted Storage, and the copies would drift). One song = one
-file, owned by one user, referenced by as many playlist rows as needed. Confirmed shape:
+**Final shape, decided in chat:** no `playlists/` prefix anywhere in the path. A Storage path only
+ever answers "which bucket, which user, which file" — never "which playlist". `19_playlists` is a
+Supabase table name; reusing it as a Storage folder name was confusing next to the real table, so it
+was dropped. The owner key sits directly under the bucket root:
 
 ```
 songs/
-└── playlists/
-    └── <emailSlug>/
-        └── slugifiedSongName.mp3
+└── <emailSlug>/
+    └── slugifiedSongName.mp3
 
 images/
-└── playlists/
-    └── <emailSlug>/
-        └── slugifiedImageName.ext
+└── <emailSlug>/
+    └── slugifiedImageName.ext
 ```
+
+**No `<playlist-slug>` level either:** `19_playlist_songs` is a join table — one song can sit in many
+playlists. Nesting by playlist slug would mean copying the file once per playlist it belongs to (DRY
+violation, wasted Storage, and the copies would drift). One song = one file, owned by one user,
+referenced by as many playlist rows as needed.
 
 ### Q2 — what happens to commit `a226903`
 
@@ -115,8 +113,7 @@ files that are no longer there.
 
 **Answered in chat: 1️⃣.** Dropping the playlist-slug level (this Q1 refinement) removed the reason
 2️⃣ was even under consideration — there's no per-song playlist lookup to get wrong, every existing
-file in `songs/` and `images/` moves into `playlists/<emailSlug>/` as one flat batch, same move for
-every user.
+file in `songs/` and `images/` moves into `<emailSlug>/` as one flat batch, same move for every user.
 
 ### Q4 — playlist covers
 
@@ -162,7 +159,7 @@ route already tried and rejected.
 
 | File | Behavior today | Behavior after this plan |
 | --- | --- | --- |
-| `app/api/songs/route.ts` | folder is the playlist slug ([:33](../app/api/songs/route.ts)), files kept apart only by `uniqid()` ([:32](../app/api/songs/route.ts)) | folder is `playlists/<owner key>`, per Q1 — `playlistSlug` no longer feeds `getSafeStoragePath` |
+| `app/api/songs/route.ts` | folder is the playlist slug ([:33](../app/api/songs/route.ts)), files kept apart only by `uniqid()` ([:32](../app/api/songs/route.ts)) | folder is `<owner key>`, per Q1 — `playlistSlug` no longer feeds `getSafeStoragePath` |
 | `libs/helpers.ts` | `getSafeStoragePath` takes a flat `folder?: string` ([:92](../libs/helpers.ts)) | takes the owner key as well, so no call site can build a path without one |
 | `app/features/backup/backupConfig.ts` | `BACKUP_STORAGE_PATHS` covers `song_path` and `image_path` ([:135](../app/features/backup/backupConfig.ts)) | plus `cover_image_path`, per Q4 |
 | `app/features/backup/backupOwnership.ts` | remaps `user_id` only ([:3](../app/features/backup/backupOwnership.ts)) | also rewrites the owner segment of `song_path` / `image_path`, per Q2 |
@@ -173,9 +170,9 @@ route already tried and rejected.
 
 ## 3. Terminology
 
-- **Owner key** — the per-user segment of a Storage path, nested under the literal `playlists/`
-  folder (e.g. `playlists/<owner key>/…`, no further nesting by playlist slug — see Q1). The value
-  is the slugified email.
+- **Owner key** — the per-user segment directly under the bucket root (e.g. `<bucket>/<owner key>/…`).
+  No `playlists/` prefix, no further nesting by playlist slug — see Q1. The value is the slugified
+  email.
 - **Re-own** — what `a226903` already does: rewriting an imported row's `user_id` to the signed-in
   importer, rather than recreating the original account.
 - **Path rewrite** — the new step this plan adds: rewriting the owner segment inside `song_path` and
@@ -203,20 +200,19 @@ images/
     └── image-lofi-beat-mgk3x1.jpg
 ```
 
-**Storage tree after** — confirmed shape from Q1, flat per user, no playlist-slug level:
+**Storage tree after** — confirmed shape from Q1, flat per user, no `playlists/` prefix, no
+playlist-slug level:
 
 ```
 songs/
-└── playlists/
-    └── nicitaacomgmailcom/
-        ├── song-lofi-beat-mgk3x1.mp3
-        └── song-lofi-beat-mgk9z7.mp3
+└── nicitaacomgmailcom/
+    ├── song-lofi-beat-mgk3x1.mp3
+    └── song-lofi-beat-mgk9z7.mp3
 
 images/
-└── playlists/
-    └── nicitaacomgmailcom/
-        ├── image-lofi-beat-mgk3x1.jpg
-        └── cover-chill-mgk3x1.jpg
+└── nicitaacomgmailcom/
+    ├── image-lofi-beat-mgk3x1.jpg
+    └── cover-chill-mgk3x1.jpg
 ```
 
 Playlist membership stays purely relational — `19_playlist_songs` rows point at these files, the
@@ -238,7 +234,7 @@ today: another user's row in project B already sits at chill/... → answer is n
         │                                    → the signed upload URL is refused
         │                                    → the file is skipped, quietly
         ▼
-after: the path starts with playlists/<owner key>, so no two people ever share one
+after: the path starts with <owner key>, so no two people ever share one
         │
         ▼
 the answer is always yes for the caller's own files → the restore completes
@@ -256,7 +252,9 @@ One commit per task. Mark each `[x]` here as it lands.
       `requireUser` ([app/api/backup/requireUser.ts](../app/api/backup/requireUser.ts)) now also
       returns `email`; the route 400s if it's missing rather than uploading ownerless. The unused
       `playlistSlug` form field was dropped from the route — no folder-by-playlist-slug left to feed
-      it. `pnpm lint` and `pnpm type-check` both clean.
+      it. Final path is `<bucket>/<emailSlug>/<file>` — no `playlists/` prefix, dropped after it read
+      as confusing next to the real `19_playlists` table. `pnpm lint` and `pnpm type-check` both
+      clean.
 - [ ] 3. Add the import-time path rewrite to `app/features/backup/backupOwnership.ts`, per Q2, so a
       restored row's `song_path` and `image_path` start with the importer's own owner key.
 - [ ] 4. Widen `BACKUP_STORAGE_PATHS` and `listFiles` per Q4.
