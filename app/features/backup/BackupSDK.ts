@@ -84,7 +84,7 @@ export async function exportTables(onProgress: (done: number, total: number) => 
   const tarBuf = finalizeTar(tarChunks)
   const gz = await gzipBufferClient(new Uint8Array(tarBuf))
   const date = new Date().toISOString().slice(0, 10)
-  const fileName = `backup-tables-${date}.tar.gz`
+  const fileName = `19_backup-tables-${date}.tar.gz`
   const blob = new Blob([gz], { type: "application/gzip" })
 
   return { fileName, blob }
