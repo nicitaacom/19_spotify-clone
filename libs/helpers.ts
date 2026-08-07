@@ -111,5 +111,5 @@ export const getSafeStoragePath = ({
       : `${prefix}-${safeValue}-${uniqueId}.${extension}`
 
   const ownerKey = slugifyFilePart(ownerEmail)
-  return `playlists/${ownerKey}/${name}`
+  return `${ownerKey}/${name}`
 }
