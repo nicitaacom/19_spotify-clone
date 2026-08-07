@@ -3,7 +3,7 @@ import { SupabaseClient } from "@supabase/supabase-js"
 
 import { Database } from "@/app/interfaces/types_db"
 
-const NEXT_PUBLIC_SUPABASE_AUTH_URL = "https://auth.supabase.music.jokik.fi"
+const NEXT_PUBLIC_SUPABASE_AUTH_URL = "https://supabase-auth.music.jokik.fi"
 
 // No schema type parameter: createClientComponentClient casts to `any` internally (same as
 // libs/supabaseServer.ts), so a <Database> argument never changed anything - it silently produced

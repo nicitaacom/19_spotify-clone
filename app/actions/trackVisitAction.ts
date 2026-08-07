@@ -80,7 +80,8 @@ async function resolveDeviceIdBeforeFingerprint(
 ): Promise<string | null> {
   if (userId) {
     const getRedisDeviceIdByUserIdResp = await getRedisDeviceIdByUserId(userId)
-    if (getRedisDeviceIdByUserIdResp && isValidDeviceId(getRedisDeviceIdByUserIdResp)) return getRedisDeviceIdByUserIdResp
+    if (getRedisDeviceIdByUserIdResp && isValidDeviceId(getRedisDeviceIdByUserIdResp))
+      return getRedisDeviceIdByUserIdResp
   }
 
   const clientDeviceId = storedDeviceId ? decodeDeviceId(storedDeviceId) : null
@@ -144,7 +145,12 @@ async function syncDeviceIdLayers({
   })
 }
 
-async function insertDBUTMVisitAction(userId: string, utmParams: UTMParams, userAgent: string | null, pageUrl: string | null) {
+async function insertDBUTMVisitAction(
+  userId: string,
+  utmParams: UTMParams,
+  userAgent: string | null,
+  pageUrl: string | null,
+) {
   try {
     const { error } = await supabaseAdmin.from("utm_stats").insert({
       user_id: userId,
@@ -215,7 +221,8 @@ export async function trackVisitAction(
   const resolvedDeviceId = await resolveDeviceIdBeforeFingerprint(userId, storedDeviceId, cookieDeviceId, trustworthyIp)
   if (!resolvedDeviceId && fingerprint === null) return { needsFingerprint: true }
 
-  const fingerprintDeviceId = resolvedDeviceId || !fingerprint ? null : await resolveDeviceIdFromFingerprint(fingerprint)
+  const fingerprintDeviceId =
+    resolvedDeviceId || !fingerprint ? null : await resolveDeviceIdFromFingerprint(fingerprint)
   const deviceId = resolvedDeviceId ?? fingerprintDeviceId ?? createDeviceId()
   const visitorDayEnd = getVisitorDayEnd(timezone)
 
