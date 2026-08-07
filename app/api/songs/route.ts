@@ -17,13 +17,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
 
+  if (!auth.email) {
+    return NextResponse.json({ error: "Missing account email" }, { status: 400 })
+  }
+
   const formData = await request.formData()
   const songFile = formData.get("song") as File | null
   const imageFile = formData.get("image") as File | null
   const title = formData.get("title") as string | null
   const author = formData.get("author") as string | null
   const playlistId = formData.get("playlistId") as string | null
-  const playlistSlug = formData.get("playlistSlug") as string | null
 
   if (!songFile || !imageFile || !title || !author) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -35,14 +38,14 @@ export async function POST(request: Request) {
     value: title,
     uniqueId: uniqueID,
     fileName: songFile.name,
-    folder: playlistSlug ?? undefined,
+    ownerEmail: auth.email,
   })
   const imagePath = getSafeStoragePath({
     prefix: "image",
     value: title,
     uniqueId: uniqueID,
     fileName: imageFile.name,
-    folder: playlistSlug ?? undefined,
+    ownerEmail: auth.email,
   })
 
   const { error: songError } = await supabaseAdmin.storage.from("songs").upload(songPath, songFile, {

@@ -94,13 +94,13 @@ export const getSafeStoragePath = ({
   value,
   uniqueId,
   fileName,
-  folder,
+  ownerEmail,
 }: {
   prefix: string
   value: string
   uniqueId: string
   fileName?: string
-  folder?: string
+  ownerEmail: string
 }) => {
   const extension = fileName?.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "")
   const safeValue = slugifyFilePart(value)
@@ -110,5 +110,6 @@ export const getSafeStoragePath = ({
       ? `${prefix}-${safeValue}-${uniqueId}`
       : `${prefix}-${safeValue}-${uniqueId}.${extension}`
 
-  return folder ? `${folder}/${name}` : name
+  const ownerKey = slugifyFilePart(ownerEmail)
+  return `playlists/${ownerKey}/${name}`
 }

@@ -11,5 +11,5 @@ export async function requireUser() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 }) as NextResponse
   }
 
-  return { userId: session.user.id, supabase }
+  return { userId: session.user.id, email: session.user.email, supabase }
 }
