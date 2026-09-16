@@ -4,7 +4,7 @@ export const getURL = (path = "") => {
     typeof window !== "undefined"
       ? window.location.origin
       : process.env.NODE_ENV === "development"
-        ? "http://localhost:3023"
+        ? "http://localhost:3000"
           // NEXT_PUBLIC_SITE_URL/NEXT_PUBLIC_VERCEL_URL are intentionally undeclared, vercel autofills these 2
         : // eslint-disable-next-line local-rules/no-undefined-used-envs
           (process.env.NEXT_PUBLIC_PRODUCTION_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_VERCEL_URL)
