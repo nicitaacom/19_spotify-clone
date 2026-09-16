@@ -1,11 +1,11 @@
 import { Song } from "@/types"
 
 import { createServerComponentClient } from "@/libs/supabaseServer"
-import supabaseAuthClient from "@/libs/supabaseAuthClient"
+import supabaseClient from "@/libs/supabaseClient"
 
 const getSongsById = async (): Promise<Song[]> => {
   const supabase = await createServerComponentClient()
-  const { data: sessionData, error: sessionError } = await supabaseAuthClient.auth.getSession()
+  const { data: sessionData, error: sessionError } = await supabaseClient.auth.getSession()
 
   if (sessionError) {
     console.log(12, "session error in getSongsById - ", sessionError.message)

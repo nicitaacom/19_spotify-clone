@@ -9,7 +9,7 @@ import {
 } from "@/types"
 
 import { createServerComponentClient } from "@/libs/supabaseServer"
-import supabaseAuthClient from "@/libs/supabaseAuthClient"
+import supabaseClient from "@/libs/supabaseClient"
 
 const FALLBACK_AUTHOR: PlaylistAuthor = {
   id: "",
@@ -172,7 +172,7 @@ export const getUserPlaylists = async (): Promise<PlaylistSummary[]> => {
   const supabase = await createServerComponentClient()
   const {
     data: { session },
-  } = await supabaseAuthClient.auth.getSession()
+  } = await supabaseClient.auth.getSession()
 
   if (!session?.user?.id) {
     return []
@@ -203,7 +203,7 @@ export const getUserPlaylistOptions = async (): Promise<PlaylistOption[]> => {
   const supabase = await createServerComponentClient()
   const {
     data: { session },
-  } = await supabaseAuthClient.auth.getSession()
+  } = await supabaseClient.auth.getSession()
 
   if (!session?.user?.id) {
     return []

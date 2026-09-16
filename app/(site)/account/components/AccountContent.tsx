@@ -8,7 +8,6 @@ import { useUser } from "@/hooks/useUser"
 import Button from "@/components/Button"
 import { postData } from "@/libs/helpers"
 import useDbBackupModal from "@/app/features/backup/useDbBackupModal"
-import StorageUsageBar from "@/components/StorageUsageBar"
 import useExclusivePlaybackPreference from "@/hooks/useExclusivePlaybackPreference"
 import useUploadModal from "@/hooks/useUploadModal"
 
@@ -86,9 +85,6 @@ const AccountContent = ({ isOwner }: AccountContentProps) => {
                 Starting audio in the player, Slow &amp; Reverb, or 8D Generator pauses playback in
                 every other open tab signed into this account.
               </p>
-              <p className="text-xs text-neutral-500">
-                Saved permanently in this browser until you turn it off or clear site data.
-              </p>
               {!isPusherConfigured && (
                 <p className="text-xs text-amber-400">
                   Playback synchronization is unavailable until Pusher Channels is configured.
@@ -113,14 +109,6 @@ const AccountContent = ({ isOwner }: AccountContentProps) => {
               />
             </button>
           </div>
-        </div>
-      )}
-
-      {user && (
-        <div className="mt-8 flex flex-col gap-y-3 border-t border-white/10 pt-6">
-          <p className="text-sm font-semibold text-neutral-300">Storage</p>
-          <p className="text-sm text-neutral-400">Total song storage used across the Supabase free tier.</p>
-          <StorageUsageBar />
         </div>
       )}
 

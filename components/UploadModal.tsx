@@ -32,6 +32,7 @@ const UploadModal = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectedPlaylist, setSelectedPlaylist] = useState<PlaylistOption | null>(null)
   const [requiresChallenge, setRequiresChallenge] = useState(false)
+  const [uploadError, setUploadError] = useState("")
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -148,6 +149,7 @@ const UploadModal = () => {
       setUploadProgress(0)
       setUploadSpeed("")
       setSelectedPlaylist(null)
+      setUploadError("")
       resetTurnstileFn()
       uploadModal.onClose()
     }
@@ -232,9 +234,8 @@ const UploadModal = () => {
 
       const MAX_SONG_SIZE_MiB = 50
       if (songFile.size > MAX_SONG_SIZE_MiB * 1024 * 1024) {
-        toast.error(
+        setUploadError(
           `File exceeds ${MAX_SONG_SIZE_MiB} MB. Please compress your MP3 first (Google "compress mp3 online").`,
-          { duration: 6000 },
         )
         setIsLoading(false)
         return
@@ -314,8 +315,18 @@ const UploadModal = () => {
           else if (errors.image) toast.error("Please select a cover image.")
         })}
         className="flex flex-col gap-y-4">
-        <Input id="title" disabled={isLoading} {...register("title", { required: true })} placeholder="Song title" />
-        <Input id="author" disabled={isLoading} {...register("author", { required: true })} placeholder="Song author" />
+        <Input
+          id="title"
+          disabled={isLoading}
+          {...register("title", { required: true, onChange: () => setUploadError("") })}
+          placeholder="Song title"
+        />
+        <Input
+          id="author"
+          disabled={isLoading}
+          {...register("author", { required: true, onChange: () => setUploadError("") })}
+          placeholder="Song author"
+        />
         <div>
           <div className="pb-1">Select a song file</div>
           <Input
@@ -324,7 +335,7 @@ const UploadModal = () => {
             type="file"
             accept=".mp3"
             id="song"
-            {...register("song", { required: true })}
+            {...register("song", { required: true, onChange: () => setUploadError("") })}
           />
         </div>
         <div>
@@ -335,9 +346,15 @@ const UploadModal = () => {
             type="file"
             accept="image/*"
             id="image"
-            {...register("image", { required: true })}
+            {...register("image", { required: true, onChange: () => setUploadError("") })}
           />
         </div>
+
+        {uploadError && (
+          <p role="alert" className="select-text rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+            {uploadError}
+          </p>
+        )}
 
         {/* Playlist selector */}
         <div>

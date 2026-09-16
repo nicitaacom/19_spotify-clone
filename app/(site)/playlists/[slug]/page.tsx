@@ -8,7 +8,6 @@ import { getSupabasePublicUrl } from "@/libs/helpers"
 import { createServerComponentClient } from "@/libs/supabaseServer"
 
 import PlaylistDetailContent from "../components/PlaylistDetailContent"
-import supabaseAuthClient from "@/libs/supabaseAuthClient"
 
 export const revalidate = 0
 

@@ -45,6 +45,10 @@ const Modal: React.FC<ModalProps> = ({
           )}
         />
         <Dialog.Content
+          onPointerDownOutside={event => {
+            const target = event.target
+            if (target instanceof Element && target.closest(".app-toast-viewport")) event.preventDefault()
+          }}
           className={twMerge(
             `
             fixed

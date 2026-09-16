@@ -1,4 +1,35 @@
-# plan-25 — Self-hosted Supabase auth: OAuth still lands on kong, migration blocked
+# plan-25 — Self-hosted Supabase auth: public gateway and OAuth setup
+
+## Update — 2026-09-16
+
+`supabaseAuthClient` has been removed. The app now uses the shared `supabaseClient` for both data
+and OAuth because they use the same self-hosted Supabase gateway URL and anon key. See
+[self-hosted Supabase operations](../dev_readme-self-hosted-supabase.md) for current VPS
+configuration and recovery instructions.
+
+Use **one public Supabase gateway**, routed to the `kong` container on port `8000`:
+
+```text
+https://supabase.music.jokik.fi
+```
+
+Do **not** use `https://kong.supabase.music.jokik.fi`: it is too deep for the active
+Cloudflare wildcard certificate (`*.music.jokik.fi`) and fails TLS. Do **not** expose a separate
+`supabase-auth.music.jokik.fi` domain either. GoTrue is an internal service; Kong is the public
+Supabase entry point and routes `/auth/v1` to GoTrue.
+
+Coolify must therefore attach `supabase.music.jokik.fi` to the **Kong** Compose resource with
+internal port `8000`. A browser response of `no available server` means that domain currently has
+no healthy Kong backend attached, so repair that routing/redeploy first.
+
+The Google OAuth client's exact authorised redirect URI must be:
+
+```text
+https://supabase.music.jokik.fi/auth/v1/callback
+```
+
+The app's shared `libs/supabaseClient.ts` and `middleware.ts` use this same gateway URL.
+
 
 ## 0. Why this exists
 

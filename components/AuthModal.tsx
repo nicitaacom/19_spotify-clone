@@ -23,7 +23,6 @@ import { LoginForm } from "./auth/form/LoginForm"
 import { RegisterForm } from "./auth/form/RegisterForm"
 import { RecoveryForm } from "./auth/form/RecoveryForm"
 import { AuthFormProps, SupabaseClient } from "./auth/form/types"
-import supabaseAuthClient from "@/libs/supabaseAuthClient"
 
 // The Turnstile gate is off here on purpose - `formProps` below passes isHumanGateEnabled: false and
 // ensureHumanVerifiedFn returns true. `hooks/useVerifyHuman.ts`,
@@ -95,7 +94,7 @@ const AuthModal = () => {
       setAuthMessage("")
       setAuthStatus("error")
       setIsLoading(true)
-      const { error } = await supabaseAuthClient.auth.signInWithOAuth({
+      const { error } = await supabaseClient.auth.signInWithOAuth({
         provider,
         options: { redirectTo: getURL(`/auth/callback/oauth?provider=${provider}`) },
       })
