@@ -13,6 +13,9 @@ import supabaseClient from "@/libs/supabaseClient"
 import Button from "./Button"
 import Input from "./Input"
 import Modal from "./Modal"
+import PlaylistCommerceFields from "./PlaylistCommerceFields"
+import useOwnerStore from "@/hooks/useOwnerStore"
+import { normalizeYoutubePlaylist, parsePlaylistPrice } from "@/libs/commerceRules"
 
 const visibilityOptions: PlaylistVisibility[] = ["public", "unlisted", "private"]
 const MAX_SLUG_ATTEMPTS = 10
@@ -22,16 +25,21 @@ const CreatePlaylistModal = () => {
   const createPlaylistModal = useCreatePlaylistModal()
 
   const { user } = useUser()
+  const { isOwner } = useOwnerStore()
 
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [visibility, setVisibility] = useState<PlaylistVisibility>("public")
   const [isLoading, setIsLoading] = useState(false)
+  const [price, setPrice] = useState("2")
+  const [youtube, setYoutube] = useState("")
 
   const resetForm = () => {
     setTitle("")
     setDescription("")
     setVisibility("public")
+    setPrice("2")
+    setYoutube("")
   }
 
   const onChange = (open: boolean) => {
@@ -53,6 +61,20 @@ const CreatePlaylistModal = () => {
     const now = new Date().toISOString()
 
     try {
+      if (isOwner) {
+        const response = await fetch("/api/playlists/manage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+          title, description, visibility, price_cents: parsePlaylistPrice(Math.round(Number(price) * 100)),
+          youtube_url: normalizeYoutubePlaylist(youtube), sales_enabled: false, songs: [],
+        }) })
+        const body = await response.json()
+        if (!response.ok) throw new Error(body.error)
+        toast.success("Playlist created. Add songs, then enable purchases in Edit playlist.")
+        createPlaylistModal.onClose()
+        resetForm()
+        if (!createPlaylistModal.skipRedirect) router.push(`/playlists/${body.slug}`)
+        router.refresh()
+        return
+      }
       for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt += 1) {
         const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`
 
@@ -102,6 +124,7 @@ const CreatePlaylistModal = () => {
       title="Create playlist"
       description="Create a new playlist and choose who can open it."
       isOpen={createPlaylistModal.isOpen}
+      contentClassName="overflow-y-auto"
       onChange={onChange}>
       <div className="flex flex-col gap-y-4">
         <Input value={title} disabled={isLoading} onChange={event => setTitle(event.target.value)} placeholder="Playlist title" />
@@ -124,7 +147,8 @@ const CreatePlaylistModal = () => {
             </option>
           ))}
         </select>
-        <Button disabled={isLoading || !title.trim()} onClick={handleCreatePlaylist} className="rounded-md">
+        {isOwner && <PlaylistCommerceFields price={price} youtube={youtube} onPrice={setPrice} onYoutube={setYoutube} disabled={isLoading} />}
+        <Button disabled={isLoading || !title.trim() || (isOwner && !youtube.trim())} onClick={handleCreatePlaylist} className="rounded-md">
           Create playlist
         </Button>
       </div>

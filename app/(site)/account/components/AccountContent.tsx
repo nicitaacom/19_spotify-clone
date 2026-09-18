@@ -52,7 +52,7 @@ const AccountContent = ({ isOwner }: AccountContentProps) => {
     <div className="mb-7 px-6">
       <div className="flex flex-col gap-y-2">
         <p>Signed in as {user?.email ?? "your account"}.</p>
-        <p className="text-sm text-neutral-400">Music playback is available for every logged-in user.</p>
+        <p className="text-sm text-neutral-400">Free songs are available to everyone. Playlist purchases unlock paid songs and future additions.</p>
       </div>
 
       {!subscription && (

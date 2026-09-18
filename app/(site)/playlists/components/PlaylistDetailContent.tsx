@@ -1,300 +1,181 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
-import { toast } from "react-hot-toast"
-import { AiOutlineArrowDown, AiOutlineArrowUp, AiOutlineMinusCircle } from "react-icons/ai"
-
+import { FiEdit2, FiLock, FiPlay, FiSearch, FiShuffle } from "react-icons/fi"
+import { PlaylistDetail } from "@/types"
+import useOnPlay from "@/hooks/useOnPlay"
+import MediaItem from "@/components/MediaItem"
+import LikeButton from "@/components/LikeButton"
 import AddToPlaylistButton from "@/components/AddToPlaylistButton"
 import Button from "@/components/Button"
-import DeleteSongButton from "@/components/DeleteSongButton"
 import Input from "@/components/Input"
-import LikeButton from "@/components/LikeButton"
-import MediaItem from "@/components/MediaItem"
-import PlaylistVisibilityBadge from "@/components/PlaylistVisibilityBadge"
-import useOnPlay from "@/hooks/useOnPlay"
-import useOwnerStore from "@/hooks/useOwnerStore"
-import { PlaylistDetail, PlaylistSongWithSong, PlaylistVisibility } from "@/types"
-import { useAreYouSureModals } from "@/store/modals/useAreYouSureModals"
-import supabaseClient from "@/libs/supabaseClient"
+import SupportLink from "@/components/SupportLink"
+import PlaylistEditor from "./PlaylistEditor"
+import PlaylistPurchasePanel from "./PlaylistPurchasePanel"
 
-interface PlaylistDetailContentProps {
+export default function PlaylistDetailContent({
+  canManage,
+  playlist,
+}: {
   canManage: boolean
   playlist: PlaylistDetail
-}
-
-const reindexPlaylistSongs = (songs: PlaylistSongWithSong[]) =>
-  songs.map((song, index) => ({
-    ...song,
-    position: index,
-  }))
-
-const PlaylistDetailContent: React.FC<PlaylistDetailContentProps> = ({ canManage, playlist }) => {
-  const router = useRouter()
-
-  const { isOwner } = useOwnerStore()
-  const { openModal } = useAreYouSureModals()
-
-  const [title, setTitle] = useState(playlist.title)
-  const [description, setDescription] = useState(playlist.description ?? "")
-  const [visibility, setVisibility] = useState<PlaylistVisibility>(playlist.visibility)
-  const [songs, setSongs] = useState<PlaylistSongWithSong[]>(playlist.songs)
-  const [isSavingDetails, setIsSavingDetails] = useState(false)
-  const [isDeletingPlaylist, setIsDeletingPlaylist] = useState(false)
-  const [busySongId, setBusySongId] = useState<string>()
-
-  // Resets local edit state whenever the server hands us a new playlist object (e.g. after
-  // router.refresh()) - done during render, not an effect, so there's no extra render pass.
-  const [prevPlaylist, setPrevPlaylist] = useState(playlist)
-  if (playlist !== prevPlaylist) {
-    setPrevPlaylist(playlist)
-    setTitle(playlist.title)
-    setDescription(playlist.description ?? "")
-    setVisibility(playlist.visibility)
-    setSongs(playlist.songs)
+}) {
+  const [editing, setEditing] = useState(false)
+  const [query, setQuery] = useState("")
+  const [shuffle, setShuffle] = useState(false)
+  const [shuffleSeed, setShuffleSeed] = useState<string[]>([])
+  const queue = useMemo(() => {
+    const songs = playlist.songs.map(item => item.song)
+    if (!shuffle) return songs
+    return [...songs].sort((a, b) => shuffleSeed.indexOf(a.id) - shuffleSeed.indexOf(b.id))
+  }, [playlist.songs, shuffle, shuffleSeed])
+  const focusPurchase = () => {
+    const panel = document.getElementById("playlist-access")
+    panel?.scrollIntoView({ behavior: "smooth", block: "center" })
+    panel?.focus({ preventScroll: true })
   }
-
-  const queueSongs = useMemo(() => songs.map(item => item.song), [songs])
-  const onPlay = useOnPlay(queueSongs)
-
-  const touchPlaylist = async () => {
-    const { error } = await supabaseClient.from("19_playlists").update({ updated_at: new Date().toISOString() }).eq("id", playlist.id)
-
-    if (error) {
-      throw error
+  const commerce = playlist.commerce
+  const onPlay = useOnPlay(queue, commerce?.sales_enabled ? focusPurchase : undefined)
+  const playable = queue.filter(song => song.can_play)
+  const hasAccess = Boolean(commerce?.purchased || commerce?.can_manage)
+  const showPurchase =
+    commerce?.ready !== false && Boolean(commerce?.purchased || (commerce?.sales_enabled && !commerce?.can_manage))
+  const filtered = playlist.songs.filter(item =>
+    `${item.song.title} ${item.song.author}`.toLowerCase().includes(query.toLowerCase().trim())
+  )
+  const toggleShuffle = () => {
+    const ids = playlist.songs.map(item => item.song.id)
+    for (let i = ids.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[ids[i], ids[j]] = [ids[j], ids[i]]
     }
-  }
-
-  const persistSongOrder = async (nextSongs: PlaylistSongWithSong[]) => {
-    if (nextSongs.length === 0) {
-      await touchPlaylist()
-      return
-    }
-
-    const { error } = await supabaseClient.from("19_playlist_songs").upsert(
-      nextSongs.map(item => ({
-        playlist_id: playlist.id,
-        song_id: Number(item.song_id),
-        position: item.position,
-      })),
-      {
-        onConflict: "playlist_id,song_id",
-      },
-    )
-
-    if (error) {
-      throw error
-    }
-
-    await touchPlaylist()
-  }
-
-  const handleSaveDetails = async () => {
-    if (!title.trim()) {
-      toast.error("Playlist title is required.")
-      return
-    }
-
-    setIsSavingDetails(true)
-
-    try {
-      const { error } = await supabaseClient
-        .from("19_playlists")
-        .update({
-          title: title.trim(),
-          description: description.trim() || null,
-          visibility,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", playlist.id)
-
-      if (error) {
-        throw error
-      }
-
-      toast.success("Playlist updated!")
-      router.refresh()
-    } catch (error) {
-      toast.error((error as Error).message || "Failed to update playlist.")
-    } finally {
-      setIsSavingDetails(false)
-    }
-  }
-
-  const handleDeletePlaylist = async () => {
-    const shouldDelete = await openModal("areYouSureDeletePlaylist", { title: playlist.title })
-
-    if (!shouldDelete) {
-      return
-    }
-
-    setIsDeletingPlaylist(true)
-
-    try {
-      const { error } = await supabaseClient.from("19_playlists").delete().eq("id", playlist.id)
-
-      if (error) {
-        throw error
-      }
-
-      toast.success("Playlist deleted.")
-      router.push("/playlists")
-      router.refresh()
-    } catch (error) {
-      toast.error((error as Error).message || "Failed to delete playlist.")
-    } finally {
-      setIsDeletingPlaylist(false)
-    }
-  }
-
-  const handleMoveSong = async (index: number, direction: -1 | 1) => {
-    const nextIndex = index + direction
-
-    if (nextIndex < 0 || nextIndex >= songs.length) {
-      return
-    }
-
-    const nextSongs = [...songs]
-    const [movedSong] = nextSongs.splice(index, 1)
-    nextSongs.splice(nextIndex, 0, movedSong)
-    const reorderedSongs = reindexPlaylistSongs(nextSongs)
-
-    setBusySongId(movedSong.song.id)
-
-    try {
-      await persistSongOrder(reorderedSongs)
-      setSongs(reorderedSongs)
-      router.refresh()
-    } catch (error) {
-      toast.error((error as Error).message || "Failed to reorder playlist.")
-    } finally {
-      setBusySongId(undefined)
-    }
-  }
-
-  const handleRemoveSong = async (songId: string) => {
-    setBusySongId(songId)
-
-    try {
-      const { error } = await supabaseClient
-        .from("19_playlist_songs")
-        .delete()
-        .eq("playlist_id", playlist.id)
-        .eq("song_id", Number(songId))
-
-      if (error) {
-        throw error
-      }
-
-      const nextSongs = reindexPlaylistSongs(songs.filter(song => song.song.id !== songId))
-      await persistSongOrder(nextSongs)
-      setSongs(nextSongs)
-      toast.success("Song removed from playlist.")
-      router.refresh()
-    } catch (error) {
-      toast.error((error as Error).message || "Failed to remove song.")
-    } finally {
-      setBusySongId(undefined)
-    }
+    setShuffleSeed(ids)
+    setShuffle(!shuffle)
   }
 
   return (
-    <div className="mb-7 flex flex-col gap-y-6 px-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <PlaylistVisibilityBadge visibility={playlist.visibility} />
-        <span className="text-sm text-neutral-400">Playlist by {playlist.author.full_name || playlist.author.username}</span>
+    <div className="flex flex-1 flex-col px-4 pb-4 pt-3 sm:px-6">
+      {commerce?.ready === false && (
+        <p role="status" className="mb-3 rounded-lg border border-white/10 bg-elevated p-3 text-sm text-neutral-300">
+          Playlist access is being set up. Please check back shortly.
+        </p>
+      )}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Button
+          className="flex w-auto items-center gap-2 px-4 py-2 text-sm"
+          disabled={!playable.length}
+          onClick={() => onPlay(playable[0].id)}>
+          <FiPlay fill="currentColor" size={17} />
+          {hasAccess || playable.length === queue.length
+            ? "Play playlist"
+            : playable.some(song => song.is_paid)
+            ? "Play available songs"
+            : "Play free songs"}
+        </Button>
+        <button
+          aria-label="Shuffle playlist"
+          aria-pressed={shuffle}
+          onClick={toggleShuffle}
+          className={`rounded-full border p-2.5 transition focus-visible:outline-neon ${
+            shuffle ? "border-neon/40 bg-neon/10 text-neon" : "border-white/10 text-neutral-400 hover:text-white"
+          }`}>
+          <FiShuffle size={19} />
+        </button>
+        {canManage && (
+          <button
+            onClick={() => setEditing(true)}
+            className="ml-auto flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs text-neutral-300 hover:border-white/25">
+            <FiEdit2 size={14} />
+            Edit playlist
+          </button>
+        )}
       </div>
-
-      {canManage ? (
-        <div className="rounded-lg border border-white/10 bg-elevated p-4">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold text-white">Manage playlist</h2>
-            <p className="text-sm text-neutral-400">Edit details, visibility, and song order here.</p>
+      <div className={showPurchase ? "mb-6 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_280px]" : "mb-6"}>
+        {showPurchase && (
+          <div className="xl:col-start-2 xl:row-start-1">
+            <PlaylistPurchasePanel playlist={playlist} />
           </div>
-          <div className="grid gap-4 lg:grid-cols-[1fr,220px]">
-            <div className="flex flex-col gap-y-4">
-              <Input value={title} disabled={isSavingDetails} onChange={event => setTitle(event.target.value)} placeholder="Playlist title" />
-              <textarea
-                value={description}
-                disabled={isSavingDetails}
-                onChange={event => setDescription(event.target.value)}
-                placeholder="Description"
-                rows={4}
-                className="w-full rounded-md border border-white/10 bg-elevated px-3 py-3 text-sm placeholder:text-neutral-500 focus:outline-none focus:border-neon/50 disabled:cursor-not-allowed disabled:opacity-50"
+        )}
+        <section className="min-w-0 xl:col-start-1 xl:row-start-1" aria-label="Playlist songs">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-white">Tracks</h2>
+              <p className="mt-1 text-xs text-neutral-500">
+                {playlist.songs.length} songs
+                {commerce?.ready !== false &&
+                  ` · ${playlist.songs.filter(item => !item.song.is_paid).length} free to listen`}
+              </p>
+            </div>
+            <div className="relative w-full sm:w-56">
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+              <Input
+                aria-label="Search songs in this playlist"
+                className="py-2 pl-9"
+                placeholder="Find a song…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-y-4">
-              <select
-                value={visibility}
-                disabled={isSavingDetails}
-                onChange={event => setVisibility(event.target.value as PlaylistVisibility)}
-                className="w-full rounded-md border border-white/10 bg-elevated px-3 py-3 text-sm capitalize focus:outline-none focus:border-neon/50 disabled:cursor-not-allowed disabled:opacity-50">
-                <option value="public">Public</option>
-                <option value="unlisted">Unlisted</option>
-                <option value="private">Private</option>
-              </select>
-              <Button className="rounded-md" disabled={isSavingDetails || !title.trim()} onClick={handleSaveDetails}>
-                {isSavingDetails ? "Saving..." : "Save changes"}
-              </Button>
-              <Button className="rounded-md border-red-500/60 bg-transparent text-red-400 hover:bg-red-500/10 hover:opacity-100" disabled={isDeletingPlaylist} onClick={handleDeletePlaylist}>
-                {isDeletingPlaylist ? "Deleting..." : "Delete playlist"}
-              </Button>
-            </div>
           </div>
-        </div>
-      ) : null}
-
-      <div className="flex flex-col gap-y-3">
-        {songs.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-neutral-700 px-4 py-10 text-center text-sm text-neutral-400">
-            {canManage ? "This playlist is empty. Add songs from any song card or song row." : "This playlist does not have any songs yet."}
+          <div className="mb-1 flex gap-3 border-b border-white/10 px-3 pb-2 text-[11px] font-medium uppercase tracking-widest text-neutral-500">
+            <span className="hidden w-6 text-center sm:block">#</span>
+            <span className="flex-1">Title / Artist</span>
+            <span>Access</span>
           </div>
-        ) : null}
-
-        {songs.map((item, index) => (
-          <div key={item.song.id} className="flex items-center gap-x-4 rounded-md bg-elevated/60 border border-white/5 p-2 transition hover:border-neon/20">
-            <div className="flex-1">
-              <MediaItem onClick={id => onPlay(id)} data={item.song} size={48} />
+          {filtered.length === 0 && (
+            <div className="rounded-lg border border-dashed border-white/10 px-4 py-6 text-center text-sm text-neutral-400">
+              {query
+                ? "No songs match your search."
+                : canManage
+                ? "Your playlist is ready for music. Add songs from the library."
+                : "New music is on its way. Check back soon."}
             </div>
-            <div className="flex items-center gap-x-3">
-              <AddToPlaylistButton song={item.song} />
-              <LikeButton songId={item.song.id} />
-              {isOwner && <DeleteSongButton song={item.song} />}
-              {canManage ? (
-                <>
-                  <button
-                    type="button"
-                    aria-label={`Move ${item.song.title} up`}
-                    disabled={busySongId === item.song.id || index === 0}
-                    onClick={() => handleMoveSong(index, -1)}
-                    className="cursor-pointer text-neutral-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40">
-                    <AiOutlineArrowUp size={20} />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Move ${item.song.title} down`}
-                    disabled={busySongId === item.song.id || index === songs.length - 1}
-                    onClick={() => handleMoveSong(index, 1)}
-                    className="cursor-pointer text-neutral-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-40">
-                    <AiOutlineArrowDown size={20} />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`Remove ${item.song.title} from playlist`}
-                    title="Remove from playlist"
-                    disabled={busySongId === item.song.id}
-                    onClick={() => handleRemoveSong(item.song.id)}
-                    className="cursor-pointer text-neutral-300 transition hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40">
-                    <AiOutlineMinusCircle size={20} />
-                  </button>
-                </>
-              ) : null}
-            </div>
-          </div>
-        ))}
+          )}
+          {filtered.map(item => {
+            const locked = item.song.can_play === false
+            return (
+              <div
+                key={item.song_id}
+                className="group flex items-center gap-2 rounded-md border border-transparent px-1 py-0.5 transition hover:border-white/5 hover:bg-elevated sm:gap-3 sm:px-3">
+                <span className="hidden w-6 shrink-0 text-center text-xs text-neutral-500 sm:block">
+                  {playlist.songs.indexOf(item) + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <MediaItem data={item.song} onClick={id => onPlay(id)} size={36} />
+                </div>
+                <span
+                  className={`flex shrink-0 items-center gap-1 text-[11px] ${
+                    locked ? "text-neutral-400" : "text-neon/80"
+                  }`}>
+                  {item.song.access_unavailable ? (
+                    "Unavailable"
+                  ) : locked ? (
+                    <>
+                      <FiLock size={12} />
+                      <span className="hidden sm:inline">Locked</span>
+                    </>
+                  ) : item.song.is_paid ? (
+                    "Unlocked"
+                  ) : (
+                    "Free"
+                  )}
+                </span>
+                <LikeButton songId={item.song.id} />
+                <div className="hidden sm:block">
+                  <AddToPlaylistButton song={item.song} />
+                </div>
+              </div>
+            )
+          })}
+        </section>
       </div>
+      <footer className="mt-auto border-t border-white/10 pt-3">
+        <SupportLink />
+        <p className="mt-2 text-xs text-neutral-500">
+          Enjoying the music? Support the library with an optional donation. Donations do not unlock playlists.
+        </p>
+      </footer>
+      {editing && <PlaylistEditor playlist={playlist} onClose={() => setEditing(false)} />}
     </div>
   )
 }
-
-export default PlaylistDetailContent
