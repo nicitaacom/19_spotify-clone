@@ -4,12 +4,12 @@ import { createRouteHandlerClient } from "@/libs/supabaseServer"
 export async function requireUser() {
   const supabase = await createRouteHandlerClient()
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!session?.user) {
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 }) as NextResponse
   }
 
-  return { userId: session.user.id, email: session.user.email, supabase }
+  return { userId: user.id, email: user.email, supabase }
 }

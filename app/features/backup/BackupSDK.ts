@@ -1,4 +1,4 @@
-import { BACKUP_TABLES, getPublicUrl, type BackupFileRef, type BackupTableConfig } from "./backupConfig"
+import { BACKUP_TABLES, type BackupFileRef, type BackupTableConfig } from "./backupConfig"
 import {
   addTarEntry,
   finalizeTar,
@@ -263,7 +263,8 @@ export async function exportFiles(
     while (nextIndex < files.length) {
       const index = nextIndex++
       const file = files[index]
-      const url = getPublicUrl(file.bucket, file.path)
+      const url = file.downloadUrl
+      if (!url) throw new Error("Missing authorized backup download URL. Refresh and try again.")
       let buf: Buffer | null = null
       try {
         const res = await fetch(url)

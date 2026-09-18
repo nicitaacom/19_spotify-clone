@@ -130,6 +130,7 @@ export interface BackupFileRef {
   path: string
   size: number
   contentType: string
+  downloadUrl?: string
 }
 
 export const BACKUP_STORAGE_PATHS = {

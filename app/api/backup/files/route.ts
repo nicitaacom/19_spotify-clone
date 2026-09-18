@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { PostgrestError } from "@supabase/supabase-js"
+import { isOwnerId } from "@/libs/getOwnerIds"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { requireUser } from "../requireUser"
 import { BACKUP_BUCKETS, isBackupBucket, assertBackupAccess, listFiles, isOwnedFile, type BackupFileRef } from "@/app/features/backup/backupTables"
@@ -32,7 +33,15 @@ export async function GET() {
     return NextResponse.json({ error: pgError.message, code: pgError.code, details: pgError.details, hint: pgError.hint }, { status: 500 })
   }
 
-  return NextResponse.json({ files })
+  // URLs are issued only for paths whose exclusive ownership is verified.
+  const authorizedFiles: BackupFileRef[] = []
+  for (const file of files) {
+    if (!await isOwnedFile(supabaseAdmin, userId, file.bucket, file.path)) continue
+    const { data, error } = await supabaseAdmin.storage.from(file.bucket).createSignedUrl(file.path, 3600)
+    if (error) return NextResponse.json({ error: "Unable to authorize backup downloads." }, { status: 503 })
+    authorizedFiles.push({ ...file, downloadUrl: data.signedUrl })
+  }
+  return NextResponse.json({ files: authorizedFiles }, { headers: { "Cache-Control": "private, no-store" } })
 }
 
 type FileRequest = { bucket?: string; path?: string }
@@ -74,6 +83,7 @@ export async function POST(req: Request) {
   }
 
   const results: UploadTarget[] = []
+  if (!isOwnerId(userId)) return NextResponse.json({ error: "Only the site owner can restore library files." }, { status: 403 })
   for (const file of files) {
     const bucket = file.bucket
     const path = file.path

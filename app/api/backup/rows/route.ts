@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { requireUser } from "../requireUser"
 import { BACKUP_TABLES, getTableConfig, assertBackupAccess } from "@/app/features/backup/backupTables"
 import { Database } from "@/app/interfaces/types_db"
+import { isOwnerId } from "@/libs/getOwnerIds"
 
 type TableName = keyof Database["public"]["Tables"]
 
@@ -73,6 +74,9 @@ export async function POST(req: Request) {
   }
 
   const ownedRows = config.scopeRows ? await config.scopeRows(supabaseAdmin, userId, rows) : rows
+  if (config.name === "19_songs" && !isOwnerId(userId)) {
+    return NextResponse.json({ error: "Only the site owner can restore song records." }, { status: 403 })
+  }
   const skipped = rows.length - ownedRows.length
   if (ownedRows.length === 0) return NextResponse.json({ rows: 0, skipped })
 
