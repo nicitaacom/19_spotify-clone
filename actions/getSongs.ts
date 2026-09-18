@@ -1,5 +1,6 @@
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { Song } from "@/types"
+import { withSongAccess } from "@/libs/playlistAccess"
 
 const getSongs = async (): Promise<Song[]> => {
   const supabase = await createServerComponentClient()
@@ -27,7 +28,7 @@ const getSongs = async (): Promise<Song[]> => {
 
   songsWithLikes.sort((a, b) => b.likes_count - a.likes_count)
 
-  return songsWithLikes
+  return withSongAccess(songsWithLikes)
 }
 
 export default getSongs

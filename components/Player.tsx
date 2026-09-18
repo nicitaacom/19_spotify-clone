@@ -1,6 +1,8 @@
 "use client"
 
-import { useCallback, useEffect } from "react"
+import { useCallback, useEffect, useRef } from "react"
+import Link from "next/link"
+import { useUser } from "@/hooks/useUser"
 import { AiOutlineLoading3Quarters } from "react-icons/ai"
 
 import usePlayer from "@/hooks/usePlayer"
@@ -11,6 +13,12 @@ import { useExclusivePlaybackSource } from "@/app/providers/PlaybackSyncProvider
 import PlayerContent from "./PlayerContent"
 
 const Player = () => {
+  const { user } = useUser()
+  const previousUser = useRef(user?.id)
+  useEffect(() => {
+    if (previousUser.current !== user?.id) usePlayer.getState().reset()
+    previousUser.current = user?.id
+  }, [user?.id])
   const {
     activeId,
     activeSong: currentStoreSong,
@@ -72,7 +80,7 @@ const Player = () => {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [requestSeek, togglePlayback, stopPlayback])
 
-  const songUrl = useLoadSongUrl(song)
+  const { url: songUrl, error: audioError, unlockSlug, expiresAt, retry } = useLoadSongUrl(song)
 
   if (!activeId) {
     return null
@@ -137,7 +145,16 @@ const Player = () => {
 
       <div className="flex h-full items-center px-4 py-2">
         {song && songUrl ? (
-          <PlayerContent key={`${song.id}-${songUrl}`} song={song} songUrl={songUrl} />
+          <PlayerContent key={`${song.id}-${songUrl}`} song={song} songUrl={songUrl} expiresAt={expiresAt} onRefreshUrl={retry} />
+        ) : audioError ? (
+          <div className="flex w-full items-center justify-between gap-3 text-sm" role="alert">
+            <p className="text-neutral-300">{audioError}</p>
+            <div className="flex shrink-0 gap-3">
+              {unlockSlug && <Link className="text-neon" href={`/playlists/${unlockSlug}#playlist-access`}>View playlist</Link>}
+              <button className="text-neon" onClick={retry}>Retry</button>
+              <button aria-label="Close player" onClick={() => usePlayer.getState().reset()}>Close</button>
+            </div>
+          </div>
         ) : (
           <div className="flex h-full items-center gap-x-4 text-white">
             <div className="flex h-12 w-12 items-center justify-center rounded-md bg-elevated">

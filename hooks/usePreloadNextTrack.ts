@@ -44,7 +44,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
   const currentIndex = ids.findIndex(id => id === activeId)
   const nextSongId = currentIndex >= 0 ? ids[currentIndex + 1] : undefined
   const nextSong = nextSongId ? songs.find(song => song.id === nextSongId) : undefined
-  const nextSongUrl = useLoadSongUrl(nextSong)
+  const { url: nextSongUrl } = useLoadSongUrl(preloadedSongId === nextSongId ? nextSong : undefined)
 
   const unloadPreloadedTrack = () => {
     const preloadedAudio = preloadAudioRef.current

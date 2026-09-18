@@ -2,6 +2,7 @@
 
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { Playlist, Song } from "@/types"
+import { withSongAccess } from "@/libs/playlistAccess"
 
 const searchSongsAndPlaylistsAction = async (query: string): Promise<{ songs: Song[]; playlists: Playlist[] } | string> => {
   const supabase = await createServerComponentClient()
@@ -21,7 +22,7 @@ const searchSongsAndPlaylistsAction = async (query: string): Promise<{ songs: So
   if (playlistsError) console.log("searchSongsAndPlaylistsAction playlists error - ", playlistsError.message)
 
   return {
-    songs: (songs as Song[]) ?? [],
+    songs: await withSongAccess((songs as Song[]) ?? []),
     playlists: (playlists as Playlist[]) ?? [],
   }
 }

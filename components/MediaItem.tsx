@@ -6,6 +6,7 @@ import useLoadImage from "@/hooks/useLoadImage"
 import { Song } from "@/types"
 import usePlayer from "@/hooks/usePlayer"
 import CoverImage from "@/components/CoverImage"
+import useOnPlay from "@/hooks/useOnPlay"
 
 interface MediaItemProps {
   data: Song
@@ -16,6 +17,7 @@ interface MediaItemProps {
 const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48 }) => {
   const player = usePlayer()
   const imageUrl = useLoadImage(data)
+  const playSong = useOnPlay([data])
 
   const handleClick = () => {
     if (onClick) {
@@ -34,15 +36,16 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48 }) => {
       return
     }
 
-    player.setIsPlaying(false)
-    player.setActiveSong(data)
-    player.setIsLoading(true)
-    return player.setId(data.id)
+    return playSong(data.id)
   }
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`${data.access_unavailable ? "Unavailable" : data.can_play === false ? "Unlock" : "Play"} ${data.title}`}
       onClick={handleClick}
+      onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); handleClick() } }}
       className="
         relative
         flex 
@@ -67,7 +70,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48 }) => {
       </div>
       <div className="flex flex-col gap-y-1 overflow-hidden">
         <p className={twMerge(`text-white truncate`, player.activeId === data.id && "text-neon")}>{data.title}</p>
-        <p className="text-neutral-400 text-sm truncate">By {data.author}</p>
+        <p className="text-neutral-400 text-sm truncate">{data.author}{data.access_unavailable ? " · Unavailable" : data.can_play === false ? " · Locked" : ""}</p>
       </div>
     </div>
   )

@@ -20,6 +20,8 @@ import Slider from "./Slider"
 interface PlayerContentProps {
   song: Song
   songUrl: string
+  expiresAt?: number
+  onRefreshUrl: () => void
 }
 
 interface HowlWithHtml5Nodes {
@@ -40,7 +42,7 @@ const getHtml5AudioNode = (sound: unknown) => {
   return activeSound._node instanceof HTMLAudioElement ? activeSound._node : null
 }
 
-const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
+const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt, onRefreshUrl }) => {
   const {
     ids,
     activeId,
@@ -145,6 +147,13 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
       return
     }
 
+    if (expiresAt && Date.now() >= expiresAt - 10_000) {
+      const position = currentSound.seek()
+      if (typeof position === "number") setSavedPosition(position)
+      onRefreshUrl()
+      return
+    }
+
     if (recoveryAttemptsRef.current >= MAX_STALL_RECOVERY_ATTEMPTS) {
       clearRecoveryTimer()
       isRecoveringRef.current = false
@@ -184,6 +193,9 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     clearRecoveryTimer,
     scheduleStallRecovery,
     setIsPlayingInStore,
+    expiresAt,
+    onRefreshUrl,
+    setSavedPosition,
   ])
 
   useEffect(() => {
@@ -285,6 +297,12 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
       setIsPlayingInStore(false)
     },
     onloaderror: (_id: number, err: unknown) => {
+      if (expiresAt && Date.now() >= expiresAt - 10_000) {
+        const position = soundRef.current?.seek()
+        if (typeof position === "number") setSavedPosition(position)
+        onRefreshUrl()
+        return
+      }
       if (isPlayingRef.current || isRecoveringRef.current) {
         console.warn("[player] recoverable media error for", songUrl, err)
         markPlaybackStalled()
@@ -380,12 +398,14 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
 
     didAutoPlayRef.current = true
     setIsLoading(true)
+    const resumePosition = usePlayer.getState().savedPosition
     sound.play()
+    if (resumePosition > 0) sound.once("play", () => sound.seek(resumePosition))
 
     return () => {
       wasPlayingRef.current = isPlayingRef.current
       const pos = sound.seek()
-      if (typeof pos === "number" && pos > 0) setSavedPosition(pos)
+      if (usePlayer.getState().activeId === song.id && typeof pos === "number" && pos > 0) setSavedPosition(pos)
       setIsPlayingInStore(false)
       sound.unload()
     }

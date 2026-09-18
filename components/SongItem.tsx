@@ -68,7 +68,7 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
         {/* Top-left SONG badge */}
         <div className="absolute left-2 top-2">
           <span className="rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-neutral-300 backdrop-blur-sm">
-            Song
+            {data.access_unavailable ? "Unavailable" : data.can_play === false ? "Locked" : data.is_paid ? "Unlocked" : "Song"}
           </span>
         </div>
 

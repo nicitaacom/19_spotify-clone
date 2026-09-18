@@ -14,7 +14,6 @@ import useEditSongModal from "@/hooks/useEditSongModal"
 import useUploadModal from "@/hooks/useUploadModal"
 import Button from "@/components/Button"
 import CoverImage from "@/components/CoverImage"
-import supabaseClient from "@/libs/supabaseClient"
 
 interface MySongsContentProps {
   songs: Song[]
@@ -32,16 +31,8 @@ function SongRow({ song, onDelete, onUpdate }: { song: Song; onDelete: (id: stri
     if (!confirm(`Delete "${song.title}"? This cannot be undone.`)) return
     setDeleting(true)
     try {
-      const { error: dbError } = await supabaseClient.from("19_songs").delete().eq("id", Number(song.id))
-
-      if (dbError) {
-        toast.error(dbError.message)
-        setDeleting(false)
-        return
-      }
-
-      await supabaseClient.storage.from("songs").remove([song.song_path])
-      await supabaseClient.storage.from("images").remove([song.image_path])
+      const response = await fetch(`/api/songs/${song.id}/delete`, { method: "DELETE" })
+      if (!response.ok) { const body = await response.json(); throw new Error(body.error) }
 
       toast.success(`"${song.title}" deleted.`)
       onDelete(song.id)

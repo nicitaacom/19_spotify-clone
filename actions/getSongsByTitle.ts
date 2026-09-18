@@ -1,5 +1,6 @@
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { Song } from "@/types"
+import { withSongAccess } from "@/libs/playlistAccess"
 
 import getSongs from "./getSongs"
 
@@ -21,7 +22,7 @@ const getSongsByTitle = async (title: string): Promise<Song[]> => {
     console.log(25, "error - ", error.message)
   }
 
-  return (data as Song[]) || []
+  return withSongAccess((data as Song[]) || [])
 }
 
 export default getSongsByTitle

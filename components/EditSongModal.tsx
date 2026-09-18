@@ -6,7 +6,6 @@ import toast from "react-hot-toast"
 import { useRouter } from "next/navigation"
 
 import useEditSongModal from "@/hooks/useEditSongModal"
-import supabaseClient from "@/libs/supabaseClient"
 
 import Modal from "./Modal"
 import Input from "./Input"
@@ -41,17 +40,14 @@ const EditSongModal = () => {
     if (!author) { toast.error("Author is required."); return }
 
     setIsLoading(true)
-    const { error } = await supabaseClient
-      .from("19_songs")
-      .update({ title, author })
-      .eq("id", Number(song.id))
-
-    setIsLoading(false)
-
-    if (error) {
-      toast.error(error.message)
+    try {
+      const response = await fetch(`/api/songs/${song.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, author }) })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to update song.")
       return
-    }
+    } finally { setIsLoading(false) }
 
     toast.success("Song updated.")
     onUpdate?.({ ...song, title, author })
