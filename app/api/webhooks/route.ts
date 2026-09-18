@@ -4,6 +4,8 @@ import { headers } from "next/headers"
 
 import { stripe } from "@/libs/stripe"
 import { upsertProductRecord, upsertPriceRecord, manageSubscriptionStatusChange } from "@/libs/supabaseAdmin"
+import { fulfillPlaylistCheckout, syncPlaylistCharge } from "@/libs/playlistPayments"
+import { commerceAdmin } from "@/libs/commerceAdmin"
 
 const relevantEvents = new Set([
   "product.created",
@@ -11,6 +13,11 @@ const relevantEvents = new Set([
   "price.created",
   "price.updated",
   "checkout.session.completed",
+  "checkout.session.expired",
+  "charge.refunded",
+  "charge.dispute.created",
+  "charge.dispute.updated",
+  "charge.dispute.closed",
   "customer.subscription.created",
   "customer.subscription.updated",
   "customer.subscription.deleted",
@@ -29,7 +36,7 @@ export async function POST(request: Request) {
   let event: Stripe.Event
 
   try {
-    if (!sig || !webhookSecret) return
+    if (!sig || !webhookSecret) return new NextResponse("Missing webhook signature or configuration", { status: 400 })
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret)
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
@@ -62,11 +69,35 @@ export async function POST(request: Request) {
           break
         case "checkout.session.completed":
           const checkoutSession = event.data.object as Stripe.Checkout.Session
+          if (checkoutSession.mode === "payment" && checkoutSession.metadata?.kind === "playlist") {
+            await fulfillPlaylistCheckout(checkoutSession.id)
+          }
           if (checkoutSession.mode === "subscription") {
             const subscriptionId = checkoutSession.subscription
             await manageSubscriptionStatusChange(subscriptionId as string, checkoutSession.customer as string, true)
           }
           break
+        case "checkout.session.expired": {
+          const session = event.data.object as Stripe.Checkout.Session
+          if (session.metadata?.kind === "playlist") {
+            const { error } = await commerceAdmin.from("19_playlist_orders").update({ status: "expired" })
+              .eq("id", session.metadata.order_id).eq("status", "pending")
+            if (error) throw error
+          }
+          break
+        }
+        case "charge.refunded":
+          await syncPlaylistCharge((event.data.object as Stripe.Charge).payment_intent)
+          break
+        case "charge.dispute.created":
+        case "charge.dispute.updated":
+        case "charge.dispute.closed": {
+          const dispute = event.data.object as Stripe.Dispute
+          const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge.id
+          const charge = await stripe.charges.retrieve(chargeId)
+          await syncPlaylistCharge(charge.payment_intent)
+          break
+        }
         default:
           throw new Error("Unhandled relevant event!")
       }

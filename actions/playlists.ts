@@ -9,7 +9,14 @@ import {
 } from "@/types"
 
 import { createServerComponentClient } from "@/libs/supabaseServer"
-import supabaseClient from "@/libs/supabaseClient"
+import {
+  applyPlaylistSongAccess,
+  getPlaylistCommerce,
+  getViewer,
+  isCommerceSchemaMissing,
+  purchasedPlaylists,
+  withSongAccess,
+} from "@/libs/playlistAccess"
 
 const FALLBACK_AUTHOR: PlaylistAuthor = {
   id: "",
@@ -165,14 +172,16 @@ export const getPublicPlaylists = async (): Promise<PlaylistSummary[]> => {
     getPlaylistSongsByPlaylistIds(playlistIds),
   ])
 
-  return data.map(playlist => buildPlaylistSummary(playlist, authorsById, playlistSongsById))
+  const summaries = data.map(playlist => buildPlaylistSummary(playlist, authorsById, playlistSongsById))
+  const commerce = await getPlaylistCommerce(summaries)
+  return summaries.map(p => ({ ...p, commerce: commerce.get(p.id) }))
 }
 
 export const getUserPlaylists = async (): Promise<PlaylistSummary[]> => {
   const supabase = await createServerComponentClient()
   const {
     data: { session },
-  } = await supabaseClient.auth.getSession()
+  } = await supabase.auth.getSession()
 
   if (!session?.user?.id) {
     return []
@@ -196,14 +205,16 @@ export const getUserPlaylists = async (): Promise<PlaylistSummary[]> => {
   const authorsById = await getAuthorsById([session.user.id])
   const playlistSongsById = await getPlaylistSongsByPlaylistIds(playlistIds)
 
-  return data.map(playlist => buildPlaylistSummary(playlist, authorsById, playlistSongsById))
+  const summaries = data.map(playlist => buildPlaylistSummary(playlist, authorsById, playlistSongsById))
+  const commerce = await getPlaylistCommerce(summaries)
+  return summaries.map(p => ({ ...p, commerce: commerce.get(p.id) }))
 }
 
 export const getUserPlaylistOptions = async (): Promise<PlaylistOption[]> => {
   const supabase = await createServerComponentClient()
   const {
     data: { session },
-  } = await supabaseClient.auth.getSession()
+  } = await supabase.auth.getSession()
 
   if (!session?.user?.id) {
     return []
@@ -252,10 +263,40 @@ export const getPlaylistBySlug = async (slug: string): Promise<PlaylistDetail | 
 
   const playlistSongs = playlistSongsById.get(normalizedPlaylist.id) ?? []
 
+  const [commerce, accessibleSongs, viewer] = await Promise.all([
+    getPlaylistCommerce([normalizedPlaylist]),
+    withSongAccess(playlistSongs.map(item => item.song)),
+    getViewer(),
+  ])
+  let playlistAccessibleSongs = accessibleSongs
+  try {
+    playlistAccessibleSongs = await applyPlaylistSongAccess(normalizedPlaylist.id, accessibleSongs, viewer)
+  } catch (error) {
+    if (!isCommerceSchemaMissing(error)) throw error
+  }
+
   return {
     ...normalizedPlaylist,
     author: authorsById.get(normalizedPlaylist.user_id) ?? { ...FALLBACK_AUTHOR, id: normalizedPlaylist.user_id },
     cover_image_path: playlistSongs[0]?.song?.image_path ?? null,
-    songs: playlistSongs,
+    songs: playlistSongs.map((item, index) => ({ ...item, song: playlistAccessibleSongs[index] })),
+    commerce: commerce.get(normalizedPlaylist.id),
   }
+}
+
+export const getPurchasedPlaylists = async (): Promise<PlaylistSummary[]> => {
+  let ids: string[]
+  try { ids = Array.from(await purchasedPlaylists((await getViewer()).id)) }
+  catch (error) { if (isCommerceSchemaMissing(error)) return []; throw error }
+  if (!ids.length) return []
+  const supabase = await createServerComponentClient()
+  const { data, error } = await supabase.from("19_playlists").select("*").in("id", ids)
+  if (error) throw error
+  const [authors, songs] = await Promise.all([
+    getAuthorsById(Array.from(new Set((data ?? []).map(p => p.user_id)))),
+    getPlaylistSongsByPlaylistIds(ids),
+  ])
+  const summaries = (data ?? []).map(p => buildPlaylistSummary(p, authors, songs))
+  const commerce = await getPlaylistCommerce(summaries)
+  return summaries.map(p => ({ ...p, commerce: commerce.get(p.id) }))
 }

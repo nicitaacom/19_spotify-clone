@@ -7,6 +7,20 @@ export interface Song {
   title: string
   song_path: string
   image_path: string
+  is_paid?: boolean
+  can_play?: boolean
+  unlock_slug?: string | null
+  access_unavailable?: boolean
+}
+
+export interface PlaylistCommerce {
+  ready?: boolean
+  price_cents: number
+  sales_enabled: boolean
+  purchased: boolean
+  paid_song_count: number
+  youtube_url: string | null
+  can_manage: boolean
 }
 
 export type PlaylistVisibility = "public" | "unlisted" | "private"
@@ -20,6 +34,7 @@ export interface Playlist {
   title: string
   description: string | null
   visibility: PlaylistVisibility
+  commerce?: PlaylistCommerce
 }
 
 export interface PlaylistSong {

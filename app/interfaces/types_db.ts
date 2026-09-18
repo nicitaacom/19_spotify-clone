@@ -11,6 +11,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      "19_playlist_commerce": {
+        Row: { playlist_id: string; price_cents: number; youtube_url: string; sales_enabled: boolean }
+        Insert: { playlist_id: string; price_cents?: number; youtube_url: string; sales_enabled?: boolean }
+        Update: { price_cents?: number; youtube_url?: string; sales_enabled?: boolean }
+        Relationships: []
+      }
+      "19_song_access": {
+        Row: { playlist_id: string; song_id: number; is_paid: boolean }
+        Insert: { playlist_id: string; song_id: number; is_paid: boolean }
+        Update: { is_paid?: boolean }
+        Relationships: []
+      }
+      "19_playlist_orders": {
+        Row: { id: string; user_id: string; playlist_id: string; playlist_title: string; playlist_slug: string; price_cents: number; currency: string; status: string; stripe_session_id: string | null; stripe_payment_intent_id: string | null; created_at: string; paid_at: string | null }
+        Insert: { id?: string; user_id: string; playlist_id: string; playlist_title: string; playlist_slug: string; price_cents: number; currency?: string; status?: string; stripe_session_id?: string | null; stripe_payment_intent_id?: string | null; created_at?: string; paid_at?: string | null }
+        Update: { status?: string; stripe_session_id?: string | null; stripe_payment_intent_id?: string | null; paid_at?: string | null }
+        Relationships: []
+      }
       "19_customers": {
         Row: { id: string; stripe_customer_id: string | null }
         Insert: { id: string; stripe_customer_id?: string | null }
