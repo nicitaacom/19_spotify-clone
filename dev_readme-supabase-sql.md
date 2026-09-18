@@ -384,6 +384,55 @@ END $$;
 
 
 -- =====================================================
+-- 📦 TABLE: 19_playlist_commerce (DEPENDS ON 19_playlists)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS public."19_playlist_commerce" (
+    playlist_id UUID NOT NULL,
+    price_cents INTEGER NOT NULL DEFAULT 200 CHECK (price_cents BETWEEN 100 AND 1000),
+    youtube_url TEXT NOT NULL CHECK (youtube_url ~ '^https://www\.youtube\.com/playlist\?list=[A-Za-z0-9_-]+$'),
+    sales_enabled BOOLEAN NOT NULL DEFAULT false,
+    CONSTRAINT "19_playlist_commerce_pkey" PRIMARY KEY (playlist_id),
+    CONSTRAINT "19_playlist_commerce_playlist_id_fkey" FOREIGN KEY (playlist_id) REFERENCES public."19_playlists" (id) ON DELETE CASCADE
+) TABLESPACE pg_default;
+
+-- =====================================================
+-- 📦 TABLE: 19_song_access (PER-PLAYLIST SONG ACCESS)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS public."19_song_access" (
+    playlist_id UUID NOT NULL,
+    song_id BIGINT NOT NULL,
+    is_paid BOOLEAN NOT NULL DEFAULT false,
+    CONSTRAINT "19_song_access_pkey" PRIMARY KEY (playlist_id, song_id),
+    CONSTRAINT "19_song_access_playlist_song_fkey" FOREIGN KEY (playlist_id, song_id) REFERENCES public."19_playlist_songs" (playlist_id, song_id) ON DELETE CASCADE
+) TABLESPACE pg_default;
+
+-- =====================================================
+-- 📦 TABLE: 19_playlist_orders (DEPENDS ON auth.users AND 19_playlists)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS public."19_playlist_orders" (
+    id UUID NOT NULL DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    playlist_id UUID NOT NULL,
+    playlist_title TEXT NOT NULL,
+    playlist_slug TEXT NOT NULL,
+    price_cents INTEGER NOT NULL CHECK (price_cents BETWEEN 100 AND 1000),
+    currency TEXT NOT NULL DEFAULT 'usd' CHECK (currency = 'usd'),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'expired', 'refunded', 'suspended', 'revoked')),
+    stripe_session_id TEXT UNIQUE,
+    stripe_payment_intent_id TEXT UNIQUE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    paid_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT "19_playlist_orders_pkey" PRIMARY KEY (id),
+    CONSTRAINT "19_playlist_orders_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users (id),
+    CONSTRAINT "19_playlist_orders_playlist_id_fkey" FOREIGN KEY (playlist_id) REFERENCES public."19_playlists" (id)
+) TABLESPACE pg_default;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "19_one_active_playlist_order"
+ON public."19_playlist_orders" (user_id, playlist_id)
+WHERE status IN ('pending', 'paid', 'suspended');
+
+
+-- =====================================================
 -- 📦 TABLE: 19_subscriptions (DEPENDS ON auth.users AND 19_prices)
 -- =====================================================
 CREATE TABLE public."19_subscriptions" (
