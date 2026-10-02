@@ -104,6 +104,16 @@ export default function PlaylistPurchasePanel({ playlist }: { playlist: Playlist
     }
   }
 
+  const handleCopyYoutubeLink = async () => {
+    if (!commerce?.youtube_url) return
+    try {
+      await navigator.clipboard.writeText(commerce.youtube_url)
+      toast.success("YouTube link copied. Share it with anyone!")
+    } catch {
+      toast.error("Could not copy. Open the link and copy it from your address bar.")
+    }
+  }
+
   return (
     <aside
       id="playlist-access"
@@ -126,14 +136,7 @@ export default function PlaylistPurchasePanel({ playlist }: { playlist: Playlist
               Open YouTube playlist <FiExternalLink />
             </a>
             <button
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(commerce.youtube_url!)
-                  toast.success("YouTube link copied. Share it with anyone!")
-                } catch {
-                  toast.error("Could not copy. Open the link and copy it from your address bar.")
-                }
-              }}
+              onClick={handleCopyYoutubeLink}
               className="flex w-full items-center justify-center gap-2 py-2 text-xs text-neutral-300">
               <FiCopy />
               Copy YouTube link

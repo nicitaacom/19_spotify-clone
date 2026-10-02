@@ -50,19 +50,21 @@ export function LoginForm({
     )
   }
 
+  const handleRecoverPassword = () => {
+    store.setAuthMessage("")
+    store.setAuthStatus("info")
+    store.setPasswordInputValue("")
+    store.setPasswordInputError("")
+    store.setAuthMode("recover")
+  }
+
   return (
     <form className="space-y-3" onSubmit={handleSubmit}>
       <InputEmail />
       <InputPassword />
       <button
         className="block px-1 text-xs text-white/50 transition hover:text-white"
-        onClick={() => {
-          store.setAuthMessage("")
-          store.setAuthStatus("info")
-          store.setPasswordInputValue("")
-          store.setPasswordInputError("")
-          store.setAuthMode("recover")
-        }}
+        onClick={handleRecoverPassword}
         type="button">
         Recover password
       </button>

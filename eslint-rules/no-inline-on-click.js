@@ -1,5 +1,7 @@
 "use strict"
 
+const { isComponentFile } = require("./utils/isComponentFile")
+
 // An onClick/onChange/... written directly in JSX as `async () => { ... }` slips past
 // require-handlers-hook-async-fn (that rule only looks at a NAMED declaration - a FunctionDeclaration
 // or a `const handleXxx = () => {}`, never a function literal sitting straight inside a JSXAttribute
@@ -67,7 +69,7 @@ module.exports = {
     create(context) {
       const filename = context.filename ?? context.getFilename()
       const sourceCode = context.sourceCode ?? context.getSourceCode()
-      if (!filename.endsWith(".tsx")) return {}
+      if (!isComponentFile(filename, sourceCode)) return {}
 
       const suggestedHook = `use${getComponentBasename(filename)}Handlers`
 

@@ -49,6 +49,14 @@ export function RecoveryForm({
     )
   }
 
+  const handleBackToLogin = () => {
+    store.setAuthMessage("")
+    store.setAuthStatus("error")
+    store.setPasswordInputValue("")
+    store.setPasswordInputError("")
+    store.setAuthMode("login")
+  }
+
   return (
     <form className="space-y-3" onSubmit={handleSubmit}>
       <InputEmail />
@@ -58,13 +66,7 @@ export function RecoveryForm({
       <SubmitFormButton isActionBlocked={isActionBlocked} />
       <button
         className="block px-1 text-xs text-white/50 transition hover:text-white"
-        onClick={() => {
-          store.setAuthMessage("")
-          store.setAuthStatus("error")
-          store.setPasswordInputValue("")
-          store.setPasswordInputError("")
-          store.setAuthMode("login")
-        }}
+        onClick={handleBackToLogin}
         type="button">
         Back to login
       </button>
