@@ -12,17 +12,17 @@ import Input from "./Input"
 import Button from "./Button"
 
 const EditSongModal = () => {
-  const { isOpen, song, onUpdate, onClose } = useEditSongModal()
+  const { isOpen, song, playlistId, onUpdate, onClose } = useEditSongModal()
 
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
   const { register, handleSubmit, reset } = useForm<FieldValues>({
-    defaultValues: { title: "", author: "" },
+    defaultValues: { title: "", author: "", image: null, isPaid: false },
   })
 
   useEffect(() => {
-    if (song) reset({ title: song.title, author: song.author })
+    if (song) reset({ title: song.title, author: song.author, image: null, isPaid: Boolean(song.is_paid) })
   }, [song, reset])
 
   const onChange = (open: boolean) => {
@@ -40,23 +40,33 @@ const EditSongModal = () => {
     if (!author) { toast.error("Author is required."); return }
 
     setIsLoading(true)
+    let imagePath = song.image_path
     try {
-      const response = await fetch(`/api/songs/${song.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title, author }) })
+      const formData = new FormData()
+      formData.append("title", title)
+      formData.append("author", author)
+      if (values.image?.[0]) formData.append("image", values.image[0])
+      if (playlistId) {
+        formData.append("playlistId", playlistId)
+        formData.append("isPaid", values.isPaid ? "true" : "false")
+      }
+      const response = await fetch(`/api/songs/${song.id}`, { method: "PATCH", body: formData })
       const body = await response.json()
       if (!response.ok) throw new Error(body.error)
+      imagePath = body.image_path ?? imagePath
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to update song.")
       return
     } finally { setIsLoading(false) }
 
     toast.success("Song updated.")
-    onUpdate?.({ ...song, title, author })
+    onUpdate?.({ ...song, title, author, image_path: imagePath, is_paid: playlistId ? Boolean(values.isPaid) : song.is_paid })
     router.refresh()
     onChange(false)
   }
 
   return (
-    <Modal title="Edit song" description="Update the title or author" isOpen={isOpen} onChange={onChange}>
+    <Modal title="Edit song" description="Update the song details" isOpen={isOpen} onChange={onChange}>
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="flex flex-col gap-y-4">
@@ -72,6 +82,16 @@ const EditSongModal = () => {
           {...register("author", { required: true })}
           placeholder="Song author"
         />
+        <label className="block space-y-2 text-sm">
+          <span>Replace cover image (optional)</span>
+          <Input id="image" type="file" accept="image/*" disabled={isLoading} {...register("image")} />
+        </label>
+        {playlistId && (
+          <label className="flex items-center gap-3 text-sm text-neutral-300">
+            <input type="checkbox" disabled={isLoading} className="accent-green-400" {...register("isPaid")} />
+            Paid in this playlist
+          </label>
+        )}
         <Button disabled={isLoading} type="submit" className="rounded-md">
           {isLoading ? "Saving..." : "Save"}
         </Button>

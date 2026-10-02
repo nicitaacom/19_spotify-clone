@@ -555,7 +555,7 @@ With playlist: songs/my-playlist/song-my-title-abc123.mp3
 ```
 
 Same rule for cover images in `images`. `getSafeStoragePath()` in `libs/helpers.ts` takes an
-optional `folder?: string`; `UploadModal.tsx` passes `selectedPlaylist?.slug`.
+optional `folder?: string`; `AddASongModal.tsx` passes `selectedPlaylist?.slug`.
 
 ### Unique playlist name constraint
 

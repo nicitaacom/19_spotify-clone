@@ -77,7 +77,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
           </div>
         </div>
       </Header>
-      <PlaylistDetailContent canManage={canManage} playlist={playlist} />
+      <PlaylistDetailContent canManage={canManage} viewerId={user?.id ?? null} playlist={playlist} />
     </div>
   )
 }

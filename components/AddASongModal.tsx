@@ -1,9 +1,9 @@
 "use client"
 
 import React, { useRef, useState, useEffect, useCallback } from "react"
-import { FieldValues, SubmitHandler, useForm } from "react-hook-form"
+import { FieldValues, SubmitHandler, useForm, useWatch } from "react-hook-form"
 import { toast } from "react-hot-toast"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { FiEdit2, FiPlus, FiChevronDown, FiCheck } from "react-icons/fi"
 
@@ -14,6 +14,7 @@ import { useVerifyHuman } from "@/hooks/useVerifyHuman"
 import { verifyTurnstileTokenFn } from "@/app/utils/verifyTurnstileToken"
 import { PlaylistOption } from "@/types"
 import supabaseClient from "@/libs/supabaseClient"
+import { extractId3Metadata } from "@/app/(site)/slow-and-reverb/lib/id3AlbumArt"
 
 import Modal from "./Modal"
 import Input from "./Input"
@@ -24,7 +25,7 @@ import ProgressBar from "./ProgressBar"
 // Show Turnstile challenge on ~10% of uploads
 const TURNSTILE_PROBABILITY = 0.1
 
-const UploadModal = () => {
+const AddASongModal = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadSpeed, setUploadSpeed] = useState("")
@@ -33,7 +34,10 @@ const UploadModal = () => {
   const [selectedPlaylist, setSelectedPlaylist] = useState<PlaylistOption | null>(null)
   const [requiresChallenge, setRequiresChallenge] = useState(false)
   const [uploadError, setUploadError] = useState("")
+  const [embeddedImage, setEmbeddedImage] = useState<File | null>(null)
+  const [readingMetadata, setReadingMetadata] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const metadataRequest = useRef(0)
 
   useEffect(() => {
     if (!isLoading) return
@@ -60,6 +64,8 @@ const UploadModal = () => {
 
   const { user, subscription } = useUser()
   const router = useRouter()
+  const pathname = usePathname()
+  const playlistSlug = pathname?.match(/^\/playlists\/([^/]+)\/?$/)?.[1]
   const turnstileRef = useRef<HTMLDivElement>(null)
   const isHumanGateEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
   const { isVerified, token, resetTurnstileFn } = useVerifyHuman(turnstileRef, {
@@ -67,9 +73,11 @@ const UploadModal = () => {
   })
   const isCreateBlocked = isLoading || (requiresChallenge && isHumanGateEnabled && !isVerified)
 
-  const { register, handleSubmit, reset } = useForm<FieldValues>({
-    defaultValues: { author: "", title: "", song: null, image: null },
+  const { register, handleSubmit, reset, resetField, control } = useForm<FieldValues>({
+    defaultValues: { author: "", title: "", song: null, image: null, isPaid: false },
   })
+  const isPaid = Boolean(useWatch({ control, name: "isPaid" }))
+  const songInput = register("song", { required: true })
 
   const [prevModalIsOpen, setPrevModalIsOpen] = useState(uploadModal.isOpen)
   if (uploadModal.isOpen !== prevModalIsOpen) {
@@ -110,9 +118,11 @@ const UploadModal = () => {
       }))
       setPlaylists(mapped)
       // If we had a selected playlist, keep it in sync (e.g. after rename)
-      setSelectedPlaylist(prev => (prev ? (mapped.find(p => p.id === prev.id) ?? null) : null))
+      setSelectedPlaylist(prev => prev
+        ? (mapped.find(p => p.id === prev.id) ?? null)
+        : (mapped.find(p => p.slug === decodeURIComponent(playlistSlug ?? "")) ?? null))
     }
-  }, [user])
+  }, [user, playlistSlug])
 
   const playlistsResetKey = `${uploadModal.isOpen}:${user?.id ?? ""}`
   const [prevPlaylistsResetKey, setPrevPlaylistsResetKey] = useState(playlistsResetKey)
@@ -150,8 +160,31 @@ const UploadModal = () => {
       setUploadSpeed("")
       setSelectedPlaylist(null)
       setUploadError("")
+      setEmbeddedImage(null)
+      setReadingMetadata(false)
+      metadataRequest.current++
       resetTurnstileFn()
       uploadModal.onClose()
+    }
+  }
+
+  const readSongMetadata = async (file?: File) => {
+    const request = ++metadataRequest.current
+    setEmbeddedImage(null)
+    resetField("image")
+    setUploadError("")
+    if (!file) return
+    setReadingMetadata(true)
+    try {
+      const metadata = extractId3Metadata(await file.arrayBuffer())
+      if (request !== metadataRequest.current || !metadata.artData?.length) return
+      const mime = metadata.artMime.toLowerCase()
+      const extension = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg"
+      setEmbeddedImage(new File([metadata.artData], `embedded-cover.${extension}`, { type: mime }))
+    } catch {
+      // An unreadable tag simply leaves the image picker available.
+    } finally {
+      if (request === metadataRequest.current) setReadingMetadata(false)
     }
   }
 
@@ -213,7 +246,7 @@ const UploadModal = () => {
       setUploadProgress(0)
       setUploadSpeed("")
 
-      const imageFile = values.image?.[0]
+      const imageFile = embeddedImage ?? values.image?.[0]
       const songFile = values.song?.[0]
 
       if (!user) {
@@ -226,8 +259,18 @@ const UploadModal = () => {
         setIsLoading(false)
         return
       }
+      if (readingMetadata) {
+        toast.error("Please wait for cover art to be checked.")
+        setIsLoading(false)
+        return
+      }
       if (!imageFile) {
         toast.error("Please select a cover image.")
+        setIsLoading(false)
+        return
+      }
+      if (values.isPaid && !selectedPlaylist) {
+        toast.error("Select a playlist for a paid song.")
         setIsLoading(false)
         return
       }
@@ -277,6 +320,7 @@ const UploadModal = () => {
       formData.append("image", imageFile)
       formData.append("title", values.title)
       formData.append("author", values.author)
+      formData.append("isPaid", values.isPaid ? "true" : "false")
       if (selectedPlaylist) {
         formData.append("playlistId", selectedPlaylist.id)
         formData.append("playlistSlug", selectedPlaylist.slug)
@@ -296,6 +340,7 @@ const UploadModal = () => {
       setUploadProgress(0)
       setUploadSpeed("")
       setSelectedPlaylist(null)
+      setEmbeddedImage(null)
       resetTurnstileFn()
       uploadModal.onClose()
     } catch {
@@ -335,10 +380,16 @@ const UploadModal = () => {
             type="file"
             accept=".mp3"
             id="song"
-            {...register("song", { required: true, onChange: () => setUploadError("") })}
+            {...songInput}
+            onChange={event => {
+              songInput.onChange(event)
+              readSongMetadata(event.target.files?.[0])
+            }}
           />
         </div>
-        <div>
+        {embeddedImage ? (
+          <p className="text-sm text-neutral-400">Using cover art embedded in the MP3.</p>
+        ) : <div>
           <div className="pb-1">Select an image</div>
           <Input
             placeholder="test"
@@ -346,9 +397,9 @@ const UploadModal = () => {
             type="file"
             accept="image/*"
             id="image"
-            {...register("image", { required: true, onChange: () => setUploadError("") })}
+            {...register("image", { onChange: () => setUploadError("") })}
           />
-        </div>
+        </div>}
 
         {uploadError && (
           <p role="alert" className="select-text rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
@@ -432,13 +483,21 @@ const UploadModal = () => {
           </div>
         </div>
 
+        <label className="flex items-center gap-3 text-sm text-neutral-300">
+          <input type="checkbox" disabled={isLoading} className="accent-green-400" {...register("isPaid")} />
+          Paid in selected playlist
+        </label>
+        {isPaid && !selectedPlaylist && (
+          <p className="text-xs text-neutral-400">Select a playlist to make this song paid.</p>
+        )}
+
         {isLoading && <ProgressBar progress={uploadProgress} speed={uploadSpeed} />}
 
         {requiresChallenge && isHumanGateEnabled && (
           <TurnstileChallenge isVerified={isVerified} turnstileRef={turnstileRef} />
         )}
 
-        <Button disabled={isCreateBlocked} type="submit" className="rounded-md">
+        <Button disabled={isCreateBlocked || readingMetadata || (isPaid && !selectedPlaylist)} type="submit" className="rounded-md">
           {isLoading ? "Uploading..." : "Create"}
         </Button>
       </form>
@@ -446,4 +505,4 @@ const UploadModal = () => {
   )
 }
 
-export default UploadModal
+export default AddASongModal

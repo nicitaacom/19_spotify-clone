@@ -1,9 +1,13 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { FiEdit2, FiLock, FiPlay, FiSearch, FiShuffle } from "react-icons/fi"
-import { PlaylistDetail } from "@/types"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
+import toast from "react-hot-toast"
+import { Reorder, useDragControls } from "framer-motion"
+import { FiEdit2, FiLock, FiPlay, FiSearch, FiShuffle, FiMenu } from "react-icons/fi"
+import { PlaylistDetail, PlaylistSongWithSong, Song } from "@/types"
 import useOnPlay from "@/hooks/useOnPlay"
+import useEditSongModal from "@/hooks/useEditSongModal"
 import MediaItem from "@/components/MediaItem"
 import LikeButton from "@/components/LikeButton"
 import AddToPlaylistButton from "@/components/AddToPlaylistButton"
@@ -13,22 +17,89 @@ import SupportLink from "@/components/SupportLink"
 import PlaylistEditor from "./PlaylistEditor"
 import PlaylistPurchasePanel from "./PlaylistPurchasePanel"
 
+function PlaylistTrackRow({ item, index, canManage, canEditSong, canReorder, onPlay, onEdit, onDragStart, onDragEnd, onMove }: {
+  item: PlaylistSongWithSong
+  index: number
+  canManage: boolean
+  canEditSong: boolean
+  canReorder: boolean
+  onPlay: (id: string) => void
+  onEdit: (song: Song) => void
+  onDragStart: () => void
+  onDragEnd: () => void
+  onMove: (songId: string, direction: number) => void
+}) {
+  const controls = useDragControls()
+  const locked = item.song.can_play === false
+  return (
+    <Reorder.Item as="div" value={item.song_id} dragListener={false} dragControls={controls}
+      onDragEnd={onDragEnd}
+      className="group relative flex items-center gap-2 rounded-md border border-transparent px-1 py-0.5 transition hover:border-white/5 hover:bg-elevated sm:gap-3 sm:px-3">
+      {canManage && (
+        <button type="button" disabled={!canReorder} aria-label={`Reorder ${item.song.title}`}
+          aria-keyshortcuts="ArrowUp ArrowDown"
+          title="Drag to reorder, or use the arrow keys"
+          onPointerDown={event => { onDragStart(); controls.start(event) }}
+          onKeyDown={event => {
+            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+              event.preventDefault()
+              onMove(item.song_id, event.key === "ArrowUp" ? -1 : 1)
+            }
+          }}
+          className="touch-none cursor-grab rounded p-1 text-neutral-500 hover:text-white focus-visible:outline-neon active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-30">
+          <FiMenu size={17} />
+        </button>
+      )}
+      <span className="hidden w-6 shrink-0 text-center text-xs text-neutral-500 sm:block">{index + 1}</span>
+      <div className="min-w-0 flex-1">
+        <MediaItem data={item.song} onClick={onPlay} size={36} />
+      </div>
+      <span className={`flex shrink-0 items-center gap-1 text-[11px] ${locked ? "text-neutral-400" : "text-neon/80"}`}>
+        {item.song.access_unavailable ? "Unavailable" : locked ? <><FiLock size={12} /><span className="hidden sm:inline">Locked</span></> : item.song.is_paid ? canManage ? "Paid" : "Unlocked" : "Free"}
+      </span>
+      {canEditSong && (
+        <button type="button" onClick={() => onEdit(item.song)} aria-label={`Edit ${item.song.title}`}
+          className="rounded p-1 text-neutral-400 hover:text-white focus-visible:outline-neon">
+          <FiEdit2 size={15} />
+        </button>
+      )}
+      <LikeButton songId={item.song.id} />
+      <div className="hidden sm:block"><AddToPlaylistButton song={item.song} /></div>
+    </Reorder.Item>
+  )
+}
+
 export default function PlaylistDetailContent({
   canManage,
+  viewerId,
   playlist,
 }: {
   canManage: boolean
+  viewerId: string | null
   playlist: PlaylistDetail
 }) {
+  const router = useRouter()
+  const editSongModal = useEditSongModal()
   const [editing, setEditing] = useState(false)
   const [query, setQuery] = useState("")
   const [shuffle, setShuffle] = useState(false)
   const [shuffleSeed, setShuffleSeed] = useState<string[]>([])
+  const [sourceSongs, setSourceSongs] = useState(playlist.songs)
+  const [orderedSongs, setOrderedSongs] = useState(playlist.songs)
+  const [savingOrder, setSavingOrder] = useState(false)
+  const savingOrderRef = useRef(false)
+  const orderRef = useRef(playlist.songs)
+  const dragStartOrder = useRef(playlist.songs)
+  if (playlist.songs !== sourceSongs) {
+    setSourceSongs(playlist.songs)
+    setOrderedSongs(playlist.songs)
+  }
+  useEffect(() => { orderRef.current = orderedSongs }, [orderedSongs])
   const queue = useMemo(() => {
-    const songs = playlist.songs.map(item => item.song)
+    const songs = orderedSongs.map(item => item.song)
     if (!shuffle) return songs
     return [...songs].sort((a, b) => shuffleSeed.indexOf(a.id) - shuffleSeed.indexOf(b.id))
-  }, [playlist.songs, shuffle, shuffleSeed])
+  }, [orderedSongs, shuffle, shuffleSeed])
   const focusPurchase = () => {
     const panel = document.getElementById("playlist-access")
     panel?.scrollIntoView({ behavior: "smooth", block: "center" })
@@ -40,11 +111,63 @@ export default function PlaylistDetailContent({
   const hasAccess = Boolean(commerce?.purchased || commerce?.can_manage)
   const showPurchase =
     commerce?.ready !== false && Boolean(commerce?.purchased || (commerce?.sales_enabled && !commerce?.can_manage))
-  const filtered = playlist.songs.filter(item =>
+  const filtered = orderedSongs.filter(item =>
     `${item.song.title} ${item.song.author}`.toLowerCase().includes(query.toLowerCase().trim())
   )
+  const persistOrder = async (previous: PlaylistSongWithSong[]) => {
+    if (savingOrderRef.current) return
+    const current = orderRef.current
+    if (current.every((item, index) => item.song_id === previous[index]?.song_id)) return
+    savingOrderRef.current = true
+    setSavingOrder(true)
+    try {
+      const response = await fetch(`/api/playlists/${playlist.id}/order`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ songIds: current.map(item => item.song_id) }),
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error)
+      router.refresh()
+    } catch (error) {
+      orderRef.current = previous
+      setOrderedSongs(previous)
+      toast.error(error instanceof Error ? error.message : "Unable to save song order.")
+      router.refresh()
+    } finally {
+      savingOrderRef.current = false
+      setSavingOrder(false)
+    }
+  }
+  const moveSong = (songId: string, direction: number) => {
+    if (savingOrderRef.current || query.trim()) return
+    const previous = orderRef.current
+    const index = previous.findIndex(item => item.song_id === songId)
+    const destination = index + direction
+    if (index < 0 || destination < 0 || destination >= previous.length) return
+    const next = [...previous]
+    ;[next[index], next[destination]] = [next[destination], next[index]]
+    orderRef.current = next
+    setOrderedSongs(next)
+    persistOrder(previous)
+  }
+  const onReorder = (ids: string[]) => {
+    if (savingOrderRef.current || query.trim()) return
+    const byId = new Map(orderRef.current.map(item => [item.song_id, item]))
+    const next = ids.map(id => byId.get(id)).filter((item): item is PlaylistSongWithSong => Boolean(item))
+    if (next.length !== orderRef.current.length) return
+    orderRef.current = next
+    setOrderedSongs(next)
+  }
+  const editSong = (song: Song) => {
+    editSongModal.onOpen(song, updated => {
+      const next = orderRef.current.map(item => item.song_id === updated.id ? { ...item, song: updated } : item)
+      orderRef.current = next
+      setOrderedSongs(next)
+    }, playlist.id)
+  }
   const toggleShuffle = () => {
-    const ids = playlist.songs.map(item => item.song.id)
+    const ids = orderedSongs.map(item => item.song.id)
     for (let i = ids.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
       ;[ids[i], ids[j]] = [ids[j], ids[i]]
@@ -101,9 +224,9 @@ export default function PlaylistDetailContent({
             <div>
               <h2 className="text-base font-semibold text-white">Tracks</h2>
               <p className="mt-1 text-xs text-neutral-500">
-                {playlist.songs.length} songs
+                {orderedSongs.length} songs
                 {commerce?.ready !== false &&
-                  ` · ${playlist.songs.filter(item => !item.song.is_paid).length} free to listen`}
+                  ` · ${orderedSongs.filter(item => !item.song.is_paid).length} free to listen`}
               </p>
             </div>
             <div className="relative w-full sm:w-56">
@@ -131,42 +254,17 @@ export default function PlaylistDetailContent({
                 : "New music is on its way. Check back soon."}
             </div>
           )}
-          {filtered.map(item => {
-            const locked = item.song.can_play === false
-            return (
-              <div
-                key={item.song_id}
-                className="group flex items-center gap-2 rounded-md border border-transparent px-1 py-0.5 transition hover:border-white/5 hover:bg-elevated sm:gap-3 sm:px-3">
-                <span className="hidden w-6 shrink-0 text-center text-xs text-neutral-500 sm:block">
-                  {playlist.songs.indexOf(item) + 1}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <MediaItem data={item.song} onClick={id => onPlay(id)} size={36} />
-                </div>
-                <span
-                  className={`flex shrink-0 items-center gap-1 text-[11px] ${
-                    locked ? "text-neutral-400" : "text-neon/80"
-                  }`}>
-                  {item.song.access_unavailable ? (
-                    "Unavailable"
-                  ) : locked ? (
-                    <>
-                      <FiLock size={12} />
-                      <span className="hidden sm:inline">Locked</span>
-                    </>
-                  ) : item.song.is_paid ? (
-                    "Unlocked"
-                  ) : (
-                    "Free"
-                  )}
-                </span>
-                <LikeButton songId={item.song.id} />
-                <div className="hidden sm:block">
-                  <AddToPlaylistButton song={item.song} />
-                </div>
-              </div>
-            )
-          })}
+          <Reorder.Group as="div" axis="y" values={filtered.map(item => item.song_id)} onReorder={onReorder}>
+            {filtered.map(item => (
+              <PlaylistTrackRow key={item.song_id} item={item} index={orderedSongs.indexOf(item)}
+                canManage={canManage} canEditSong={canManage && (item.song.user_id === viewerId || Boolean(commerce?.can_manage))}
+                canReorder={canManage && !savingOrder && !query.trim()}
+                onPlay={onPlay} onEdit={editSong}
+                onDragStart={() => { dragStartOrder.current = orderRef.current }}
+                onDragEnd={() => persistOrder(dragStartOrder.current)}
+                onMove={moveSong} />
+            ))}
+          </Reorder.Group>
         </section>
       </div>
       <footer className="mt-auto border-t border-white/10 pt-3">

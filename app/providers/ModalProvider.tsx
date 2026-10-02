@@ -7,7 +7,7 @@ import CreatePlaylistModal from "../../components/CreatePlaylistModal"
 import { DbBackupModal } from "@/app/features/backup/DbBackupModal"
 import EditSongModal from "../../components/EditSongModal"
 import SearchModal from "../../components/SearchModal"
-import UploadModal from "../../components/UploadModal"
+import AddASongModal from "../../components/AddASongModal"
 import { AreYouSureModalsProvider } from "../../components/modals/AreYouSureModalsProvider"
 
 const emptySubscribe = () => () => {}
@@ -31,7 +31,7 @@ export default function ModalProvider() {
       <AddToPlaylistModal />
       <DbBackupModal />
       <EditSongModal />
-      <UploadModal />
+      <AddASongModal />
       <AreYouSureModalsProvider />
     </>
   )

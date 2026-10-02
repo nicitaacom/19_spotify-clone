@@ -4,7 +4,7 @@
 
 - **Production only** — Turnstile never runs in development (`NODE_ENV !== "production"`). In dev, `isVerified` is `true` and `token` is `"dev-token"` by default, so no challenge is shown and no `/api/turnstile` calls are made.
 - **Authentication** — shown for every credential login/register/recover in production when `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is set.
-- **Song upload** — shown with a **10% probability** per upload attempt in production (`TURNSTILE_PROBABILITY = 0.1` in `UploadModal.tsx`).
+- **Song upload** — shown with a **10% probability** per upload attempt in production (`TURNSTILE_PROBABILITY = 0.1` in `AddASongModal.tsx`).
 - Nowhere else.
 
 ## Env vars

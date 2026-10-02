@@ -1,7 +1,7 @@
 "use client"
 
 import AuthModal from "@/components/AuthModal"
-import UploadModal from "@/components/UploadModal"
+import AddASongModal from "@/components/AddASongModal"
 import { useSyncExternalStore } from "react"
 
 const emptySubscribe = () => () => {}
@@ -20,7 +20,7 @@ export default function ModalProvider() {
   return (
     <>
       <AuthModal />
-      <UploadModal />
+      <AddASongModal />
     </>
   )
 }

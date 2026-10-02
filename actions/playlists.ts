@@ -9,6 +9,8 @@ import {
 } from "@/types"
 
 import { createServerComponentClient } from "@/libs/supabaseServer"
+import { commerceAdmin } from "@/libs/commerceAdmin"
+import { isOwnerId } from "@/libs/getOwnerIds"
 import {
   applyPlaylistSongAccess,
   getPlaylistCommerce,
@@ -70,8 +72,7 @@ const getAuthorsById = async (userIds: string[]) => {
     return new Map<string, PlaylistAuthor>()
   }
 
-  const supabase = await createServerComponentClient()
-  const { data, error } = await supabase.from("19_users").select("id, avatar_url, full_name").in("id", userIds)
+  const { data, error } = await commerceAdmin.from("19_users").select("id, avatar_url, full_name").in("id", userIds)
 
   if (error || !data) {
     if (error) {
@@ -81,17 +82,27 @@ const getAuthorsById = async (userIds: string[]) => {
     return new Map<string, PlaylistAuthor>()
   }
 
-  return new Map<string, PlaylistAuthor>(
-    data.map(author => [
-      author.id,
-      {
-        id: author.id,
-        avatar_url: author.avatar_url,
-        full_name: author.full_name,
-        username: author.full_name ?? "unknown",
-      },
-    ]),
-  )
+  const profiles = new Map(data.map(author => [author.id, author]))
+  const missingNames = userIds.filter(id => !profiles.get(id)?.full_name?.trim())
+  const fallbackNames = await Promise.all(missingNames.map(async id => {
+    const { data: account, error: accountError } = await commerceAdmin.auth.admin.getUserById(id)
+    if (accountError) return [id, "unknown"] as const
+    const metadata = account.user?.user_metadata
+    const name = metadata?.full_name || metadata?.name || metadata?.user_name ||
+      (isOwnerId(id) ? account.user?.email?.split("@")[0] : null)
+    return [id, typeof name === "string" && name.trim() ? name.trim() : "unknown"] as const
+  }))
+  const names = new Map(fallbackNames)
+  return new Map<string, PlaylistAuthor>(userIds.map(id => {
+    const profile = profiles.get(id)
+    const fullName = profile?.full_name?.trim() || null
+    return [id, {
+      id,
+      avatar_url: profile?.avatar_url ?? null,
+      full_name: fullName,
+      username: fullName || names.get(id) || "unknown",
+    }]
+  }))
 }
 
 export const getPlaylistSongsByPlaylistIds = async (playlistIds: string[]) => {

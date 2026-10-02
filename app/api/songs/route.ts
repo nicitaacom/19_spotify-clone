@@ -27,9 +27,29 @@ export async function POST(request: Request) {
   const title = formData.get("title") as string | null
   const author = formData.get("author") as string | null
   const playlistId = formData.get("playlistId") as string | null
+  const isPaid = formData.get("isPaid") === "true"
 
-  if (!songFile || !imageFile || !title || !author) {
+  if (!(songFile instanceof File) || !(imageFile instanceof File) || !title?.trim() || !author?.trim()) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+  }
+  if (songFile.size > 50 * 1024 * 1024) {
+    return NextResponse.json({ error: "MP3 exceeds the 50 MB upload limit." }, { status: 400 })
+  }
+  if (isPaid && !playlistId) {
+    return NextResponse.json({ error: "Select a playlist for a paid song." }, { status: 400 })
+  }
+  if (!imageFile.type.startsWith("image/") || imageFile.size > 10 * 1024 * 1024) {
+    return NextResponse.json({ error: "Choose an image smaller than 10 MB." }, { status: 400 })
+  }
+  if (playlistId) {
+    const { data: playlist, error } = await supabaseAdmin
+      .from("19_playlists")
+      .select("user_id")
+      .eq("id", playlistId)
+      .maybeSingle()
+    if (error || !playlist || playlist.user_id !== auth.userId) {
+      return NextResponse.json({ error: "Playlist not found." }, { status: 404 })
+    }
   }
 
   const uniqueID = uniqid()
@@ -62,6 +82,7 @@ export async function POST(request: Request) {
     upsert: false,
   })
   if (imageError) {
+    await supabaseAdmin.storage.from("songs").remove([songPath])
     return NextResponse.json({ error: "Failed image upload" }, { status: 400 })
   }
 
@@ -69,8 +90,8 @@ export async function POST(request: Request) {
     .from("19_songs")
     .insert({
       user_id: auth.userId,
-      title,
-      author,
+      title: title.trim(),
+      author: author.trim(),
       image_path: imagePath,
       song_path: songPath,
       size_bytes: songFile.size,
@@ -79,23 +100,55 @@ export async function POST(request: Request) {
     .single()
 
   if (insertError || !songRecord) {
+    await Promise.all([
+      supabaseAdmin.storage.from("songs").remove([songPath]),
+      supabaseAdmin.storage.from("images").remove([imagePath]),
+    ])
     return NextResponse.json({ error: insertError?.message ?? "Failed to create song" }, { status: 400 })
   }
 
+  const discardSong = async () => {
+    await supabaseAdmin.from("19_song_access").delete().eq("song_id", songRecord.id)
+    await supabaseAdmin.from("19_playlist_songs").delete().eq("song_id", songRecord.id)
+    await supabaseAdmin.from("19_songs").delete().eq("id", songRecord.id)
+    await Promise.all([
+      supabaseAdmin.storage.from("songs").remove([songPath]),
+      supabaseAdmin.storage.from("images").remove([imagePath]),
+    ])
+  }
+
   if (playlistId) {
-    const { data: existingPositions } = await supabaseAdmin
+    const { data: existingPositions, error: positionError } = await supabaseAdmin
       .from("19_playlist_songs")
       .select("position")
       .eq("playlist_id", playlistId)
       .order("position", { ascending: false })
       .limit(1)
 
+    if (positionError) {
+      await discardSong()
+      return NextResponse.json({ error: positionError.message }, { status: 400 })
+    }
+
     const nextPosition = (existingPositions?.[0]?.position ?? -1) + 1
-    await supabaseAdmin.from("19_playlist_songs").insert({
+    const { error: membershipError } = await supabaseAdmin.from("19_playlist_songs").insert({
       playlist_id: playlistId,
       song_id: songRecord.id,
       position: nextPosition,
     })
+    if (membershipError) {
+      await discardSong()
+      return NextResponse.json({ error: membershipError.message }, { status: 400 })
+    }
+    const { error: accessError } = await supabaseAdmin.from("19_song_access").upsert({
+      playlist_id: playlistId,
+      song_id: songRecord.id,
+      is_paid: isPaid,
+    }, { onConflict: "playlist_id,song_id" })
+    if (accessError) {
+      await discardSong()
+      return NextResponse.json({ error: accessError.message }, { status: 400 })
+    }
   }
 
   return NextResponse.json({ success: true, id: songRecord.id })
