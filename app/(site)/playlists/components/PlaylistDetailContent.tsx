@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import { Reorder, useDragControls } from "framer-motion"
-import { FiEdit2, FiLock, FiPlay, FiSearch, FiShuffle, FiMenu } from "react-icons/fi"
+import { FiEdit2, FiLock, FiPlay, FiSearch, FiShuffle, FiMenu, FiTrash2 } from "react-icons/fi"
 import { PlaylistDetail, PlaylistSongWithSong, Song } from "@/types"
 import useOnPlay from "@/hooks/useOnPlay"
 import useEditSongModal from "@/hooks/useEditSongModal"
@@ -17,14 +17,16 @@ import SupportLink from "@/components/SupportLink"
 import PlaylistEditor from "./PlaylistEditor"
 import PlaylistPurchasePanel from "./PlaylistPurchasePanel"
 
-function PlaylistTrackRow({ item, index, canManage, canEditSong, canReorder, onPlay, onEdit, onDragStart, onDragEnd, onMove }: {
+function PlaylistTrackRow({ item, index, canManage, canEditSong, canReorder, removing, onPlay, onEdit, onRemove, onDragStart, onDragEnd, onMove }: {
   item: PlaylistSongWithSong
   index: number
   canManage: boolean
   canEditSong: boolean
   canReorder: boolean
+  removing: boolean
   onPlay: (id: string) => void
   onEdit: (song: Song) => void
+  onRemove: (song: Song) => void
   onDragStart: () => void
   onDragEnd: () => void
   onMove: (songId: string, direction: number) => void
@@ -63,6 +65,13 @@ function PlaylistTrackRow({ item, index, canManage, canEditSong, canReorder, onP
           <FiEdit2 size={15} />
         </button>
       )}
+      {canManage && (
+        <button type="button" disabled={removing} onClick={() => onRemove(item.song)}
+          aria-label={`Remove ${item.song.title} from playlist`} title="Remove from playlist"
+          className="rounded p-1 text-neutral-400 hover:text-red-400 focus-visible:outline-neon disabled:opacity-40">
+          <FiTrash2 size={15} />
+        </button>
+      )}
       <LikeButton songId={item.song.id} />
       <div className="hidden sm:block"><AddToPlaylistButton song={item.song} /></div>
     </Reorder.Item>
@@ -87,6 +96,7 @@ export default function PlaylistDetailContent({
   const [sourceSongs, setSourceSongs] = useState(playlist.songs)
   const [orderedSongs, setOrderedSongs] = useState(playlist.songs)
   const [savingOrder, setSavingOrder] = useState(false)
+  const [removingSongId, setRemovingSongId] = useState<string | null>(null)
   const savingOrderRef = useRef(false)
   const orderRef = useRef(playlist.songs)
   const dragStartOrder = useRef(playlist.songs)
@@ -165,6 +175,25 @@ export default function PlaylistDetailContent({
       orderRef.current = next
       setOrderedSongs(next)
     }, playlist.id)
+  }
+  const removeSong = async (song: Song) => {
+    if (savingOrderRef.current || removingSongId) return
+    if (!window.confirm(`Remove "${song.title}" from this playlist? The uploaded song will remain in My Songs.`)) return
+    setRemovingSongId(song.id)
+    try {
+      const response = await fetch(`/api/playlists/${playlist.id}/songs/${song.id}`, { method: "DELETE" })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error)
+      const next = orderRef.current.filter(item => item.song_id !== song.id)
+      orderRef.current = next
+      setOrderedSongs(next)
+      toast.success("Song removed from playlist.")
+      router.refresh()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to remove song.")
+    } finally {
+      setRemovingSongId(null)
+    }
   }
   const toggleShuffle = () => {
     const ids = orderedSongs.map(item => item.song.id)
@@ -259,7 +288,8 @@ export default function PlaylistDetailContent({
               <PlaylistTrackRow key={item.song_id} item={item} index={orderedSongs.indexOf(item)}
                 canManage={canManage} canEditSong={canManage && (item.song.user_id === viewerId || Boolean(commerce?.can_manage))}
                 canReorder={canManage && !savingOrder && !query.trim()}
-                onPlay={onPlay} onEdit={editSong}
+                removing={savingOrder || removingSongId !== null}
+                onPlay={onPlay} onEdit={editSong} onRemove={removeSong}
                 onDragStart={() => { dragStartOrder.current = orderRef.current }}
                 onDragEnd={() => persistOrder(dragStartOrder.current)}
                 onMove={moveSong} />

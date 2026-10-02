@@ -87,7 +87,12 @@ const MySongsContent: React.FC<MySongsContentProps> = ({ songs: initialSongs, is
   const router = useRouter()
   const { isLoading, user } = useUser()
   const uploadModal = useUploadModal()
+  const [sourceSongs, setSourceSongs] = useState(initialSongs)
   const [songs, setSongs] = useState<Song[]>(initialSongs)
+  if (initialSongs !== sourceSongs) {
+    setSourceSongs(initialSongs)
+    setSongs(initialSongs)
+  }
 
   useEffect(() => {
     if (!isLoading && !user) {

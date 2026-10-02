@@ -34,6 +34,7 @@
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.7",
     "framer-motion": "^12.38.0",
+    "music-metadata": "^11.16.1",
     "next": "16.2.9",
     "postcss": "8.4.24",
     "pusher": "5.3.4",

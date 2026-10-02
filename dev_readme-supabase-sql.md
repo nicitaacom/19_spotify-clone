@@ -523,10 +523,10 @@ WHERE NOT EXISTS (
   SELECT 1 FROM storage.buckets WHERE name = 'songs'
 );
 
--- 🎵 Set allowed MIME types for songs bucket (only audio/mpeg)
+-- 🎵 Allow MP3 and M4A uploads in the songs bucket
 UPDATE storage.buckets
-SET allowed_mime_types = ARRAY['audio/mpeg']
-WHERE name = 'songs' AND (allowed_mime_types IS NULL OR allowed_mime_types != ARRAY['audio/mpeg']);
+SET allowed_mime_types = ARRAY['audio/mpeg', 'audio/mp4']
+WHERE name = 'songs' AND (allowed_mime_types IS NULL OR allowed_mime_types != ARRAY['audio/mpeg', 'audio/mp4']);
 
 
 

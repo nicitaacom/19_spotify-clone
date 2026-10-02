@@ -14,7 +14,6 @@ import { useVerifyHuman } from "@/hooks/useVerifyHuman"
 import { verifyTurnstileTokenFn } from "@/app/utils/verifyTurnstileToken"
 import { PlaylistOption } from "@/types"
 import supabaseClient from "@/libs/supabaseClient"
-import { extractId3Metadata } from "@/app/(site)/slow-and-reverb/lib/id3AlbumArt"
 
 import Modal from "./Modal"
 import Input from "./Input"
@@ -176,11 +175,14 @@ const AddASongModal = () => {
     if (!file) return
     setReadingMetadata(true)
     try {
-      const metadata = extractId3Metadata(await file.arrayBuffer())
-      if (request !== metadataRequest.current || !metadata.artData?.length) return
-      const mime = metadata.artMime.toLowerCase()
-      const extension = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg"
-      setEmbeddedImage(new File([metadata.artData], `embedded-cover.${extension}`, { type: mime }))
+      const { parseBlob } = await import("music-metadata")
+      const metadata = await parseBlob(file)
+      const picture = metadata.common.picture?.[0]
+      if (request !== metadataRequest.current || !picture?.data.length) return
+      const mime = picture.format.toLowerCase()
+      if (!mime.startsWith("image/")) return
+      const extension = mime.split("/")[1].replace("jpeg", "jpg").replace(/[^a-z0-9]/g, "")
+      setEmbeddedImage(new File([picture.data], `embedded-cover.${extension}`, { type: mime }))
     } catch {
       // An unreadable tag simply leaves the image picker available.
     } finally {
@@ -196,7 +198,10 @@ const AddASongModal = () => {
         URL.revokeObjectURL(audio.src)
         resolve(audio.duration)
       }
-      audio.onerror = reject
+      audio.onerror = () => {
+        URL.revokeObjectURL(audio.src)
+        reject(new Error("Could not read audio metadata"))
+      }
     })
   }
 
@@ -255,7 +260,7 @@ const AddASongModal = () => {
         return
       }
       if (!songFile) {
-        toast.error("Please select an MP3 file.")
+        toast.error("Please select an MP3 or M4A file.")
         setIsLoading(false)
         return
       }
@@ -278,7 +283,7 @@ const AddASongModal = () => {
       const MAX_SONG_SIZE_MiB = 50
       if (songFile.size > MAX_SONG_SIZE_MiB * 1024 * 1024) {
         setUploadError(
-          `File exceeds ${MAX_SONG_SIZE_MiB} MB. Please compress your MP3 first (Google "compress mp3 online").`,
+          `File exceeds ${MAX_SONG_SIZE_MiB} MB. Choose a smaller MP3 or M4A file.`,
         )
         setIsLoading(false)
         return
@@ -351,12 +356,12 @@ const AddASongModal = () => {
   }
 
   return (
-    <Modal title="Add a song" description="Upload an mp3 file" isOpen={uploadModal.isOpen} onChange={onChange}>
+    <Modal title="Add a song" description="Upload an MP3 or M4A file" isOpen={uploadModal.isOpen} onChange={onChange}>
       <form
         onSubmit={handleSubmit(onSubmit, errors => {
           if (errors.title) toast.error("Song title is required.")
           else if (errors.author) toast.error("Song author is required.")
-          else if (errors.song) toast.error("Please select an MP3 file.")
+          else if (errors.song) toast.error("Please select an MP3 or M4A file.")
           else if (errors.image) toast.error("Please select a cover image.")
         })}
         className="flex flex-col gap-y-4">
@@ -378,7 +383,7 @@ const AddASongModal = () => {
             placeholder="test"
             disabled={isLoading}
             type="file"
-            accept=".mp3"
+            accept=".mp3,.m4a,audio/mpeg,audio/mp4,audio/x-m4a"
             id="song"
             {...songInput}
             onChange={event => {
@@ -388,7 +393,7 @@ const AddASongModal = () => {
           />
         </div>
         {embeddedImage ? (
-          <p className="text-sm text-neutral-400">Using cover art embedded in the MP3.</p>
+          <p className="text-sm text-neutral-400">Using cover art embedded in the audio file.</p>
         ) : <div>
           <div className="pb-1">Select an image</div>
           <Input

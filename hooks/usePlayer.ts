@@ -51,7 +51,7 @@ const usePlayer = create<PlayerStore>(set => ({
   seekId: 0,
   repeatMode: "off",
   savedPosition: 0,
-  setId: (id: string) => set({ activeId: id, savedPosition: 0 }),
+  setId: (id: string) => set({ activeId: id, savedPosition: 0, progress: 0, seek: undefined }),
   setActiveSong: (song?: Song) => set({ activeSong: song }),
   setIsLoading: (isLoading: boolean) => set({ isLoading }),
   setIsPlaying: (isPlaying: boolean) => set({ isPlaying }),

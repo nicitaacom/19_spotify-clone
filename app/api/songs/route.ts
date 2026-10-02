@@ -32,8 +32,12 @@ export async function POST(request: Request) {
   if (!(songFile instanceof File) || !(imageFile instanceof File) || !title?.trim() || !author?.trim()) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
   }
+  const extension = songFile.name.split(".").pop()?.toLowerCase()
+  if (extension !== "mp3" && extension !== "m4a") {
+    return NextResponse.json({ error: "Choose an MP3 or M4A file." }, { status: 400 })
+  }
   if (songFile.size > 50 * 1024 * 1024) {
-    return NextResponse.json({ error: "MP3 exceeds the 50 MB upload limit." }, { status: 400 })
+    return NextResponse.json({ error: "Audio exceeds the 50 MB upload limit." }, { status: 400 })
   }
   if (isPaid && !playlistId) {
     return NextResponse.json({ error: "Select a playlist for a paid song." }, { status: 400 })
@@ -71,7 +75,7 @@ export async function POST(request: Request) {
   const { error: songError } = await supabaseAdmin.storage.from("songs").upload(songPath, songFile, {
     cacheControl: "3600",
     upsert: false,
-    contentType: songFile.type || "audio/mpeg",
+    contentType: extension === "m4a" ? "audio/mp4" : "audio/mpeg",
   })
   if (songError) {
     return NextResponse.json({ error: `Failed song upload: ${songError.message}` }, { status: 400 })

@@ -26,6 +26,7 @@ interface PlayerContentProps {
 
 interface HowlWithHtml5Nodes {
   _sounds?: Array<{
+    _id?: number
     _node?: unknown
     _paused?: boolean
   }>
@@ -34,11 +35,11 @@ interface HowlWithHtml5Nodes {
 const STALL_RECOVERY_DELAY_MS = 5_000
 const MAX_STALL_RECOVERY_ATTEMPTS = 3
 
-const getHtml5AudioNode = (sound: unknown) => {
+const getHtml5AudioNode = (sound: unknown, soundId?: number | null) => {
   const sounds = (sound as HowlWithHtml5Nodes | null)?._sounds
   if (!sounds?.length) return null
 
-  const activeSound = sounds.find(candidate => !candidate._paused) ?? sounds[0]
+  const activeSound = sounds.find(candidate => candidate._id === soundId) ?? sounds.find(candidate => !candidate._paused) ?? sounds[0]
   return activeSound._node instanceof HTMLAudioElement ? activeSound._node : null
 }
 
@@ -73,6 +74,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
 
   // Ref so mediaSession seekto handler always has the latest Howl instance
   const soundRef = useRef<ReturnType<typeof useSound>[1]["sound"]>(null)
+  const activeSoundIdRef = useRef<number | null>(null)
   const isPlayingRef = useRef(false) // used by onReplay
   const isBufferingRef = useRef(false)
   const isRecoveringRef = useRef(false)
@@ -81,6 +83,14 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
   const recoveryTimerRef = useRef<number | null>(null)
   const nativeAudioRef = useRef<HTMLAudioElement | null>(null)
   const recoverStalledPlaybackRef = useRef<() => void>(() => {})
+
+  const seekCurrentSound = useCallback((position?: number) => {
+    const currentSound = soundRef.current
+    if (!currentSound) return 0
+    const soundId = activeSoundIdRef.current
+    if (position === undefined) return soundId === null ? currentSound.seek() : currentSound.seek(soundId)
+    return soundId === null ? currentSound.seek(position) : currentSound.seek(position, soundId)
+  }, [])
 
   const clearRecoveryTimer = useCallback(() => {
     if (recoveryTimerRef.current === null) return
@@ -123,7 +133,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
   }, [markPlaybackHealthy, markPlaybackStalled])
 
   const bindNativeAudioListeners = useCallback(() => {
-    const audio = getHtml5AudioNode(soundRef.current)
+    const audio = getHtml5AudioNode(soundRef.current, activeSoundIdRef.current)
     if (!audio || nativeAudioRef.current === audio) return
 
     detachNativeAudioListeners()
@@ -148,7 +158,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     }
 
     if (expiresAt && Date.now() >= expiresAt - 10_000) {
-      const position = currentSound.seek()
+      const position = seekCurrentSound()
       if (typeof position === "number") setSavedPosition(position)
       onRefreshUrl()
       return
@@ -174,18 +184,19 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     // already waiting for `canplaythrough`, only restart the native request on later attempts;
     // asking Howler to play again while its play lock is active would stack queued play commands.
     if (recoveryAttemptsRef.current > 1) {
-      getHtml5AudioNode(currentSound)?.load()
+      getHtml5AudioNode(currentSound, activeSoundIdRef.current)?.load()
       scheduleStallRecovery()
       return
     }
 
     ignoredPauseEventsRef.current += 1
 
-    const currentPosition = currentSound.seek()
+    const currentPosition = seekCurrentSound()
     currentSound.pause()
-    if (typeof currentPosition === "number") currentSound.seek(currentPosition)
-    getHtml5AudioNode(currentSound)?.load()
-    currentSound.play()
+    if (typeof currentPosition === "number") seekCurrentSound(currentPosition)
+    getHtml5AudioNode(currentSound, activeSoundIdRef.current)?.load()
+    if (activeSoundIdRef.current === null) currentSound.play()
+    else currentSound.play(activeSoundIdRef.current)
     window.setTimeout(bindNativeAudioListeners, 0)
     scheduleStallRecovery()
   }, [
@@ -195,6 +206,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     setIsPlayingInStore,
     expiresAt,
     onRefreshUrl,
+    seekCurrentSound,
     setSavedPosition,
   ])
 
@@ -263,21 +275,23 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       isPlayingRef.current = false
       setIsPlayingInStore(false)
       if (repeatMode === "one") {
-        soundRef.current?.seek(0)
-        soundRef.current?.play()
+        seekCurrentSound(0)
+        if (activeSoundIdRef.current === null) soundRef.current?.play()
+        else soundRef.current?.play(activeSoundIdRef.current)
       } else {
         onPlayNext()
       }
     }
-  }, [repeatMode, onPlayNext, setIsPlayingInStore])
+  }, [repeatMode, onPlayNext, seekCurrentSound, setIsPlayingInStore])
 
   const [play, { pause, sound }] = useSound(songUrl, {
     volume,
-    format: ["mp3"],
+    format: [song.song_path?.toLowerCase().endsWith(".m4a") ? "mp4" : "mp3"],
     // html5: true streams via <audio> instead of decoding the whole file into Web Audio API memory.
     // Without it, large MP3s (>~10MB) fail with "Decoding audio data failed" in the browser.
     html5: true,
-    onplay: () => {
+    onplay: (id: number) => {
+      activeSoundIdRef.current = id
       setIsPlaying(true)
       isPlayingRef.current = true
       setIsPlayingInStore(true)
@@ -298,7 +312,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     },
     onloaderror: (_id: number, err: unknown) => {
       if (expiresAt && Date.now() >= expiresAt - 10_000) {
-        const position = soundRef.current?.seek()
+        const position = seekCurrentSound()
         if (typeof position === "number") setSavedPosition(position)
         onRefreshUrl()
         return
@@ -369,12 +383,27 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       return
     }
     if (s.playing()) return
-    s.play()
+    if (activeSoundIdRef.current === null) s.play()
+    else s.play(activeSoundIdRef.current)
   }, [play])
 
   useEffect(() => {
     if (!sound) setProgress(0)
   }, [sound, setProgress])
+
+  useEffect(() => {
+    if (!sound) return
+    const updateProgress = () => {
+      const duration = sound.duration()
+      const position = getHtml5AudioNode(sound, activeSoundIdRef.current)?.currentTime ?? seekCurrentSound()
+      if (Number.isFinite(duration) && duration > 0 && typeof position === "number") {
+        setProgress(Math.max(0, Math.min(1, position / duration)))
+      }
+    }
+    updateProgress()
+    const timer = window.setInterval(updateProgress, 250)
+    return () => window.clearInterval(timer)
+  }, [sound, seekCurrentSound, setProgress])
 
   usePreloadNextTrack({ currentSong: song, isPlaying, sound })
 
@@ -388,10 +417,11 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       if (wasPlayingRef.current && !sound.playing()) {
         const resumePos = savedPosition
         setSavedPosition(0)
-        sound.play()
         if (resumePos > 0) {
-          sound.once("play", () => sound.seek(resumePos))
+          sound.once("play", () => seekCurrentSound(resumePos))
         }
+        if (activeSoundIdRef.current === null) sound.play()
+        else sound.play(activeSoundIdRef.current)
       }
       return
     }
@@ -399,12 +429,12 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     didAutoPlayRef.current = true
     setIsLoading(true)
     const resumePosition = usePlayer.getState().savedPosition
+    if (resumePosition > 0) sound.once("play", () => seekCurrentSound(resumePosition))
     sound.play()
-    if (resumePosition > 0) sound.once("play", () => sound.seek(resumePosition))
 
     return () => {
       wasPlayingRef.current = isPlayingRef.current
-      const pos = sound.seek()
+      const pos = seekCurrentSound()
       if (usePlayer.getState().activeId === song.id && typeof pos === "number" && pos > 0) setSavedPosition(pos)
       setIsPlayingInStore(false)
       sound.unload()
@@ -432,7 +462,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       const s = soundRef.current
       if (details.seekTime !== undefined && s) {
         const duration = s.duration()
-        if (duration) s.seek(details.seekTime)
+        if (duration) seekCurrentSound(details.seekTime)
       }
     })
 
@@ -441,7 +471,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       navigator.mediaSession.setActionHandler("nexttrack", null)
       navigator.mediaSession.setActionHandler("seekto", null)
     }
-  }, [])
+  }, [seekCurrentSound])
 
   // Update metadata when song changes so Chrome mini-player shows the correct track
   useEffect(() => {
@@ -476,9 +506,20 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
 
   useEffect(() => {
     if (activeId !== song.id || !sound || seekId === 0 || seekValue === undefined) return
-    const duration = sound.duration()
-    if (duration) sound.seek(seekValue * duration)
-  }, [activeId, seekId, seekValue, sound, song.id])
+    const applySeek = () => {
+      const duration = sound.duration()
+      if (!Number.isFinite(duration) || duration <= 0) return
+      const position = Math.max(0, Math.min(duration, seekValue * duration))
+      seekCurrentSound(position)
+      setSavedPosition(position)
+      setProgress(position / duration)
+    }
+    if (sound.duration() > 0) applySeek()
+    else {
+      sound.once("load", applySeek)
+      return () => { sound.off("load", applySeek) }
+    }
+  }, [activeId, seekCurrentSound, seekId, seekValue, sound, song.id, setProgress, setSavedPosition])
 
   const handlePlay = () => {
     if (isLoading && !isPlayingRef.current) return
@@ -493,10 +534,13 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
   const onReplay = () => {
     const s = soundRef.current
     if (!s) return
-    s.seek(0)
+    seekCurrentSound(0)
     // Force a real play() here (not the guarded playSound): after seek(0) Howler may still report
     // playing() === true, but we still want it to (re)start from 0 if it was paused.
-    if (!s.playing()) s.play()
+    if (!s.playing()) {
+      if (activeSoundIdRef.current === null) s.play()
+      else s.play(activeSoundIdRef.current)
+    }
   }
 
   const toggleMute = () => {

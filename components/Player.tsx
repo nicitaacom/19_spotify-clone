@@ -25,6 +25,7 @@ const Player = () => {
     isPlaying,
     setActiveSong,
     progress,
+    setProgress,
     requestSeek,
     requestPlaybackCommand,
     togglePlayback,
@@ -91,6 +92,7 @@ const Player = () => {
     const x = e.clientX - rect.left
     const width = rect.width
     const nextProgress = Math.max(0, Math.min(1, x / width))
+    setProgress(nextProgress)
     requestSeek(nextProgress)
   }
 
@@ -111,35 +113,22 @@ const Player = () => {
         onClick={handleSeek}
         className="
           absolute 
-          top-0 
+          -top-2
           left-0 
           w-full 
-          h-[3px] 
-          bg-elevated
+          h-5
+          z-20
+          flex
+          items-center
           cursor-pointer 
           group/progress
         ">
-        <div
-          style={{ width: `${progress * 100}%` }}
-          className="relative h-full bg-neon shadow-neon-sm transition-all duration-300">
-          <div
-            className="
-              absolute
-              right-0
-              top-1/2
-              -translate-y-1/2
-              translate-x-1/2
-              h-4
-              w-4
-              rounded-full
-              bg-neon
-              shadow-neon-sm
-              border-2
-              border-white
-              transition-transform
-              hover:scale-110
-            "
-          />
+        <div className="relative h-[3px] w-full bg-elevated">
+          <div style={{ width: `${progress * 100}%` }} className="relative h-full bg-neon shadow-neon-sm">
+            <div
+              className="absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 translate-x-1/2 rounded-full border-2 border-white bg-neon shadow-neon-sm transition-transform hover:scale-110"
+            />
+          </div>
         </div>
       </div>
 
