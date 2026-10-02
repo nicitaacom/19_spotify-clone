@@ -26,6 +26,8 @@ const eslintConfig = defineConfig([
       "local-rules/envs-order": "warn",
       "local-rules/no-defined-unused-envs": "warn",
       "local-rules/no-undefined-used-envs": "warn",
+      "local-rules/no-void-only-jsx-handler": "error",
+      "local-rules/no-inline-on-click": "warn",
 
       // a leading _ is this project's marker for a parameter kept only to hold the shared call shape
       // (e.g. assertBackupAccess(_userId, _admin) in app/features/backup/backupConfig.ts)
