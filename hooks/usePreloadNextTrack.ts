@@ -11,20 +11,20 @@ import usePlayer from "./usePlayer"
 
 interface PlaybackSoundLike {
   duration: () => number
-  seek: () => number | number[]
 }
 
 interface UsePreloadNextTrackParams {
   currentSong: Song
   isPlaying: boolean
   sound: PlaybackSoundLike | null
+  getPosition: () => number | number[]
 }
 
 const PRELOAD_THRESHOLD = 0.8
 const PLAY_RECORD_THRESHOLD = 0.5
 const PROGRESS_POLL_INTERVAL_MS = 400
 
-const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTrackParams) => {
+const usePreloadNextTrack = ({ currentSong, isPlaying, sound, getPosition }: UsePreloadNextTrackParams) => {
   const {
     ids,
     songs,
@@ -88,7 +88,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
 
     const syncProgress = () => {
       const duration = sound.duration()
-      const seek = sound.seek()
+      const seek = getPosition()
       const safeSeek = typeof seek === "number" ? seek : 0
 
       if (!duration) {
@@ -115,7 +115,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound }: UsePreloadNextTr
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [currentSong.id, isPlaying, isPlayingInStore, nextSongId, preloadedSongId, setPreloadedSongId, setProgress, sound, user])
+  }, [currentSong.id, getPosition, isPlaying, isPlayingInStore, nextSongId, preloadedSongId, setPreloadedSongId, setProgress, sound, user])
 
   useEffect(() => {
     if (!nextSongId || !nextSongUrl || preloadedSongId !== nextSongId) {

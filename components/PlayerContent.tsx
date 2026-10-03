@@ -391,21 +391,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     if (!sound) setProgress(0)
   }, [sound, setProgress])
 
-  useEffect(() => {
-    if (!sound) return
-    const updateProgress = () => {
-      const duration = sound.duration()
-      const position = getHtml5AudioNode(sound, activeSoundIdRef.current)?.currentTime ?? seekCurrentSound()
-      if (Number.isFinite(duration) && duration > 0 && typeof position === "number") {
-        setProgress(Math.max(0, Math.min(1, position / duration)))
-      }
-    }
-    updateProgress()
-    const timer = window.setInterval(updateProgress, 250)
-    return () => window.clearInterval(timer)
-  }, [sound, seekCurrentSound, setProgress])
-
-  usePreloadNextTrack({ currentSong: song, isPlaying, sound })
+  usePreloadNextTrack({ currentSong: song, isPlaying, sound, getPosition: seekCurrentSound })
 
   const didAutoPlayRef = useRef(false)
   const wasPlayingRef = useRef(false)

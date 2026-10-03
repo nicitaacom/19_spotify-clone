@@ -164,11 +164,24 @@ All play call sites (command effect, `handlePlay`, the autoplay resume branch) n
 
 ## Progress bar
 
-The progress bar is driven by a `setInterval` in `usePreloadNextTrack` polling `sound.seek() / sound.duration()` every 400ms. It is **not** event-driven. This means:
+The progress bar is driven by a `setInterval` in `usePreloadNextTrack` polling the active sound ID through `seekCurrentSound() / sound.duration()` every 400ms. It is **not** event-driven. Only this interval updates ongoing progress; a second interval used to overwrite the position after a seek. This means:
 
 - Progress resets to 0 on song change (`currentSong.id` dep in the reset effect)
 - If the interval stops (e.g. `isPlaying` goes false), progress freezes at the last polled value — this is intentional while paused
 - `setProgress(0)` is also called in `PlayerContent` when `sound` becomes null during re-init
+
+### Seeking on self-hosted storage
+
+The self-hosted Supabase signed download returned HTTP `200` with the whole MP3 even when asked
+for `Range: bytes=100000-101023`. A streaming HTML5 audio element needs a `206` byte-range
+response to seek to an unbuffered point; without it, clicking the progress bar could restart the
+song.
+
+`/api/songs/[id]/play` now returns a same-origin stream URL. That URL checks song access on each
+request and responds to single byte ranges with `206`, `Content-Range`, and `Accept-Ranges`. It asks
+storage for the range first. If storage ignores it, the route discards preceding bytes as a stream
+and sends only the requested bytes to the player. This avoids buffering the full song in the
+server's memory, though a deep seek still makes storage transmit all bytes up to that point.
 
 ### Network stalls
 
