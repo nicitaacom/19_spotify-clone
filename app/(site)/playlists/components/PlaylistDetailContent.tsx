@@ -1,9 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
-import { Reorder, useDragControls } from "framer-motion"
 import { FiEdit2, FiLock, FiPlay, FiSearch, FiShuffle, FiMenu, FiTrash2 } from "react-icons/fi"
 import { PlaylistDetail, PlaylistSongWithSong, Song } from "@/types"
 import useOnPlay from "@/hooks/useOnPlay"
@@ -17,31 +16,40 @@ import SupportLink from "@/components/SupportLink"
 import PlaylistEditor from "./PlaylistEditor"
 import PlaylistPurchasePanel from "./PlaylistPurchasePanel"
 
-function PlaylistTrackRow({ item, index, canManage, canEditSong, canReorder, removing, onPlay, onEdit, onRemove, onDragStart, onDragEnd, onMove }: {
+type DragPreview = { songId: string; destination: number }
+type ActiveDrag = { songId: string; source: number; pointerId: number; startY: number; moved: boolean; initialOrder: PlaylistSongWithSong[] }
+
+function PlaylistTrackRow({ item, index, canManage, canEditSong, canReorder, removing, dropEdge, isDragging, onPlay, onEdit, onRemove, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onMove }: {
   item: PlaylistSongWithSong
   index: number
   canManage: boolean
   canEditSong: boolean
   canReorder: boolean
   removing: boolean
+  dropEdge: "top" | "bottom" | null
+  isDragging: boolean
   onPlay: (id: string) => void
   onEdit: (song: Song) => void
   onRemove: (song: Song) => void
-  onDragStart: () => void
-  onDragEnd: () => void
+  onPointerDown: (event: PointerEvent<HTMLButtonElement>, songId: string) => void
+  onPointerMove: (event: PointerEvent<HTMLButtonElement>) => void
+  onPointerUp: (event: PointerEvent<HTMLButtonElement>) => void
+  onPointerCancel: (event: PointerEvent<HTMLButtonElement>) => void
   onMove: (songId: string, direction: number) => void
 }) {
-  const controls = useDragControls()
   const locked = item.song.can_play === false
   return (
-    <Reorder.Item as="div" value={item.song_id} dragListener={false} dragControls={controls}
-      onDragEnd={onDragEnd}
-      className="group relative flex items-center gap-2 rounded-md border border-transparent px-1 py-0.5 transition hover:border-white/5 hover:bg-elevated sm:gap-3 sm:px-3">
+    <div className={`group relative flex items-center gap-2 rounded-md border px-1 py-0.5 hover:bg-elevated sm:gap-3 sm:px-3 ${isDragging ? "border-white/20 bg-elevated" : "border-transparent hover:border-white/5"}`}>
+      {dropEdge && <span aria-hidden="true" className={`pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-neon ${dropEdge === "top" ? "-top-px" : "-bottom-px"}`} />}
       {canManage && (
         <button type="button" disabled={!canReorder} aria-label={`Reorder ${item.song.title}`}
           aria-keyshortcuts="ArrowUp ArrowDown"
           title="Drag to reorder, or use the arrow keys"
-          onPointerDown={event => { onDragStart(); controls.start(event) }}
+          onPointerDown={event => onPointerDown(event, item.song_id)}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerCancel}
+          onLostPointerCapture={onPointerCancel}
           onKeyDown={event => {
             if (event.key === "ArrowUp" || event.key === "ArrowDown") {
               event.preventDefault()
@@ -74,7 +82,7 @@ function PlaylistTrackRow({ item, index, canManage, canEditSong, canReorder, rem
       )}
       <LikeButton songId={item.song.id} />
       <div className="hidden sm:block"><AddToPlaylistButton song={item.song} /></div>
-    </Reorder.Item>
+    </div>
   )
 }
 
@@ -99,7 +107,9 @@ export default function PlaylistDetailContent({
   const [removingSongId, setRemovingSongId] = useState<string | null>(null)
   const savingOrderRef = useRef(false)
   const orderRef = useRef(playlist.songs)
-  const dragStartOrder = useRef(playlist.songs)
+  const listRef = useRef<HTMLDivElement>(null)
+  const activeDrag = useRef<ActiveDrag | null>(null)
+  const [dragPreview, setDragPreview] = useState<DragPreview | null>(null)
   if (playlist.songs !== sourceSongs) {
     setSourceSongs(playlist.songs)
     setOrderedSongs(playlist.songs)
@@ -124,6 +134,15 @@ export default function PlaylistDetailContent({
   const filtered = orderedSongs.filter(item =>
     `${item.song.title} ${item.song.author}`.toLowerCase().includes(query.toLowerCase().trim())
   )
+  const dropMarker = useMemo(() => {
+    if (!dragPreview) return null
+    const source = orderedSongs.findIndex(item => item.song_id === dragPreview.songId)
+    if (source < 0 || source === dragPreview.destination) return null
+    const remaining = orderedSongs.filter(item => item.song_id !== dragPreview.songId)
+    const movingUp = dragPreview.destination < source
+    const anchor = remaining[movingUp ? dragPreview.destination : dragPreview.destination - 1]
+    return anchor ? { songId: anchor.song_id, edge: movingUp ? "top" as const : "bottom" as const } : null
+  }, [dragPreview, orderedSongs])
   const persistOrder = async (previous: PlaylistSongWithSong[]) => {
     if (savingOrderRef.current) return
     const current = orderRef.current
@@ -161,13 +180,60 @@ export default function PlaylistDetailContent({
     setOrderedSongs(next)
     persistOrder(previous)
   }
-  const onReorder = (ids: string[]) => {
-    if (savingOrderRef.current || query.trim()) return
-    const byId = new Map(orderRef.current.map(item => [item.song_id, item]))
-    const next = ids.map(id => byId.get(id)).filter((item): item is PlaylistSongWithSong => Boolean(item))
-    if (next.length !== orderRef.current.length) return
+  const getDropIndex = (source: number, clientY: number) => {
+    const rows = listRef.current?.children
+    if (!rows || rows.length !== orderRef.current.length) return source
+    // The dragged row stays in place. Search the other rows' midpoints for its insertion slot.
+    let first = 0
+    let last = rows.length - 1
+    while (first < last) {
+      const middle = Math.floor((first + last) / 2)
+      const row = rows.item(middle >= source ? middle + 1 : middle)
+      if (!(row instanceof HTMLElement)) return source
+      const bounds = row.getBoundingClientRect()
+      if (clientY > bounds.top + bounds.height / 2) first = middle + 1
+      else last = middle
+    }
+    return first
+  }
+  const startDrag = (event: PointerEvent<HTMLButtonElement>, songId: string) => {
+    if (!canManage || savingOrderRef.current || query.trim() || event.button !== 0 || !event.isPrimary) return
+    const source = orderRef.current.findIndex(item => item.song_id === songId)
+    if (source < 0) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    activeDrag.current = { songId, source, pointerId: event.pointerId, startY: event.clientY, moved: false, initialOrder: orderRef.current }
+  }
+  const updateDrag = (event: PointerEvent<HTMLButtonElement>) => {
+    const drag = activeDrag.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    if (!drag.moved && Math.abs(event.clientY - drag.startY) < 4) return
+    drag.moved = true
+    event.preventDefault()
+    const destination = getDropIndex(drag.source, event.clientY)
+    setDragPreview(previous => previous?.songId === drag.songId && previous.destination === destination
+      ? previous
+      : { songId: drag.songId, destination })
+  }
+  const stopDrag = (event: PointerEvent<HTMLButtonElement>) => {
+    const drag = activeDrag.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    activeDrag.current = null
+    setDragPreview(null)
+    if (!drag.moved || savingOrderRef.current || query.trim()) return
+    const previous = drag.initialOrder
+    if (previous.length !== orderRef.current.length || previous.some((item, index) => item.song_id !== orderRef.current[index].song_id)) return
+    const destination = getDropIndex(drag.source, event.clientY)
+    if (drag.source === destination) return
+    const next = [...previous]
+    next.splice(destination, 0, ...next.splice(drag.source, 1))
     orderRef.current = next
     setOrderedSongs(next)
+    persistOrder(previous)
+  }
+  const cancelDrag = (event: PointerEvent<HTMLButtonElement>) => {
+    if (activeDrag.current?.pointerId !== event.pointerId) return
+    activeDrag.current = null
+    setDragPreview(null)
   }
   const editSong = (song: Song) => {
     editSongModal.onOpen(song, updated => {
@@ -283,18 +349,19 @@ export default function PlaylistDetailContent({
                 : "New music is on its way. Check back soon."}
             </div>
           )}
-          <Reorder.Group as="div" axis="y" values={filtered.map(item => item.song_id)} onReorder={onReorder}>
+          <div ref={listRef}>
             {filtered.map(item => (
               <PlaylistTrackRow key={item.song_id} item={item} index={orderedSongs.indexOf(item)}
                 canManage={canManage} canEditSong={canManage && (item.song.user_id === viewerId || Boolean(commerce?.can_manage))}
                 canReorder={canManage && !savingOrder && !query.trim()}
                 removing={savingOrder || removingSongId !== null}
+                isDragging={dragPreview?.songId === item.song_id}
+                dropEdge={dropMarker?.songId === item.song_id ? dropMarker.edge : null}
                 onPlay={onPlay} onEdit={editSong} onRemove={removeSong}
-                onDragStart={() => { dragStartOrder.current = orderRef.current }}
-                onDragEnd={() => persistOrder(dragStartOrder.current)}
+                onPointerDown={startDrag} onPointerMove={updateDrag} onPointerUp={stopDrag} onPointerCancel={cancelDrag}
                 onMove={moveSong} />
             ))}
-          </Reorder.Group>
+          </div>
         </section>
       </div>
       <footer className="mt-auto border-t border-white/10 pt-3">
