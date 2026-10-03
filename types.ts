@@ -2,6 +2,7 @@ import Stripe from "stripe"
 
 export interface Song {
   id: string
+  created_at?: string
   user_id: string
   author: string
   title: string

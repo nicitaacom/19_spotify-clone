@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import { MdMusicNote } from "react-icons/md"
-import { FiTrash2, FiPlus, FiEdit2, FiUpload } from "react-icons/fi"
+import { FiTrash2, FiPlus, FiEdit2, FiUpload, FiChevronDown } from "react-icons/fi"
 
-import { Song } from "@/types"
+import { PlaylistOption, Song } from "@/types"
 import { useUser } from "@/hooks/useUser"
 import useLoadImage from "@/hooks/useLoadImage"
 import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
@@ -14,13 +15,23 @@ import useEditSongModal from "@/hooks/useEditSongModal"
 import useUploadModal from "@/hooks/useUploadModal"
 import Button from "@/components/Button"
 import CoverImage from "@/components/CoverImage"
+import Input from "@/components/Input"
+
+type UploadRange = "all" | "7" | "30" | "365"
+type DateOrder = "newest" | "oldest"
 
 interface MySongsContentProps {
   songs: Song[]
+  playlistsBySong: Record<string, Pick<PlaylistOption, "id" | "slug" | "title">[]>
   isOwner: boolean
 }
 
-function SongRow({ song, onDelete, onUpdate }: { song: Song; onDelete: (id: string) => void; onUpdate: (updated: Song) => void }) {
+function SongRow({ song, playlists, onDelete, onUpdate }: {
+  song: Song
+  playlists: Pick<PlaylistOption, "id" | "slug" | "title">[]
+  onDelete: (id: string) => void
+  onUpdate: (updated: Song) => void
+}) {
   const imagePath = useLoadImage(song)
   const [deleting, setDeleting] = useState(false)
 
@@ -56,6 +67,16 @@ function SongRow({ song, onDelete, onUpdate }: { song: Song; onDelete: (id: stri
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold text-white">{song.title}</p>
         <p className="truncate text-xs text-neutral-400">By {song.author}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
+          <span className="text-neutral-500">{playlists.length ? "In your playlists:" : "Not in your playlists"}</span>
+          {playlists.map(playlist => (
+            <Link key={playlist.id} href={`/playlists/${encodeURIComponent(playlist.slug)}`}
+              title={playlist.title}
+              className="max-w-full truncate rounded-full border border-white/10 px-2 py-0.5 text-neon/80 hover:border-neon/40 hover:text-neon focus-visible:outline-neon">
+              {playlist.title}
+            </Link>
+          ))}
+        </div>
       </div>
       <button
         onClick={() => addToPlaylistModal.onOpen(song)}
@@ -83,15 +104,70 @@ function SongRow({ song, onDelete, onUpdate }: { song: Song; onDelete: (id: stri
   )
 }
 
-const MySongsContent: React.FC<MySongsContentProps> = ({ songs: initialSongs, isOwner }) => {
+const MySongsContent: React.FC<MySongsContentProps> = ({ songs: initialSongs, playlistsBySong, isOwner }) => {
   const router = useRouter()
   const { isLoading, user } = useUser()
   const uploadModal = useUploadModal()
   const [sourceSongs, setSourceSongs] = useState(initialSongs)
   const [songs, setSongs] = useState<Song[]>(initialSongs)
+  const [search, setSearch] = useState("")
+  const [uploadRange, setUploadRange] = useState<UploadRange>("all")
+  const [uploadCutoff, setUploadCutoff] = useState<number | null>(null)
+  const [dateOrder, setDateOrder] = useState<DateOrder>("newest")
+  const [selectedPlaylistIds, setSelectedPlaylistIds] = useState<string[]>([])
+  const [includeUnassigned, setIncludeUnassigned] = useState(false)
   if (initialSongs !== sourceSongs) {
     setSourceSongs(initialSongs)
     setSongs(initialSongs)
+  }
+
+  const playlistChoices = useMemo(() => {
+    const choices = new Map<string, { id: string; title: string; count: number }>()
+    for (const song of songs) {
+      for (const playlist of playlistsBySong[String(song.id)] ?? []) {
+        const choice = choices.get(playlist.id)
+        if (choice) choice.count++
+        else choices.set(playlist.id, { id: playlist.id, title: playlist.title, count: 1 })
+      }
+    }
+    return Array.from(choices.values()).sort((a, b) => a.title.localeCompare(b.title))
+  }, [songs, playlistsBySong])
+  const unassignedCount = useMemo(
+    () => songs.filter(song => !playlistsBySong[String(song.id)]?.length).length,
+    [songs, playlistsBySong]
+  )
+  const visibleSongs = useMemo(() => {
+    const searchText = search.trim().toLowerCase()
+    const selected = new Set(selectedPlaylistIds)
+    return songs
+      .filter(song => {
+        if (searchText && !`${song.title} ${song.author}`.toLowerCase().includes(searchText)) return false
+        if (uploadCutoff !== null && !(Date.parse(song.created_at ?? "") >= uploadCutoff)) return false
+        if (!selected.size && !includeUnassigned) return true
+        const playlists = playlistsBySong[String(song.id)] ?? []
+        return (includeUnassigned && playlists.length === 0) || playlists.some(playlist => selected.has(playlist.id))
+      })
+      .sort((a, b) => {
+        const aTime = Date.parse(a.created_at ?? "")
+        const bTime = Date.parse(b.created_at ?? "")
+        if (!Number.isFinite(aTime)) return Number.isFinite(bTime) ? 1 : 0
+        if (!Number.isFinite(bTime)) return -1
+        return dateOrder === "newest" ? bTime - aTime : aTime - bTime
+      })
+  }, [songs, playlistsBySong, search, uploadCutoff, dateOrder, selectedPlaylistIds, includeUnassigned])
+  const hasActiveFilters = Boolean(search.trim() || uploadRange !== "all" || dateOrder !== "newest" || selectedPlaylistIds.length || includeUnassigned)
+  const clearFilters = () => {
+    setSearch("")
+    setUploadRange("all")
+    setUploadCutoff(null)
+    setDateOrder("newest")
+    setSelectedPlaylistIds([])
+    setIncludeUnassigned(false)
+  }
+  const togglePlaylist = (playlistId: string) => {
+    setSelectedPlaylistIds(current => current.includes(playlistId)
+      ? current.filter(id => id !== playlistId)
+      : [...current, playlistId])
   }
 
   useEffect(() => {
@@ -156,11 +232,87 @@ const MySongsContent: React.FC<MySongsContentProps> = ({ songs: initialSongs, is
             </button>
           )}
         </div>
+        <div className="mt-5 border-t border-white/10 pt-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="min-w-[180px] flex-1 text-xs text-neutral-300">
+              Search songs
+              <Input value={search} onChange={event => setSearch(event.target.value)}
+                placeholder="Title or artist" className="mt-1 py-2" />
+            </label>
+            <label className="w-40 text-xs text-neutral-300">
+              Uploaded
+              <select value={uploadRange} onChange={event => {
+                const range = event.target.value as UploadRange
+                setUploadRange(range)
+                setUploadCutoff(range === "all" ? null : Date.now() - Number(range) * 24 * 60 * 60 * 1000)
+              }}
+                className="mt-1 h-10 w-full rounded-md border border-white/10 bg-elevated px-3 text-sm text-white focus:outline-neon">
+                <option value="all">Any time</option>
+                <option value="7">Past 7 days</option>
+                <option value="30">Past 30 days</option>
+                <option value="365">Past year</option>
+              </select>
+            </label>
+            <label className="w-40 text-xs text-neutral-300">
+              Sort by upload date
+              <select value={dateOrder} onChange={event => setDateOrder(event.target.value as DateOrder)}
+                className="mt-1 h-10 w-full rounded-md border border-white/10 bg-elevated px-3 text-sm text-white focus:outline-neon">
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
+            </label>
+            <details className="group relative w-56 text-xs text-neutral-300">
+              <summary className="list-none cursor-pointer">
+                Playlists
+                <span className="mt-1 flex h-10 items-center justify-between rounded-md border border-white/10 bg-elevated px-3 text-sm text-white group-open:border-neon/40">
+                  {selectedPlaylistIds.length || includeUnassigned
+                    ? `${selectedPlaylistIds.length + Number(includeUnassigned)} selected`
+                    : "All playlists"}
+                  <FiChevronDown className="text-neutral-400 group-open:rotate-180" size={16} />
+                </span>
+              </summary>
+              <div className="absolute left-0 top-full z-30 mt-2 max-h-72 w-full overflow-y-auto rounded-xl border border-white/15 bg-elevated p-2 shadow-2xl">
+                <p className="px-2 pb-2 text-[11px] text-neutral-400">Show songs matching any checked option.</p>
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 hover:bg-white/5">
+                  <input type="checkbox" checked={includeUnassigned} onChange={event => setIncludeUnassigned(event.target.checked)}
+                    className="accent-green-400" />
+                  <span className="min-w-0 flex-1">Not in your playlists</span>
+                  <span className="text-neutral-500">{unassignedCount}</span>
+                </label>
+                {playlistChoices.map(playlist => (
+                  <label key={playlist.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-2 hover:bg-white/5">
+                    <input type="checkbox" checked={selectedPlaylistIds.includes(playlist.id)}
+                      onChange={() => togglePlaylist(playlist.id)} className="accent-green-400" />
+                    <span className="min-w-0 flex-1 truncate" title={playlist.title}>{playlist.title}</span>
+                    <span className="text-neutral-500">{playlist.count}</span>
+                  </label>
+                ))}
+              </div>
+            </details>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-neutral-400">
+            <span>Showing {visibleSongs.length} of {songs.length} songs</span>
+            {hasActiveFilters && (
+              <button type="button" onClick={clearFilters} className="text-neon hover:underline focus-visible:outline-neon">
+                Clear filters
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-col gap-y-2">
-        {songs.map(song => (
-          <SongRow key={song.id} song={song} onDelete={handleDelete} onUpdate={handleUpdate} />
+        {visibleSongs.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-neutral-400">
+            No songs match these filters.
+            <button type="button" onClick={clearFilters} className="ml-2 text-neon hover:underline focus-visible:outline-neon">
+              Clear filters
+            </button>
+          </div>
+        )}
+        {visibleSongs.map(song => (
+          <SongRow key={song.id} song={song} playlists={playlistsBySong[song.id] ?? []}
+            onDelete={handleDelete} onUpdate={handleUpdate} />
         ))}
       </div>
     </div>

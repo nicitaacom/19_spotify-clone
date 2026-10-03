@@ -1,4 +1,5 @@
 import getSongsByUserId from "@/actions/getSongsByUserId"
+import { getUserSongPlaylists } from "@/actions/playlists"
 import Header from "@/components/Header"
 import { getIsOwner } from "@/libs/getIsOwner"
 import MySongsContent from "./components/MySongsContent"
@@ -7,7 +8,10 @@ export const revalidate = 0
 
 export default async function MySongs() {
   const songs = await getSongsByUserId()
-  const isOwner = await getIsOwner()
+  const [isOwner, playlistsBySong] = await Promise.all([
+    getIsOwner(),
+    getUserSongPlaylists(songs.map(song => String(song.id))),
+  ])
 
   return (
     <div className="h-full w-full overflow-x-hidden rounded-lg bg-surface text-white">
@@ -25,7 +29,7 @@ export default async function MySongs() {
           </div>
         </div>
       </Header>
-      <MySongsContent songs={songs} isOwner={isOwner} />
+      <MySongsContent songs={songs} playlistsBySong={playlistsBySong} isOwner={isOwner} />
     </div>
   )
 }
