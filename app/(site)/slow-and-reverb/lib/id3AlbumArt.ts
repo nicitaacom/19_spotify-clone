@@ -5,6 +5,11 @@ export interface Id3Metadata {
   title: string | null
   artist: string | null
   album: string | null
+  albumArtist?: string | null
+  year?: number | null
+  genre?: string | null
+  trackNumber?: number | null
+  trackTotal?: number | null
 }
 
 /** Decodes an ID3 text-frame body (first byte = encoding) to a JS string. */

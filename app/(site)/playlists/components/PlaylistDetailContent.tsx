@@ -10,6 +10,7 @@ import useEditSongModal from "@/hooks/useEditSongModal"
 import MediaItem from "@/components/MediaItem"
 import LikeButton from "@/components/LikeButton"
 import AddToPlaylistButton from "@/components/AddToPlaylistButton"
+import DownloadSongButton from "@/components/DownloadSongButton"
 import Button from "@/components/Button"
 import Input from "@/components/Input"
 import SupportLink from "@/components/SupportLink"
@@ -19,9 +20,10 @@ import PlaylistPurchasePanel from "./PlaylistPurchasePanel"
 type DragPreview = { songId: string; destination: number }
 type ActiveDrag = { songId: string; source: number; pointerId: number; startY: number; moved: boolean; initialOrder: PlaylistSongWithSong[] }
 
-function PlaylistTrackRow({ item, index, canManage, canEditSong, canReorder, removing, dropEdge, isDragging, onPlay, onEdit, onRemove, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onMove }: {
+function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, canReorder, removing, dropEdge, isDragging, onPlay, onEdit, onRemove, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onMove }: {
   item: PlaylistSongWithSong
   index: number
+  playlistTitle: string
   canManage: boolean
   canEditSong: boolean
   canReorder: boolean
@@ -82,6 +84,7 @@ function PlaylistTrackRow({ item, index, canManage, canEditSong, canReorder, rem
       )}
       <LikeButton songId={item.song.id} />
       <div className="hidden sm:block"><AddToPlaylistButton song={item.song} /></div>
+      <DownloadSongButton song={item.song} playlistTitle={playlistTitle} />
     </div>
   )
 }
@@ -351,7 +354,7 @@ export default function PlaylistDetailContent({
           )}
           <div ref={listRef}>
             {filtered.map(item => (
-              <PlaylistTrackRow key={item.song_id} item={item} index={orderedSongs.indexOf(item)}
+              <PlaylistTrackRow key={item.song_id} item={item} index={orderedSongs.indexOf(item)} playlistTitle={playlist.title}
                 canManage={canManage} canEditSong={canManage && (item.song.user_id === viewerId || Boolean(commerce?.can_manage))}
                 canReorder={canManage && !savingOrder && !query.trim()}
                 removing={savingOrder || removingSongId !== null}

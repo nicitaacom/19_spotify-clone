@@ -1,9 +1,9 @@
-import { Id3Metadata } from "./id3AlbumArt"
+import type { Id3Metadata } from "./id3AlbumArt"
 
 /**
  * Builds a minimal ID3v2.3 tag (as bytes) from extracted metadata and returns it, ready to
- * prepend to raw MP3 frames. Writes TIT2/TPE1/TALB text frames (UTF-16 w/ BOM, so any
- * language survives) and an APIC cover-art frame. Returns an empty array if there's nothing
+ * prepend to raw MP3 frames. Writes title, artist, album, and optional album artist, year,
+ * genre, and track text frames (UTF-16 w/ BOM) plus an APIC cover-art frame. Returns an empty array if there's nothing
  * to write, so a metadata-free source produces a tag-free export (no wasted bytes).
  *
  * The @breezystack/lamejs encoder emits headerless MP3 frames, so the export otherwise loses
@@ -15,6 +15,10 @@ export function buildId3Tag(meta: Id3Metadata): Uint8Array {
   if (meta.title) frames.push(textFrame("TIT2", meta.title))
   if (meta.artist) frames.push(textFrame("TPE1", meta.artist))
   if (meta.album) frames.push(textFrame("TALB", meta.album))
+  if (meta.albumArtist) frames.push(textFrame("TPE2", meta.albumArtist))
+  if (meta.year) frames.push(textFrame("TYER", String(meta.year)))
+  if (meta.genre) frames.push(textFrame("TCON", meta.genre))
+  if (meta.trackNumber) frames.push(textFrame("TRCK", `${meta.trackNumber}${meta.trackTotal ? `/${meta.trackTotal}` : ""}`))
   if (meta.artData && meta.artData.length > 0) frames.push(apicFrame(meta.artData, meta.artMime))
 
   if (frames.length === 0) return new Uint8Array(0)
