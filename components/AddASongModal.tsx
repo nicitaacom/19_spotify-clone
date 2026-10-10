@@ -36,6 +36,7 @@ const AddASongModal = () => {
   const [embeddedImage, setEmbeddedImage] = useState<File | null>(null)
   const [readingMetadata, setReadingMetadata] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
   const metadataRequest = useRef(0)
 
   useEffect(() => {
@@ -77,6 +78,21 @@ const AddASongModal = () => {
   })
   const isPaid = Boolean(useWatch({ control, name: "isPaid" }))
   const songInput = register("song", { required: true })
+  const imageInput = register("image", { onChange: () => setUploadError("") })
+
+  const onPaste = (event: React.ClipboardEvent<HTMLFormElement>) => {
+    const input = imageInputRef.current
+    if (isLoading || embeddedImage || !input) return
+
+    const image = Array.from(event.clipboardData.files).find(file => file.type.startsWith("image/"))
+    if (!image) return
+
+    event.preventDefault()
+    const transfer = new DataTransfer()
+    transfer.items.add(image)
+    input.files = transfer.files
+    imageInput.onChange({ target: input, type: "change" })
+  }
 
   const [prevModalIsOpen, setPrevModalIsOpen] = useState(uploadModal.isOpen)
   if (uploadModal.isOpen !== prevModalIsOpen) {
@@ -358,6 +374,7 @@ const AddASongModal = () => {
   return (
     <Modal title="Add a song" description="Upload an MP3 or M4A file" isOpen={uploadModal.isOpen} onChange={onChange}>
       <form
+        onPaste={onPaste}
         onSubmit={handleSubmit(onSubmit, errors => {
           if (errors.title) toast.error("Song title is required.")
           else if (errors.author) toast.error("Song author is required.")
@@ -402,8 +419,13 @@ const AddASongModal = () => {
             type="file"
             accept="image/*"
             id="image"
-            {...register("image", { onChange: () => setUploadError("") })}
+            {...imageInput}
+            ref={input => {
+              imageInput.ref(input)
+              imageInputRef.current = input
+            }}
           />
+          <p className="pt-1 text-xs text-neutral-400">Or paste an image with Ctrl+V (⌘V on Mac).</p>
         </div>}
 
         {uploadError && (
