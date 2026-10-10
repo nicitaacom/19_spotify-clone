@@ -26,6 +26,7 @@ const TURNSTILE_PROBABILITY = 0.1
 
 const AddASongModal = () => {
   const [isLoading, setIsLoading] = useState(false)
+  const [isPreparingAudio, setIsPreparingAudio] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadSpeed, setUploadSpeed] = useState("")
   const [playlists, setPlaylists] = useState<PlaylistOption[]>([])
@@ -169,6 +170,7 @@ const AddASongModal = () => {
   }, [createPlaylistModal.isOpen, fetchPlaylists])
 
   const onChange = (open: boolean) => {
+    if (isLoading) return
     if (!open) {
       reset()
       setUploadProgress(0)
@@ -268,7 +270,7 @@ const AddASongModal = () => {
       setUploadSpeed("")
 
       const imageFile = embeddedImage ?? values.image?.[0]
-      const songFile = values.song?.[0]
+      let songFile = values.song?.[0]
 
       if (!user) {
         toast.error("You must be logged in to upload.")
@@ -296,17 +298,9 @@ const AddASongModal = () => {
         return
       }
 
-      const MAX_SONG_SIZE_MiB = 50
-      if (songFile.size > MAX_SONG_SIZE_MiB * 1024 * 1024) {
-        setUploadError(
-          `File exceeds ${MAX_SONG_SIZE_MiB} MB. Choose a smaller MP3 or M4A file.`,
-        )
-        setIsLoading(false)
-        return
-      }
-
+      let duration: number
       try {
-        const duration = await getSongDuration(songFile)
+        duration = await getSongDuration(songFile)
         const isPro = subscription?.status === "active"
         const limit = isPro ? 12 : 3
         if (duration / 3600 > limit) {
@@ -336,6 +330,11 @@ const AddASongModal = () => {
         }
       }
 
+      setIsPreparingAudio(true)
+      const { prepareSongUpload } = await import("@/libs/songUpload")
+      songFile = await prepareSongUpload(songFile, duration, setUploadProgress)
+      setIsPreparingAudio(false)
+
       const formData = new FormData()
       formData.append("song", songFile)
       formData.append("image", imageFile)
@@ -364,9 +363,10 @@ const AddASongModal = () => {
       setEmbeddedImage(null)
       resetTurnstileFn()
       uploadModal.onClose()
-    } catch {
-      toast.error("Something went wrong")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Something went wrong")
     } finally {
+      setIsPreparingAudio(false)
       setIsLoading(false)
     }
   }
@@ -409,6 +409,9 @@ const AddASongModal = () => {
             }}
           />
         </div>
+        <p className="text-xs text-neutral-400">
+          M4A and higher bitrate MP3 files are converted to 128 kbps MP3 before upload. The uploaded file must fit within 50 MB.
+        </p>
         {embeddedImage ? (
           <p className="text-sm text-neutral-400">Using cover art embedded in the audio file.</p>
         ) : <div>
@@ -518,14 +521,14 @@ const AddASongModal = () => {
           <p className="text-xs text-neutral-400">Select a playlist to make this song paid.</p>
         )}
 
-        {isLoading && <ProgressBar progress={uploadProgress} speed={uploadSpeed} />}
+        {isLoading && <ProgressBar progress={uploadProgress} speed={uploadSpeed} label={isPreparingAudio ? "Preparing audio..." : "Uploading..."} />}
 
         {requiresChallenge && isHumanGateEnabled && (
           <TurnstileChallenge isVerified={isVerified} turnstileRef={turnstileRef} />
         )}
 
         <Button disabled={isCreateBlocked || readingMetadata || (isPaid && !selectedPlaylist)} type="submit" className="rounded-md">
-          {isLoading ? "Uploading..." : "Create"}
+          {isLoading ? (isPreparingAudio ? "Preparing audio..." : "Uploading...") : "Create"}
         </Button>
       </form>
     </Modal>
