@@ -123,7 +123,7 @@ const AddASongModal = () => {
       .order("updated_at", { ascending: false })
 
     if (error) {
-      toast.error(error.message)
+      setUploadError(error.message)
     } else {
       const mapped: PlaylistOption[] = (data ?? []).map(p => ({
         id: String(p.id),
@@ -266,6 +266,7 @@ const AddASongModal = () => {
   const onSubmit: SubmitHandler<FieldValues> = async values => {
     try {
       setIsLoading(true)
+      setUploadError("")
       setUploadProgress(0)
       setUploadSpeed("")
 
@@ -273,27 +274,27 @@ const AddASongModal = () => {
       let songFile = values.song?.[0]
 
       if (!user) {
-        toast.error("You must be logged in to upload.")
+        setUploadError("You must be logged in to upload.")
         setIsLoading(false)
         return
       }
       if (!songFile) {
-        toast.error("Please select an MP3 or M4A file.")
+        setUploadError("Please select an MP3 or M4A file.")
         setIsLoading(false)
         return
       }
       if (readingMetadata) {
-        toast.error("Please wait for cover art to be checked.")
+        setUploadError("Please wait for cover art to be checked.")
         setIsLoading(false)
         return
       }
       if (!imageFile) {
-        toast.error("Please select a cover image.")
+        setUploadError("Please select a cover image.")
         setIsLoading(false)
         return
       }
       if (values.isPaid && !selectedPlaylist) {
-        toast.error("Select a playlist for a paid song.")
+        setUploadError("Select a playlist for a paid song.")
         setIsLoading(false)
         return
       }
@@ -304,12 +305,12 @@ const AddASongModal = () => {
         const isPro = subscription?.status === "active"
         const limit = isPro ? 12 : 3
         if (duration / 3600 > limit) {
-          toast.error(`Song is too long. ${isPro ? "Pro" : "Free"} limit is ${limit} hours.`)
+          setUploadError(`Song is too long. ${isPro ? "Pro" : "Free"} limit is ${limit} hours.`)
           setIsLoading(false)
           return
         }
       } catch {
-        toast.error("Could not determine song duration")
+        setUploadError("Could not determine song duration. Choose a valid MP3 or M4A file.")
         setIsLoading(false)
         return
       }
@@ -317,14 +318,14 @@ const AddASongModal = () => {
       const isDev = process.env.NODE_ENV !== "production"
       if (requiresChallenge && isHumanGateEnabled && !isDev) {
         if (!isVerified || !token) {
-          toast.error("Complete the verification challenge before uploading.")
+          setUploadError("Complete the verification challenge before uploading.")
           setIsLoading(false)
           return
         }
         const verifyResp = await verifyTurnstileTokenFn(token)
         if (typeof verifyResp === "string") {
           resetTurnstileFn()
-          toast.error(verifyResp)
+          setUploadError(verifyResp)
           setIsLoading(false)
           return
         }
@@ -346,12 +347,7 @@ const AddASongModal = () => {
         formData.append("playlistSlug", selectedPlaylist.slug)
       }
 
-      try {
-        await uploadViaApi(formData)
-      } catch (err: unknown) {
-        setIsLoading(false)
-        return toast.error(err instanceof Error ? err.message : "Upload failed")
-      }
+      await uploadViaApi(formData)
 
       router.refresh()
       setIsLoading(false)
@@ -364,7 +360,7 @@ const AddASongModal = () => {
       resetTurnstileFn()
       uploadModal.onClose()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Something went wrong")
+      setUploadError(error instanceof Error ? error.message : "Something went wrong. Please try again.")
     } finally {
       setIsPreparingAudio(false)
       setIsLoading(false)
@@ -372,14 +368,14 @@ const AddASongModal = () => {
   }
 
   return (
-    <Modal title="Add a song" description="Upload an MP3 or M4A file" isOpen={uploadModal.isOpen} onChange={onChange}>
+    <Modal title="Add a song" description="Upload an MP3 or M4A file" isOpen={uploadModal.isOpen} onChange={onChange} contentClassName="overflow-y-auto">
       <form
         onPaste={onPaste}
         onSubmit={handleSubmit(onSubmit, errors => {
-          if (errors.title) toast.error("Song title is required.")
-          else if (errors.author) toast.error("Song author is required.")
-          else if (errors.song) toast.error("Please select an MP3 or M4A file.")
-          else if (errors.image) toast.error("Please select a cover image.")
+          if (errors.title) setUploadError("Song title is required.")
+          else if (errors.author) setUploadError("Song author is required.")
+          else if (errors.song) setUploadError("Please select an MP3 or M4A file.")
+          else if (errors.image) setUploadError("Please select a cover image.")
         })}
         className="flex flex-col gap-y-4">
         <Input
@@ -477,6 +473,7 @@ const AddASongModal = () => {
                   onClick={() => {
                     setSelectedPlaylist(null)
                     setDropdownOpen(false)
+                    setUploadError("")
                   }}
                   className="flex w-full items-center justify-between px-3 py-2.5 text-sm text-neutral-300 transition hover:bg-elevated">
                   No playlist
@@ -491,6 +488,7 @@ const AddASongModal = () => {
                       onClick={() => {
                         setSelectedPlaylist(playlist)
                         setDropdownOpen(false)
+                        setUploadError("")
                       }}
                       className="flex flex-1 items-center justify-between px-3 py-2.5 text-sm text-white">
                       <span className="truncate">{playlist.title}</span>
@@ -514,7 +512,7 @@ const AddASongModal = () => {
         </div>
 
         <label className="flex items-center gap-3 text-sm text-neutral-300">
-          <input type="checkbox" disabled={isLoading} className="accent-green-400" {...register("isPaid")} />
+          <input type="checkbox" disabled={isLoading} className="accent-green-400" {...register("isPaid", { onChange: () => setUploadError("") })} />
           Paid in selected playlist
         </label>
         {isPaid && !selectedPlaylist && (
