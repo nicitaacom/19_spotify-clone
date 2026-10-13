@@ -2,6 +2,7 @@ import Link from "next/link"
 
 import PlaylistVisibilityBadge from "@/components/PlaylistVisibilityBadge"
 import CoverImage from "@/components/CoverImage"
+import LockedArtwork from "@/components/LockedArtwork"
 import { PlaylistSummary } from "@/types"
 import { getSupabasePublicUrl } from "@/libs/helpers"
 import { formatPlaylistPrice } from "@/libs/commerceRules"
@@ -20,14 +21,18 @@ const PlaylistCard: React.FC<PlaylistCardProps> = ({ playlist, showVisibility = 
       href={`/playlists/${playlist.slug}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-white/5 bg-elevated/40 transition duration-200 hover:border-neon/20 hover:bg-elevated focus-visible:outline-neon">
       <div className="relative aspect-square w-full overflow-hidden">
-        <CoverImage
-          className="object-cover transition duration-300 group-hover:scale-105"
-          fill
-          sizes="(min-width: 1024px) 16vw, (min-width: 640px) 25vw, 50vw"
-          src={coverUrl}
-          alt={playlist.title}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/20 to-transparent" />
+        {coverUrl ? (
+          <CoverImage
+            className="object-cover transition duration-300 group-hover:scale-105"
+            fill
+            sizes="(min-width: 1024px) 16vw, (min-width: 640px) 25vw, 50vw"
+            src={coverUrl}
+            alt={playlist.title}
+          />
+        ) : (
+          <LockedArtwork className="absolute inset-0 text-5xl" />
+        )}
+        {coverUrl && <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/20 to-transparent" />}
         {showVisibility && (
           <div className="absolute left-2 top-2">
             <PlaylistVisibilityBadge visibility={playlist.visibility} />

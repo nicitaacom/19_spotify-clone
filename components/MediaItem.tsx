@@ -6,6 +6,7 @@ import useLoadImage from "@/hooks/useLoadImage"
 import { Song } from "@/types"
 import usePlayer from "@/hooks/usePlayer"
 import CoverImage from "@/components/CoverImage"
+import LockedArtwork from "@/components/LockedArtwork"
 import useOnPlay from "@/hooks/useOnPlay"
 
 interface MediaItemProps {
@@ -17,6 +18,7 @@ interface MediaItemProps {
 const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48 }) => {
   const player = usePlayer()
   const imageUrl = useLoadImage(data)
+  const lockedPaid = data.is_paid === true && data.can_play === false
   const playSong = useOnPlay([data])
 
   const handleClick = () => {
@@ -43,7 +45,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48 }) => {
     <div
       role="button"
       tabIndex={0}
-      aria-label={`${data.access_unavailable ? "Unavailable" : data.can_play === false ? "Unlock" : "Play"} ${data.title}`}
+      aria-label={`${data.access_unavailable ? "Unavailable" : data.can_play === false ? "Unlock" : "Play"} ${lockedPaid ? "paid track" : data.title}`}
       onClick={handleClick}
       onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); handleClick() } }}
       className="
@@ -59,18 +61,24 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48 }) => {
         overflow-hidden
       ">
       <div style={{ width: size, height: size }} className="relative shrink-0 overflow-hidden rounded-md">
-        <CoverImage
-          fill
-          sizes={`${size * 2}px`}
-          src={imageUrl}
-          alt="MediaItem"
-          className="object-cover"
-          loading="eager"
-        />
+        {lockedPaid ? (
+          <LockedArtwork className="absolute inset-0 text-xl" />
+        ) : (
+          <CoverImage
+            fill
+            sizes={`${size * 2}px`}
+            src={imageUrl}
+            alt="MediaItem"
+            className="object-cover"
+            loading="eager"
+          />
+        )}
       </div>
       <div className="flex flex-col gap-y-1 overflow-hidden">
-        <p className={twMerge(`text-white truncate`, player.activeId === data.id && "text-neon")}>{data.title}</p>
-        <p className="text-neutral-400 text-sm truncate">{data.author}{data.access_unavailable ? " · Unavailable" : data.can_play === false ? " · Locked" : ""}</p>
+        <p className={twMerge("truncate text-white", player.activeId === data.id && "text-neon", lockedPaid && "blur-sm")}>{data.title}</p>
+        <p className="text-neutral-400 text-sm truncate">
+          {lockedPaid ? "Paid track" : `${data.author}${data.access_unavailable ? " · Unavailable" : data.can_play === false ? " · Locked" : ""}`}
+        </p>
       </div>
     </div>
   )

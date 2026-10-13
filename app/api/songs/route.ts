@@ -9,6 +9,14 @@ import { requireUser } from "../backup/requireUser"
 
 export const maxDuration = 60 // max on Hobby plan Vercel 60s
 
+const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  avif: "image/avif",
+}
+
 export async function POST(request: Request) {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
@@ -42,8 +50,15 @@ export async function POST(request: Request) {
   if (isPaid && !playlistId) {
     return NextResponse.json({ error: "Select a playlist for a paid song." }, { status: 400 })
   }
-  if (!imageFile.type.startsWith("image/") || imageFile.size > 10 * 1024 * 1024) {
-    return NextResponse.json({ error: "Choose an image smaller than 10 MB." }, { status: 400 })
+  const imageExtension = imageFile.name.split(".").pop()?.toLowerCase() ?? ""
+  if (
+    IMAGE_MIME_BY_EXTENSION[imageExtension] !== imageFile.type.toLowerCase() ||
+    imageFile.size > 10 * 1024 * 1024
+  ) {
+    return NextResponse.json(
+      { error: "Choose a JPG, JPEG, PNG, WebP, or AVIF image smaller than 10 MB." },
+      { status: 400 },
+    )
   }
   if (playlistId) {
     const { data: playlist, error } = await supabaseAdmin
@@ -84,6 +99,7 @@ export async function POST(request: Request) {
   const { error: imageError } = await supabaseAdmin.storage.from("images").upload(imagePath, imageFile, {
     cacheControl: "3600",
     upsert: false,
+    contentType: imageFile.type.toLowerCase(),
   })
   if (imageError) {
     await supabaseAdmin.storage.from("songs").remove([songPath])

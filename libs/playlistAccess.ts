@@ -3,7 +3,7 @@ import { cache } from "react"
 import { commerceAdmin as admin } from "@/libs/commerceAdmin"
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { isOwnerId } from "@/libs/getOwnerIds"
-import { DEFAULT_PLAYLIST_PRICE } from "@/libs/commerceRules"
+import { DEFAULT_PLAYLIST_PRICE, isPlaylistPurchaseAvailable } from "@/libs/commerceRules"
 import type { Playlist, PlaylistCommerce, Song } from "@/types"
 
 export function isCommerceSchemaMissing(error: unknown) {
@@ -36,26 +36,25 @@ export async function purchasedPlaylists(userId: string | null) {
 export async function getSongAccess(songIds: string[], viewer: { id: string | null; isOwner: boolean }) {
   if (!songIds.length) return new Map<string, Pick<Song, "is_paid" | "can_play" | "unlock_slug">>()
   const ids = Array.from(new Set(songIds)).map(Number)
-  const [settings, memberships, purchases] = await Promise.all([
+  const [settings, memberships, purchases, songOwners] = await Promise.all([
     admin.from("19_song_access").select("*").in("song_id", ids),
     admin.from("19_playlist_songs").select("song_id, playlist_id").in("song_id", ids),
     purchasedPlaylists(viewer.id),
+    admin.from("19_songs").select("id,user_id").in("id", ids),
   ])
   if (settings.error) throw settings.error
   if (memberships.error) throw memberships.error
+  if (songOwners.error) throw songOwners.error
+  const songOwnerById = new Map((songOwners.data ?? []).map(song => [String(song.id), song.user_id]))
   const playlistIds = Array.from(new Set((memberships.data ?? []).map(m => m.playlist_id)))
-  const [playlists, commerce] = playlistIds.length
-    ? await Promise.all([
-        admin.from("19_playlists").select("id,slug,user_id,visibility").in("id", playlistIds),
-        admin.from("19_playlist_commerce").select("playlist_id,sales_enabled").in("playlist_id", playlistIds),
-      ])
-    : [
-        { data: [], error: null },
-        { data: [], error: null },
-      ]
+  const playlists = playlistIds.length
+    ? await admin.from("19_playlists").select("id,slug,user_id,visibility").in("id", playlistIds)
+    : { data: [], error: null }
   if (playlists.error) throw playlists.error
-  if (commerce.error) throw commerce.error
-  const available = new Set((commerce.data ?? []).filter(c => c.sales_enabled).map(c => c.playlist_id))
+  const ownedPlaylists = new Set(
+    (playlists.data ?? []).filter(playlist => viewer.id !== null && playlist.user_id === viewer.id).map(playlist => playlist.id),
+  )
+  const playlistVisibility = new Map((playlists.data ?? []).map(playlist => [playlist.id, playlist.visibility]))
   return new Map(
     songIds.map(id => {
       const memberIds = (memberships.data ?? []).filter(m => String(m.song_id) === id).map(m => m.playlist_id)
@@ -64,20 +63,41 @@ export async function getSongAccess(songIds: string[], viewer: { id: string | nu
           setting => setting.playlist_id === playlistId && String(setting.song_id) === id && setting.is_paid,
         ),
       )
-      const hasFreeMembership = memberIds.some(playlistId => !paidMemberIds.includes(playlistId))
+      const hasFreeMembership = memberIds.some(
+        playlistId =>
+          !paidMemberIds.includes(playlistId) &&
+          ((playlistVisibility.get(playlistId) === "public" || playlistVisibility.get(playlistId) === "unlisted") ||
+            ownedPlaylists.has(playlistId)),
+      )
       const source = (playlists.data ?? []).find(
-        p => paidMemberIds.includes(p.id) && available.has(p.id) && p.visibility === "public" && isOwnerId(p.user_id)
+        p => paidMemberIds.includes(p.id) && p.visibility !== "private" && isOwnerId(p.user_id)
       )
       return [
         id,
         {
           is_paid: paidMemberIds.length > 0,
-          can_play: viewer.isOwner || hasFreeMembership || paidMemberIds.some(playlistId => purchases.has(playlistId)),
+          can_play:
+            viewer.isOwner ||
+            (viewer.id !== null && songOwnerById.get(id) === viewer.id) ||
+            hasFreeMembership ||
+            paidMemberIds.some(playlistId => purchases.has(playlistId) || ownedPlaylists.has(playlistId)),
           unlock_slug: source?.slug ?? null,
         },
       ]
     })
   )
+}
+
+function redactLockedPaidSong(song: Song): Song {
+  if (!song.is_paid || song.can_play !== false) return song
+  return {
+    ...song,
+    title: "Please pay instead of trying to hack",
+    author: "",
+    song_path: "",
+    image_path: "",
+    unlock_slug: null,
+  }
 }
 
 export async function withSongAccess(songs: Song[]): Promise<Song[]> {
@@ -86,12 +106,21 @@ export async function withSongAccess(songs: Song[]): Promise<Song[]> {
       songs.map(song => String(song.id)),
       await getViewer()
     )
-    return songs.map(song => ({ ...song, id: String(song.id), ...access.get(String(song.id)) }))
+    const accessibleSongs = songs.map(song => ({ ...song, id: String(song.id), ...access.get(String(song.id)) }))
+    return accessibleSongs.map(redactLockedPaidSong)
   } catch (error) {
     if (!isCommerceSchemaMissing(error)) throw error
-    // Catalog rendering can survive a staged deployment; audio still fails
-    // closed at the playback endpoint until the schema is installed.
-    return songs.map(song => ({ ...song, id: String(song.id), can_play: false, access_unavailable: true }))
+    // Fail closed while commerce tables are being installed so no unknown paid metadata is sent.
+    return songs.map(song => ({
+      ...song,
+      id: String(song.id),
+      title: "Track unavailable",
+      author: "",
+      song_path: "",
+      image_path: "",
+      can_play: false,
+      access_unavailable: true,
+    }))
   }
 }
 
@@ -99,22 +128,26 @@ export async function applyPlaylistSongAccess(
   playlistId: string,
   songs: Song[],
   viewer: { id: string | null; isOwner: boolean },
+  canManage = false,
 ): Promise<Song[]> {
   if (!songs.length) return songs
   const ids = songs.map(song => Number(song.id))
-  const [settings, purchases] = await Promise.all([
+  const [settings, purchases, songOwners] = await Promise.all([
     admin.from("19_song_access").select("song_id,is_paid").eq("playlist_id", playlistId).in("song_id", ids),
     purchasedPlaylists(viewer.id),
+    admin.from("19_songs").select("id,user_id").in("id", ids),
   ])
   if (settings.error) throw settings.error
+  if (songOwners.error) throw songOwners.error
   const rows = new Map((settings.data ?? []).map(row => [String(row.song_id), Boolean(row.is_paid)]))
-  const purchased = viewer.isOwner || purchases.has(playlistId)
+  const songOwnerById = new Map((songOwners.data ?? []).map(song => [String(song.id), song.user_id]))
+  const purchased = viewer.isOwner || canManage || purchases.has(playlistId)
   return songs.map(song => {
     const paid = rows.get(String(song.id)) ?? false
     return {
       ...song,
       is_paid: paid,
-      can_play: viewer.isOwner || !paid || purchased,
+      can_play: viewer.isOwner || canManage || (viewer.id !== null && songOwnerById.get(String(song.id)) === viewer.id) || !paid || purchased,
       unlock_slug: paid && !purchased ? null : song.unlock_slug,
     }
   })
@@ -164,16 +197,21 @@ async function loadPlaylistCommerce(playlists: Playlist[]): Promise<Map<string, 
       const config = settings.data?.find(s => s.playlist_id === p.id)
       const canManage = viewer.isOwner && isOwnerId(p.user_id)
       const purchased = purchases.has(p.id)
+      const paidSongCount = (memberships.data ?? []).filter(
+        m => m.playlist_id === p.id && (access.data ?? []).some(a => a.playlist_id === p.id && a.song_id === m.song_id),
+      ).length
       return [
         p.id,
         {
           ready: true,
           price_cents: config?.price_cents ?? DEFAULT_PLAYLIST_PRICE,
-          sales_enabled: Boolean(config?.sales_enabled && isOwnerId(p.user_id) && p.visibility !== "private"),
+          sales_enabled: isPlaylistPurchaseAvailable({
+            paidSongCount,
+            visibility: p.visibility,
+            ownedBySite: isOwnerId(p.user_id),
+          }),
           purchased,
-          paid_song_count: (memberships.data ?? []).filter(
-            m => m.playlist_id === p.id && (access.data ?? []).some(a => a.playlist_id === p.id && a.song_id === m.song_id),
-          ).length,
+          paid_song_count: paidSongCount,
           youtube_url: canManage || purchased ? config?.youtube_url ?? null : null,
           can_manage: canManage,
         },

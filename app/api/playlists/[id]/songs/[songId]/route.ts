@@ -20,17 +20,17 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Playlist not found." }, { status: 404 })
     }
 
-    const [{ data: members, error: membersError }, { data: access, error: accessError }, { data: commerce, error: commerceErrorValue }] = await Promise.all([
+    const [{ data: members, error: membersError }, { data: access, error: accessError }, { data: orders, error: ordersError }] = await Promise.all([
       admin.from("19_playlist_songs").select("song_id").eq("playlist_id", id),
       admin.from("19_song_access").select("song_id,is_paid").eq("playlist_id", id),
-      admin.from("19_playlist_commerce").select("sales_enabled").eq("playlist_id", id).maybeSingle(),
+      admin.from("19_playlist_orders").select("id").eq("playlist_id", id).in("status", ["pending", "paid", "suspended"]).limit(1),
     ])
-    if (membersError || accessError || commerceErrorValue) throw membersError ?? accessError ?? commerceErrorValue
+    if (membersError || accessError || ordersError) throw membersError ?? accessError ?? ordersError
     const memberIds = new Set((members ?? []).map(item => String(item.song_id)))
     if (!memberIds.has(songId)) return NextResponse.json({ error: "Track not found in this playlist." }, { status: 404 })
     const paidMembers = (access ?? []).filter(item => item.is_paid && memberIds.has(String(item.song_id)))
-    if (commerce?.sales_enabled && paidMembers.length === 1 && String(paidMembers[0].song_id) === songId) {
-      return NextResponse.json({ error: "Mark another track paid or disable purchases before removing the last paid track." }, { status: 409 })
+    if (orders?.length && paidMembers.length === 1 && String(paidMembers[0].song_id) === songId) {
+      return NextResponse.json({ error: "Keep at least one paid track while this playlist has an active purchase." }, { status: 409 })
     }
 
     const { error: removeError } = await admin.from("19_playlist_songs")

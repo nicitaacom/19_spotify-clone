@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react"
 import { toast } from "react-hot-toast"
 
 import { Song } from "@/types"
-import supabaseClient from "@/libs/supabaseClient"
 
 const useSongById = (id?: string) => {
   const [isLoading, setIsLoading] = useState(false)
@@ -23,14 +22,20 @@ const useSongById = (id?: string) => {
     if (!id) return
 
     const fetchSong = async () => {
-      const { data, error } = await supabaseClient.from("19_songs").select("*").eq("id", Number(id)).maybeSingle()
-
-      if (error) {
+      try {
+        const response = await fetch(`/api/songs/${id}`, { cache: "no-store" })
+        const body = await response.json()
+        if (response.status === 403) {
+          setSong(undefined)
+          setIsLoading(false)
+          return
+        }
+        if (!response.ok) throw new Error(body.error ?? "Unable to load song.")
+        setSong(body.song as Song)
+      } catch (error) {
         setIsLoading(false)
-        return toast.error(error.message)
+        return toast.error(error instanceof Error ? error.message : "Unable to load song.")
       }
-
-      setSong(data as unknown as Song)
       setIsLoading(false)
     }
 

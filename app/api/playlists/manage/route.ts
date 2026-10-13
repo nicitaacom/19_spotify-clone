@@ -16,14 +16,6 @@ export async function POST(request: Request) {
     if (!["public", "unlisted", "private"].includes(body.visibility)) throw new Error("Invalid visibility.")
     if (body.description != null && (typeof body.description !== "string" || body.description.length > 5000))
       throw new Error("Description must be at most 5,000 characters.")
-    if (typeof body.sales_enabled !== "boolean") throw new Error("Invalid sales setting.")
-    if (body.sales_enabled) {
-      const { data: bucket, error: bucketError } = await admin.storage.getBucket("songs")
-      if (bucketError || !bucket || bucket.public)
-        throw new Error("Paid playlists require private audio storage before purchases can be enabled.")
-    }
-    const price = parsePlaylistPrice(body.price_cents)
-    const youtube = normalizeYoutubePlaylist(body.youtube_url)
     const songs = body.songs ?? []
     const removed = body.removed_songs ?? []
     if (!Array.isArray(removed) || removed.length > 2000 || removed.some(id => !/^\d+$/.test(String(id))))
@@ -34,6 +26,9 @@ export async function POST(request: Request) {
       songs.some(s => !s || !/^\d+$/.test(String(s.id)) || typeof s.is_paid !== "boolean")
     )
       throw new Error("Invalid track settings.")
+    const hasPaidSongs = songs.some(song => song.is_paid)
+    const price = parsePlaylistPrice(body.price_cents)
+    const youtube = normalizeYoutubePlaylist(body.youtube_url)
     let ownerId = user.id
     let existingSlug: string | undefined
     if (body.id) {
@@ -43,8 +38,6 @@ export async function POST(request: Request) {
       ownerId = data.user_id
       existingSlug = data.slug
     }
-    if (body.sales_enabled && !songs.some(song => song.is_paid)) throw new Error("Choose at least one paid song before enabling purchases.")
-    if (body.sales_enabled && body.visibility === "private") throw new Error("Use public or unlisted visibility to enable purchases.")
     if (body.id) {
       const { data: orders, error: ordersError } = await admin.from("19_playlist_orders").select("id").eq("playlist_id", body.id).in("status", ["pending", "paid", "suspended"]).limit(1)
       if (ordersError) throw ordersError
@@ -67,7 +60,12 @@ export async function POST(request: Request) {
       if (!playlistId) throw new Error("Choose another playlist name.")
     }
 
-    const { error: configError } = await admin.from("19_playlist_commerce").upsert({ playlist_id: playlistId, price_cents: price, youtube_url: youtube, sales_enabled: false })
+    const { error: configError } = await admin.from("19_playlist_commerce").upsert({
+      playlist_id: playlistId,
+      price_cents: price,
+      youtube_url: youtube,
+      sales_enabled: hasPaidSongs && body.visibility !== "private",
+    })
     if (configError) throw configError
     const { error: detailsError } = await admin.from("19_playlists").update({ title: body.title.trim(), description: body.description?.trim() || null, visibility: body.visibility, updated_at: new Date().toISOString() }).eq("id", playlistId)
     if (detailsError) throw detailsError
@@ -81,8 +79,6 @@ export async function POST(request: Request) {
       const { error: removeError } = await admin.from("19_playlist_songs").delete().eq("playlist_id", playlistId).in("song_id", removed.map(Number))
       if (removeError) throw removeError
     }
-    const { error: salesError } = await admin.from("19_playlist_commerce").update({ sales_enabled: body.sales_enabled }).eq("playlist_id", playlistId)
-    if (salesError) throw salesError
     return NextResponse.json({ id: playlistId, slug })
   } catch (error) {
     return commerceError(error)

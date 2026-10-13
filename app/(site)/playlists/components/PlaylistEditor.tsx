@@ -23,7 +23,6 @@ export default function PlaylistEditor({ playlist, onClose }: { playlist: Playli
   const [visibility, setVisibility] = useState<PlaylistVisibility>(playlist.visibility)
   const [price, setPrice] = useState(String((commerce?.price_cents ?? 200) / 100))
   const [youtube, setYoutube] = useState(commerce?.youtube_url ?? "")
-  const [sales, setSales] = useState(commerce?.sales_enabled ?? false)
   const [songs, setSongs] = useState(playlist.songs)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -53,7 +52,6 @@ export default function PlaylistEditor({ playlist, onClose }: { playlist: Playli
             visibility,
             price_cents: priceCents,
             youtube_url: youtubeUrl,
-            sales_enabled: sales,
             songs: songs.map(item => ({ id: item.song.id, is_paid: Boolean(item.song.is_paid) })),
             removed_songs: playlist.songs
               .filter(item => !songs.some(s => s.song_id === item.song_id))
@@ -158,18 +156,9 @@ export default function PlaylistEditor({ playlist, onClose }: { playlist: Playli
           {owner && (
             <>
               <PlaylistCommerceFields price={price} youtube={youtube} onPrice={setPrice} onYoutube={setYoutube} />
-              <label className="flex items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={sales}
-                  onChange={e => setSales(e.target.checked)}
-                  className="accent-green-400"
-                />
-                Enable playlist purchases
-              </label>
               <p className="text-xs leading-5 text-neutral-400">
-                Choose at least one paid song to enable purchases. Free/paid settings apply only to this playlist.
-                Price changes only affect new purchases.
+                Playlists with at least one paid track can be purchased at this price. Price changes only affect new
+                purchases.
               </p>
             </>
           )}

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation"
 import { getPlaylistBySlug } from "@/actions/playlists"
 import Header from "@/components/Header"
 import PlaylistVisibilityBadge from "@/components/PlaylistVisibilityBadge"
+import LockedArtwork from "@/components/LockedArtwork"
 import { getSupabasePublicUrl } from "@/libs/helpers"
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { formatPlaylistPrice } from "@/libs/commerceRules"
@@ -35,7 +36,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
   } = await supabase.auth.getUser()
 
   const canManage = user?.id === playlist.user_id || Boolean(playlist.commerce?.can_manage)
-  const coverUrl = getSupabasePublicUrl("images", playlist.cover_image_path) ?? "/images/liked.png"
+  const coverUrl = getSupabasePublicUrl("images", playlist.cover_image_path)
   const authorName = playlist.author.full_name || playlist.author.username
   const description = playlist.description?.trim() || DEFAULT_PLAYLIST_DESCRIPTION
 
@@ -45,15 +46,19 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
         <div className="mb-1 mt-4">
           <div className="flex items-start gap-4 sm:items-end sm:gap-5">
             <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg shadow-lg sm:h-32 sm:w-32 lg:h-40 lg:w-40">
-              <Image
-                className="object-cover"
-                fill
-                sizes="(min-width: 1024px) 160px, (min-width: 640px) 128px, 96px"
-                quality={100}
-                unoptimized
-                src={coverUrl}
-                alt={playlist.title}
-              />
+              {coverUrl ? (
+                <Image
+                  className="object-cover"
+                  fill
+                  sizes="(min-width: 1024px) 160px, (min-width: 640px) 128px, 96px"
+                  quality={100}
+                  unoptimized
+                  src={coverUrl}
+                  alt={playlist.title}
+                />
+              ) : (
+                <LockedArtwork className="absolute inset-0 text-5xl" />
+              )}
             </div>
             <div className="min-w-0 flex flex-col gap-y-2">
               <div className="flex flex-wrap items-center gap-2">

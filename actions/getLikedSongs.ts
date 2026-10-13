@@ -22,14 +22,14 @@ const getLikedSongs = async (): Promise<Song[]> => {
 
   if (!data) return []
 
-  return withSongAccess(data.map(item => ({
+  return withSongAccess(data.flatMap(item => item.song ? [{
     id: String(item.song.id),
     user_id: item.song.user_id ?? "",
     author: item.song.author ?? "",
     title: item.song.title ?? "",
     song_path: item.song.song_path ?? "",
     image_path: item.song.image_path ?? "",
-  })))
+  }] : []))
 }
 
 export default getLikedSongs

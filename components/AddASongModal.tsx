@@ -23,6 +23,19 @@ import ProgressBar from "./ProgressBar"
 
 // Show Turnstile challenge on ~10% of uploads
 const TURNSTILE_PROBABILITY = 0.1
+const IMAGE_ACCEPT = ".jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif"
+const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  avif: "image/avif",
+}
+
+const isSupportedCoverImage = (file: File) => {
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? ""
+  return IMAGE_MIME_BY_EXTENSION[extension] === file.type.toLowerCase()
+}
 
 const AddASongModal = () => {
   const [isLoading, setIsLoading] = useState(false)
@@ -77,18 +90,48 @@ const AddASongModal = () => {
   const { register, handleSubmit, reset, resetField, control } = useForm<FieldValues>({
     defaultValues: { author: "", title: "", song: null, image: null, isPaid: false },
   })
+  const selectedSong = (useWatch({ control, name: "song" }) as FileList | null)?.[0]
+  const selectedImage = (useWatch({ control, name: "image" }) as FileList | null)?.[0]
+  const coverImage = selectedImage ?? embeddedImage
   const isPaid = Boolean(useWatch({ control, name: "isPaid" }))
   const songInput = register("song", { required: true })
-  const imageInput = register("image", { onChange: () => setUploadError("") })
+  const imageInput = register("image")
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null)
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!selectedSong) {
+      setAudioPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(selectedSong)
+    setAudioPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [selectedSong])
+
+  useEffect(() => {
+    if (!coverImage) {
+      setCoverPreviewUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(coverImage)
+    setCoverPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [coverImage])
 
   const onPaste = (event: React.ClipboardEvent<HTMLFormElement>) => {
     const input = imageInputRef.current
-    if (isLoading || embeddedImage || !input) return
+    if (isLoading || !input) return
 
-    const image = Array.from(event.clipboardData.files).find(file => file.type.startsWith("image/"))
-    if (!image) return
+    const pastedImages = Array.from(event.clipboardData.files).filter(file => file.type.startsWith("image/"))
+    if (!pastedImages.length) return
 
     event.preventDefault()
+    const image = pastedImages.find(isSupportedCoverImage)
+    if (!image) {
+      setUploadError("Choose a JPG, JPEG, PNG, WebP, or AVIF image.")
+      return
+    }
     const transfer = new DataTransfer()
     transfer.items.add(image)
     input.files = transfer.files
@@ -190,7 +233,10 @@ const AddASongModal = () => {
     setEmbeddedImage(null)
     resetField("image")
     setUploadError("")
-    if (!file) return
+    if (!file) {
+      setReadingMetadata(false)
+      return
+    }
     setReadingMetadata(true)
     try {
       const { parseBlob } = await import("music-metadata")
@@ -198,8 +244,10 @@ const AddASongModal = () => {
       const picture = metadata.common.picture?.[0]
       if (request !== metadataRequest.current || !picture?.data.length) return
       const mime = picture.format.toLowerCase()
-      if (!mime.startsWith("image/")) return
-      const extension = mime.split("/")[1].replace("jpeg", "jpg").replace(/[^a-z0-9]/g, "")
+      const extension = Object.keys(IMAGE_MIME_BY_EXTENSION).find(
+        supportedExtension => IMAGE_MIME_BY_EXTENSION[supportedExtension] === mime,
+      )
+      if (!extension) return
       setEmbeddedImage(new File([picture.data], `embedded-cover.${extension}`, { type: mime }))
     } catch {
       // An unreadable tag simply leaves the image picker available.
@@ -270,7 +318,7 @@ const AddASongModal = () => {
       setUploadProgress(0)
       setUploadSpeed("")
 
-      const imageFile = embeddedImage ?? values.image?.[0]
+      const imageFile = values.image?.[0] ?? embeddedImage
       let songFile = values.song?.[0]
 
       if (!user) {
@@ -290,6 +338,11 @@ const AddASongModal = () => {
       }
       if (!imageFile) {
         setUploadError("Please select a cover image.")
+        setIsLoading(false)
+        return
+      }
+      if (!isSupportedCoverImage(imageFile)) {
+        setUploadError("Choose a JPG, JPEG, PNG, WebP, or AVIF image.")
         setIsLoading(false)
         return
       }
@@ -368,7 +421,8 @@ const AddASongModal = () => {
   }
 
   return (
-    <Modal title="Add a song" description="Upload an MP3 or M4A file" isOpen={uploadModal.isOpen} onChange={onChange} contentClassName="overflow-y-auto">
+    <Modal title="Add a song" description="Upload an MP3 or M4A file" isOpen={uploadModal.isOpen} onChange={onChange}
+      contentClassName="overflow-y-auto md:w-[92vw] md:max-w-[760px] md:max-h-[90vh]">
       <form
         onPaste={onPaste}
         onSubmit={handleSubmit(onSubmit, errors => {
@@ -377,7 +431,7 @@ const AddASongModal = () => {
           else if (errors.song) setUploadError("Please select an MP3 or M4A file.")
           else if (errors.image) setUploadError("Please select a cover image.")
         })}
-        className="flex flex-col gap-y-4">
+        className="flex min-h-0 flex-col gap-y-4">
         <Input
           id="title"
           disabled={isLoading}
@@ -393,7 +447,6 @@ const AddASongModal = () => {
         <div>
           <div className="pb-1">Select a song file</div>
           <Input
-            placeholder="test"
             disabled={isLoading}
             type="file"
             accept=".mp3,.m4a,audio/mpeg,audio/mp4,audio/x-m4a"
@@ -408,24 +461,53 @@ const AddASongModal = () => {
         <p className="text-xs text-neutral-400">
           M4A and higher bitrate MP3 files are converted to 128 kbps MP3 before upload. The uploaded file must fit within 50 MB.
         </p>
-        {embeddedImage ? (
-          <p className="text-sm text-neutral-400">Using cover art embedded in the audio file.</p>
-        ) : <div>
+        {audioPreviewUrl && (
+          <div className="space-y-2 rounded-md border border-white/10 bg-elevated/50 p-3">
+            <p className="text-sm font-medium text-white">Song preview</p>
+            <audio controls preload="metadata" src={audioPreviewUrl} className="w-full">
+              Your browser does not support audio preview.
+            </audio>
+          </div>
+        )}
+
+        <div>
           <div className="pb-1">Select an image</div>
           <Input
-            placeholder="test"
             disabled={isLoading}
             type="file"
-            accept="image/*"
+            accept={IMAGE_ACCEPT}
             id="image"
             {...imageInput}
+            onChange={event => {
+              const file = event.target.files?.[0]
+              if (file && !isSupportedCoverImage(file)) {
+                event.target.value = ""
+                imageInput.onChange(event)
+                setUploadError("Choose a JPG, JPEG, PNG, WebP, or AVIF image.")
+                return
+              }
+              imageInput.onChange(event)
+              setUploadError("")
+            }}
             ref={input => {
               imageInput.ref(input)
               imageInputRef.current = input
             }}
           />
-          <p className="pt-1 text-xs text-neutral-400">Or paste an image with Ctrl+V (⌘V on Mac).</p>
-        </div>}
+          <p className="pt-1 text-xs text-neutral-400">
+            {embeddedImage
+              ? "Embedded cover art found. Choose or paste an image to replace it."
+              : "JPG, PNG, WebP, or AVIF. You can also paste an image with Ctrl+V (⌘V on Mac)."}
+          </p>
+          {coverPreviewUrl && (
+            <div className="mt-3 flex items-center gap-3">
+              <img src={coverPreviewUrl} alt="Selected cover preview" className="h-16 w-16 rounded-md object-cover" />
+              <span className="text-xs text-neutral-400">
+                {selectedImage ? "Using your selected cover image." : "Using cover art embedded in the audio file."}
+              </span>
+            </div>
+          )}
+        </div>
 
         {uploadError && (
           <p role="alert" className="select-text rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
@@ -452,7 +534,7 @@ const AddASongModal = () => {
             </button>
 
             {dropdownOpen && (
-              <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-white/10 bg-surface shadow-xl">
+              <div className="absolute z-50 mt-1 max-h-[min(40vh,22rem)] w-full overflow-y-auto rounded-md border border-white/10 bg-surface shadow-xl">
                 {/* Create new */}
                 <button
                   type="button"

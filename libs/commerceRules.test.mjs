@@ -1,6 +1,21 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { canPlaySong, normalizeYoutubePlaylist, parsePlaylistPrice, purchaseStatus } from "./commerceRules.ts"
+import {
+  canPlaySong,
+  isPlaylistPurchaseAvailable,
+  normalizeYoutubePlaylist,
+  parsePlaylistPrice,
+  purchaseStatus,
+} from "./commerceRules.ts"
+
+test("paid public and unlisted playlists are offered for purchase", () => {
+  const base = { paidSongCount: 1, visibility: "public", ownedBySite: true }
+  assert.equal(isPlaylistPurchaseAvailable(base), true)
+  assert.equal(isPlaylistPurchaseAvailable({ ...base, paidSongCount: 0 }), false)
+  assert.equal(isPlaylistPurchaseAvailable({ ...base, visibility: "private" }), false)
+  assert.equal(isPlaylistPurchaseAvailable({ ...base, ownedBySite: false }), false)
+  assert.equal(isPlaylistPurchaseAvailable({ ...base, visibility: "unlisted" }), true)
+})
 
 test("prices accept USD cents only within the owner range", () => {
   for (const value of [100, 200, 199, 1000]) assert.equal(parsePlaylistPrice(value), value)

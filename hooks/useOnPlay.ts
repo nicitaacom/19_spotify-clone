@@ -5,7 +5,7 @@ import usePlayer from "./usePlayer"
 
 let playbackRequest = 0
 
-const useOnPlay = (songs: Song[], onLocked?: () => void) => {
+const useOnPlay = (songs: Song[], onLocked?: (id: string) => boolean | void, playlistId?: string) => {
   const player = usePlayer()
   const router = useRouter()
 
@@ -22,7 +22,10 @@ const useOnPlay = (songs: Song[], onLocked?: () => void) => {
         const response = await fetch("/api/songs/access", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids: songs.slice(start, start + 500).map(s => String(s.id)) }),
+          body: JSON.stringify({
+            ids: songs.slice(start, start + 500).map(s => String(s.id)),
+            ...(playlistId ? { playlist_id: playlistId } : {}),
+          }),
         })
         const body = await response.json()
         if (!response.ok) throw new Error(body.error)
@@ -30,7 +33,7 @@ const useOnPlay = (songs: Song[], onLocked?: () => void) => {
       }
       if (request !== playbackRequest) return
       if (!access[id]?.can_play) {
-        if (onLocked) return onLocked()
+        if (onLocked && onLocked(id) !== false) return
         if (access[id]?.unlock_slug) router.push(`/playlists/${access[id].unlock_slug}#playlist-access`)
         else toast.error("This song is locked. Open its original playlist to check availability.")
         return

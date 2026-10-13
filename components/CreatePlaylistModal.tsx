@@ -64,11 +64,11 @@ const CreatePlaylistModal = () => {
       if (isOwner) {
         const response = await fetch("/api/playlists/manage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
           title, description, visibility, price_cents: parsePlaylistPrice(Math.round(Number(price) * 100)),
-          youtube_url: normalizeYoutubePlaylist(youtube), sales_enabled: false, songs: [],
+          youtube_url: normalizeYoutubePlaylist(youtube), songs: [],
         }) })
         const body = await response.json()
         if (!response.ok) throw new Error(body.error)
-        toast.success("Playlist created. Add songs, then enable purchases in Edit playlist.")
+        toast.success("Playlist created. Add paid tracks to make it available for purchase.")
         createPlaylistModal.onClose()
         resetForm()
         if (!createPlaylistModal.skipRedirect) router.push(`/playlists/${body.slug}`)

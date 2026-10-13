@@ -1,5 +1,18 @@
 export const DEFAULT_PLAYLIST_PRICE = 200
 
+export function isPlaylistPurchaseAvailable(input: {
+  paidSongCount: number
+  visibility: string
+  ownedBySite: boolean
+}) {
+  return (
+    Number.isInteger(input.paidSongCount) &&
+    input.paidSongCount > 0 &&
+    input.visibility !== "private" &&
+    input.ownedBySite
+  )
+}
+
 export function parsePlaylistPrice(value: unknown): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 100 || value > 1000) {
     throw new Error("Choose a price between $1.00 and $10.00.")

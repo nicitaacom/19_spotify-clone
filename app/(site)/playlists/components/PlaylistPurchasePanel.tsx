@@ -12,7 +12,15 @@ import { getStripe } from "@/libs/stripeClient"
 import { formatPlaylistPrice } from "@/libs/commerceRules"
 import Button from "@/components/Button"
 
-export default function PlaylistPurchasePanel({ playlist }: { playlist: PlaylistDetail }) {
+export default function PlaylistPurchasePanel({
+  playlist,
+  showAnchor = true,
+  onOpenCheckout,
+}: {
+  playlist: PlaylistDetail
+  showAnchor?: boolean
+  onOpenCheckout?: () => void
+}) {
   const router = useRouter()
   const params = useSearchParams()
   const { user, isLoading } = useUser()
@@ -116,7 +124,7 @@ export default function PlaylistPurchasePanel({ playlist }: { playlist: Playlist
 
   return (
     <aside
-      id="playlist-access"
+      id={showAnchor ? "playlist-access" : undefined}
       tabIndex={-1}
       className="scroll-mt-4 space-y-3 rounded-lg border border-neon/20 bg-elevated/60 p-4 focus:outline-neon lg:sticky lg:top-4">
       <div className="flex items-center gap-2">
@@ -145,13 +153,13 @@ export default function PlaylistPurchasePanel({ playlist }: { playlist: Playlist
         ) : null
       ) : commerce?.sales_enabled ? (
         <div className="space-y-2">
-          <Button className="px-3 py-2 text-xs" disabled={busy || isLoading} onClick={checkout}>
+          <Button className="px-3 py-2 text-xs" disabled={busy || isLoading} onClick={onOpenCheckout ?? checkout}>
             {busy ? "Opening checkout…" : `Unlock this playlist — ${formatPlaylistPrice(commerce.price_cents)} once`}
           </Button>
           <p className="text-center text-[11px] text-neutral-400">One-time payment per playlist. No subscription.</p>
         </div>
       ) : (
-        <p className="text-sm text-neutral-400">Purchases are currently unavailable. Enjoy the free songs below.</p>
+        <p className="text-sm text-neutral-400">This playlist has no tracks available for purchase yet.</p>
       )}
       {visibleMessage && (
         <div role="status" className="space-y-2 rounded-lg bg-black/20 p-3 text-sm text-neutral-200">

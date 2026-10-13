@@ -7,6 +7,7 @@ import { isOwnerId } from "@/libs/getOwnerIds"
 import { fulfillPlaylistCheckout } from "@/libs/playlistPayments"
 import { getURL } from "@/app/utils/getURL"
 import { reservePlaylistOrder } from "@/libs/playlistOrders"
+import { DEFAULT_PLAYLIST_PRICE, isPlaylistPurchaseAvailable, parsePlaylistPrice } from "@/libs/commerceRules"
 
 export async function POST(request: Request) {
   const user = await requireCommerceUser()
@@ -21,10 +22,25 @@ export async function POST(request: Request) {
     if (isOwnerId(user.id)) throw new Error("You already have owner access.")
     const { data: config, error: configError } = await admin
       .from("19_playlist_commerce")
-      .select("sales_enabled,price_cents")
+      .select("price_cents")
       .eq("playlist_id", playlist_id)
       .maybeSingle()
     if (configError) throw configError
+    const { data: paidTracks, error: paidTracksError } = await admin
+      .from("19_song_access")
+      .select("song_id")
+      .eq("playlist_id", playlist_id)
+      .eq("is_paid", true)
+      .limit(1)
+    if (paidTracksError) throw paidTracksError
+    if (!isPlaylistPurchaseAvailable({
+      paidSongCount: paidTracks?.length ?? 0,
+      visibility: playlist.visibility,
+      ownedBySite: isOwnerId(playlist.user_id),
+    })) {
+      if (!paidTracks?.length) throw new Error("This playlist has no paid tracks available to unlock.")
+      throw new Error("This playlist is not available for purchase.")
+    }
     const { data: owned, error: ownedError } = await admin
       .from("19_playlist_orders")
       .select("id")
@@ -34,8 +50,11 @@ export async function POST(request: Request) {
       .limit(1)
     if (ownedError) throw ownedError
     if (owned?.length) return NextResponse.json({ purchased: true })
-    if (!config?.sales_enabled) throw new Error("Purchases are currently unavailable for this playlist.")
-    const order = await reservePlaylistOrder(user.id, playlist, config.price_cents)
+    const order = await reservePlaylistOrder(
+      user.id,
+      playlist,
+      parsePlaylistPrice(config?.price_cents ?? DEFAULT_PLAYLIST_PRICE)
+    )
     if (order.status === "paid") return NextResponse.json({ purchased: true })
     if (order.status === "suspended")
       throw new Error(

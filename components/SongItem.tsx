@@ -8,6 +8,7 @@ import useLoadImage from "@/hooks/useLoadImage"
 import useOwnerStore from "@/hooks/useOwnerStore"
 import { Song } from "@/types"
 import CoverImage from "@/components/CoverImage"
+import LockedArtwork from "@/components/LockedArtwork"
 
 import AddToPlaylistButton from "./AddToPlaylistButton"
 import DeleteSongButton from "./DeleteSongButton"
@@ -28,6 +29,7 @@ interface SongItemProps {
 const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLike, isLoading = false, isPlaying = false, className, priority = false }) => {
   const imagePath = useLoadImage(data)
   const { isOwner } = useOwnerStore()
+  const lockedPaid = data.is_paid === true && data.can_play === false
   const handlePlay = () => onPlay?.(data.id)
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -53,22 +55,25 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
 
       {/* Image */}
       <div className="relative aspect-[4/3] w-full overflow-hidden">
-        <CoverImage
-          className="object-cover transition duration-300 group-hover:scale-105"
-          src={imagePath}
-          fill
-          sizes="(min-width: 1280px) 14vw, (min-width: 1024px) 20vw, (min-width: 640px) 25vw, 50vw"
-          alt={data.title}
-          priority={priority}
-        />
+        {lockedPaid ? (
+          <LockedArtwork className="absolute inset-0 text-4xl" />
+        ) : (
+          <CoverImage
+            className="object-cover transition duration-300 group-hover:scale-105"
+            src={imagePath}
+            fill
+            sizes="(min-width: 1280px) 14vw, (min-width: 1024px) 20vw, (min-width: 640px) 25vw, 50vw"
+            alt={data.title}
+            priority={priority}
+          />
+        )}
 
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/20 to-transparent" />
+        {!lockedPaid && <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/20 to-transparent" />}
 
         {/* Top-left SONG badge */}
         <div className="absolute left-2 top-2">
           <span className="rounded-full bg-black/60 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-widest text-neutral-300 backdrop-blur-sm">
-            {data.access_unavailable ? "Unavailable" : data.can_play === false ? "Locked" : data.is_paid ? "Unlocked" : "Song"}
+            {data.access_unavailable ? "Unavailable" : lockedPaid ? "Paid" : data.is_paid ? "Unlocked" : "Song"}
           </span>
         </div>
 
@@ -120,8 +125,8 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
 
       {/* Info */}
       <div className="px-2 py-1.5">
-        <p className={twMerge("truncate text-[11px] font-semibold text-white", isPlaying && "text-neon")}>{data.title}</p>
-        <p className="truncate text-[10px] text-neutral-500">{data.author}</p>
+        <p className={twMerge("truncate text-[11px] font-semibold text-white", isPlaying && "text-neon", lockedPaid && "blur-sm")}>{data.title}</p>
+        <p className="truncate text-[10px] text-neutral-500">{lockedPaid ? "Paid track" : data.author}</p>
       </div>
     </div>
   )

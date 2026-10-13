@@ -3,6 +3,40 @@ import { commerceAdmin as admin } from "@/libs/commerceAdmin"
 import { requireCommerceUser, commerceError } from "@/libs/commerceHttp"
 import { getSafeStoragePath } from "@/libs/helpers"
 import { isOwnerId } from "@/libs/getOwnerIds"
+import { createRouteHandlerClient } from "@/libs/supabaseServer"
+import { getSongAccess } from "@/libs/playlistAccess"
+
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params
+    if (!/^\d+$/.test(id)) return NextResponse.json({ error: "Song not found." }, { status: 404 })
+    const client = await createRouteHandlerClient()
+    const {
+      data: { user },
+    } = await client.auth.getUser()
+    const access = (await getSongAccess([id], { id: user?.id ?? null, isOwner: isOwnerId(user?.id) })).get(id)
+    if (!access?.can_play) {
+      return NextResponse.json(
+        { error: "Purchase a playlist containing this song to view it." },
+        { status: 403, headers: { "Cache-Control": "private, no-store" } },
+      )
+    }
+
+    const { data: song, error } = await admin
+      .from("19_songs")
+      .select("id, user_id, title, author, image_path")
+      .eq("id", Number(id))
+      .maybeSingle()
+    if (error) throw error
+    if (!song) return NextResponse.json({ error: "Song not found." }, { status: 404 })
+    return NextResponse.json(
+      { song: { ...song, id: String(song.id), song_path: "", ...access } },
+      { headers: { "Cache-Control": "private, no-store" } },
+    )
+  } catch (error) {
+    return commerceError(error, 503)
+  }
+}
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await requireCommerceUser()

@@ -3,7 +3,6 @@ import {
   PlaylistAuthor,
   PlaylistDetail,
   PlaylistOption,
-  PlaylistSongWithSong,
   PlaylistSummary,
   Song,
 } from "@/types"
@@ -17,7 +16,6 @@ import {
   getViewer,
   isCommerceSchemaMissing,
   purchasedPlaylists,
-  withSongAccess,
 } from "@/libs/playlistAccess"
 
 const FALLBACK_AUTHOR: PlaylistAuthor = {
@@ -30,6 +28,19 @@ const FALLBACK_AUTHOR: PlaylistAuthor = {
 // The raw row shape as it comes back from Supabase, before normalizePlaylist coerces `id` to a
 // string (Postgres returns it as a number) and fills in Playlist's other fields.
 type RawPlaylistRow = Omit<Playlist, "id"> & { id: string | number }
+type RawPlaylistMembershipRow = {
+  playlist_id: string | number
+  song_id: string | number
+  position: number
+  created_at: string
+}
+type PlaylistSongCover = {
+  playlist_id: string
+  song_id: string
+  position: number
+  created_at: string
+  song: { id: string; image_path: string | null } | null
+}
 
 const normalizePlaylist = (playlist: RawPlaylistRow): Playlist => ({
   id: String(playlist.id),
@@ -41,31 +52,6 @@ const normalizePlaylist = (playlist: RawPlaylistRow): Playlist => ({
   description: playlist.description ?? null,
   visibility: playlist.visibility,
 })
-
-type RawPlaylistSongRow = {
-  playlist_id: string | number
-  song_id: string | number
-  position: number
-  created_at: string
-  song: Omit<Song, "id"> & { id: string | number }
-}
-
-const normalizePlaylistSong = (item: RawPlaylistSongRow): PlaylistSongWithSong | null => {
-  if (!item?.song) {
-    return null
-  }
-
-  return {
-    playlist_id: String(item.playlist_id),
-    song_id: String(item.song_id),
-    position: item.position,
-    created_at: item.created_at,
-    song: {
-      ...item.song,
-      id: String(item.song.id),
-    },
-  }
-}
 
 const getAuthorsById = async (userIds: string[]) => {
   if (userIds.length === 0) {
@@ -107,13 +93,13 @@ const getAuthorsById = async (userIds: string[]) => {
 
 export const getPlaylistSongsByPlaylistIds = async (playlistIds: string[]) => {
   if (playlistIds.length === 0) {
-    return new Map<string, PlaylistSongWithSong[]>()
+    return new Map<string, PlaylistSongCover[]>()
   }
 
   const supabase = await createServerComponentClient()
   const { data, error } = await supabase
     .from("19_playlist_songs")
-    .select("playlist_id, song_id, position, created_at, song:19_songs(*)")
+    .select("playlist_id, song_id, position, created_at")
     .in("playlist_id", playlistIds)
     .order("position", { ascending: true })
 
@@ -122,32 +108,73 @@ export const getPlaylistSongsByPlaylistIds = async (playlistIds: string[]) => {
       console.log(79, "getPlaylistSongsByPlaylistIds error - ", error.message)
     }
 
-    return new Map<string, PlaylistSongWithSong[]>()
+    return new Map<string, PlaylistSongCover[]>()
   }
 
-  const playlistSongsMap = new Map<string, PlaylistSongWithSong[]>()
+  const memberships = data as unknown as RawPlaylistMembershipRow[]
+  if (!memberships.length) return new Map<string, PlaylistSongCover[]>()
 
-  data.forEach(item => {
-    // Supabase infers the `song:19_songs(*)` to-one join as an array even though the FK guarantees
-    // one row, so the query result's static shape doesn't match the real single-object runtime shape.
-    const normalizedItem = normalizePlaylistSong(item as unknown as RawPlaylistSongRow)
+  const songIds = Array.from(new Set(memberships.map(item => Number(item.song_id))))
+  const viewer = await getViewer()
+  let purchases = new Set<string>()
+  try {
+    purchases = await purchasedPlaylists(viewer.id)
+  } catch (purchaseError) {
+    if (!isCommerceSchemaMissing(purchaseError)) throw purchaseError
+  }
 
-    if (!normalizedItem) {
-      return
-    }
+  const [{ data: playlistRows, error: playlistError }, accessResult, { data: songOwners, error: songOwnersError }] = await Promise.all([
+    commerceAdmin.from("19_playlists").select("id,user_id,visibility").in("id", playlistIds),
+    commerceAdmin.from("19_song_access").select("playlist_id,song_id").eq("is_paid", true).in("playlist_id", playlistIds).in("song_id", songIds),
+    commerceAdmin.from("19_songs").select("id,user_id").in("id", songIds),
+  ])
+  if (playlistError) throw playlistError
+  if (songOwnersError) throw songOwnersError
+  const accessUnavailable = Boolean(accessResult.error && isCommerceSchemaMissing(accessResult.error))
+  if (accessResult.error && !accessUnavailable) throw accessResult.error
 
-    const existingItems = playlistSongsMap.get(normalizedItem.playlist_id) ?? []
-    existingItems.push(normalizedItem)
-    playlistSongsMap.set(normalizedItem.playlist_id, existingItems)
-  })
+  const playlistsById = new Map((playlistRows ?? []).map(row => [String(row.id), row]))
+  const songOwnersById = new Map((songOwners ?? []).map(song => [String(song.id), song.user_id]))
+  const paidRows = accessUnavailable ? [] : accessResult.data ?? []
+  const paidMemberships = new Set(paidRows.map(row => `${row.playlist_id}:${row.song_id}`))
+  const canSeeSong = (playlistId: string, songId: string) => {
+    const paid = paidMemberships.has(`${playlistId}:${songId}`)
+    const playlist = playlistsById.get(playlistId)
+    const ownsPlaylist = viewer.id !== null && playlist?.user_id === viewer.id
+    const ownsSong = viewer.id !== null && songOwnersById.get(songId) === viewer.id
+    return viewer.isOwner || ownsPlaylist || ownsSong || purchases.has(playlistId) ||
+      (!accessUnavailable && !paid && (playlist?.visibility === "public" || playlist?.visibility === "unlisted"))
+  }
+  const visibleSongIds = Array.from(new Set(memberships
+    .filter(item => canSeeSong(String(item.playlist_id), String(item.song_id)))
+    .map(item => String(item.song_id))))
+  const { data: songRows, error: songsError } = visibleSongIds.length
+    ? await commerceAdmin.from("19_songs").select("id,image_path").in("id", visibleSongIds.map(Number))
+    : { data: [], error: null }
+  if (songsError) throw songsError
+  const images = new Map((songRows ?? []).map(song => [String(song.id), song.image_path as string | null]))
 
+  const playlistSongsMap = new Map<string, PlaylistSongCover[]>()
+  for (const item of memberships) {
+    const playlistId = String(item.playlist_id)
+    const songId = String(item.song_id)
+    const existingItems = playlistSongsMap.get(playlistId) ?? []
+    existingItems.push({
+      playlist_id: playlistId,
+      song_id: songId,
+      position: item.position,
+      created_at: item.created_at,
+      song: canSeeSong(playlistId, songId) ? { id: songId, image_path: images.get(songId) ?? null } : null,
+    })
+    playlistSongsMap.set(playlistId, existingItems)
+  }
   return playlistSongsMap
 }
 
 const buildPlaylistSummary = (
   playlist: RawPlaylistRow,
   authorsById: Map<string, PlaylistAuthor>,
-  playlistSongsById: Map<string, PlaylistSongWithSong[]>,
+  playlistSongsById: Map<string, PlaylistSongCover[]>,
 ): PlaylistSummary => {
   const normalizedPlaylist = normalizePlaylist(playlist)
   const playlistSongs = playlistSongsById.get(normalizedPlaylist.id) ?? []
@@ -155,7 +182,7 @@ const buildPlaylistSummary = (
   return {
     ...normalizedPlaylist,
     author: authorsById.get(normalizedPlaylist.user_id) ?? { ...FALLBACK_AUTHOR, id: normalizedPlaylist.user_id },
-    cover_image_path: playlistSongs[0]?.song?.image_path ?? null,
+    cover_image_path: playlistSongs.find(item => item.song?.image_path)?.song?.image_path ?? null,
     song_count: playlistSongs.length,
   }
 }
@@ -317,31 +344,111 @@ export const getPlaylistBySlug = async (slug: string): Promise<PlaylistDetail | 
   }
 
   const normalizedPlaylist = normalizePlaylist(data)
-  const [authorsById, playlistSongsById] = await Promise.all([
+  const [authorsById, commerce, viewer, membershipsResult] = await Promise.all([
     getAuthorsById([normalizedPlaylist.user_id]),
-    getPlaylistSongsByPlaylistIds([normalizedPlaylist.id]),
-  ])
-
-  const playlistSongs = playlistSongsById.get(normalizedPlaylist.id) ?? []
-
-  const [commerce, accessibleSongs, viewer] = await Promise.all([
     getPlaylistCommerce([normalizedPlaylist]),
-    withSongAccess(playlistSongs.map(item => item.song)),
     getViewer(),
+    supabase
+      .from("19_playlist_songs")
+      .select("playlist_id, song_id, position, created_at")
+      .eq("playlist_id", normalizedPlaylist.id)
+      .order("position", { ascending: true }),
   ])
-  let playlistAccessibleSongs = accessibleSongs
+  if (membershipsResult.error) throw membershipsResult.error
+  const memberships = (membershipsResult.data ?? []) as unknown as RawPlaylistMembershipRow[]
+  const playlistCommerce = commerce.get(normalizedPlaylist.id)
+  const canManage = viewer.id === normalizedPlaylist.user_id || Boolean(playlistCommerce?.can_manage)
+  if (normalizedPlaylist.visibility === "private" && !canManage) return null
+
+  const songAccessSeeds: Song[] = memberships.map(item => ({
+    id: String(item.song_id),
+    user_id: "",
+    author: "",
+    title: "",
+    song_path: "",
+    image_path: "",
+  }))
+  let songAccess: Song[]
+  let accessUnavailable = false
   try {
-    playlistAccessibleSongs = await applyPlaylistSongAccess(normalizedPlaylist.id, accessibleSongs, viewer)
+    songAccess = await applyPlaylistSongAccess(normalizedPlaylist.id, songAccessSeeds, viewer, canManage)
   } catch (error) {
     if (!isCommerceSchemaMissing(error)) throw error
+    accessUnavailable = true
+    songAccess = songAccessSeeds.map(song => ({ ...song, can_play: false, access_unavailable: true }))
   }
+
+  const visibleSongIds = Array.from(new Set(songAccess.filter(song => song.can_play === true).map(song => song.id)))
+  const { data: songRows, error: songError } = visibleSongIds.length
+    ? await commerceAdmin
+        .from("19_songs")
+        .select("id, user_id, author, title, song_path, image_path")
+        .in("id", visibleSongIds.map(Number))
+    : { data: [], error: null }
+  if (songError) throw songError
+  const songsById = new Map((songRows ?? []).map(song => [String(song.id), song]))
+
+  const playlistSongs: Song[] = songAccess.map(song => {
+    if (accessUnavailable) {
+      return {
+        ...song,
+        title: "Track unavailable",
+        author: "",
+        song_path: "",
+        image_path: "",
+        is_paid: false,
+        can_play: false,
+        access_unavailable: true,
+      }
+    }
+    if (song.can_play !== true) {
+      return {
+        ...song,
+        title: "Please pay instead of trying to hack",
+        author: "",
+        song_path: "",
+        image_path: "",
+        is_paid: true,
+        can_play: false,
+        unlock_slug: null,
+      }
+    }
+    const visibleSong = songsById.get(song.id)
+    if (!visibleSong) {
+      return {
+        ...song,
+        title: "Track unavailable",
+        author: "",
+        song_path: "",
+        image_path: "",
+        can_play: false,
+        access_unavailable: true,
+      }
+    }
+    return {
+      ...song,
+      ...visibleSong,
+      id: String(visibleSong.id),
+      user_id: visibleSong.user_id ?? "",
+      author: visibleSong.author ?? "",
+      title: visibleSong.title ?? "",
+      song_path: visibleSong.song_path ?? "",
+      image_path: visibleSong.image_path ?? "",
+    }
+  })
 
   return {
     ...normalizedPlaylist,
     author: authorsById.get(normalizedPlaylist.user_id) ?? { ...FALLBACK_AUTHOR, id: normalizedPlaylist.user_id },
-    cover_image_path: playlistSongs[0]?.song?.image_path ?? null,
-    songs: playlistSongs.map((item, index) => ({ ...item, song: playlistAccessibleSongs[index] })),
-    commerce: commerce.get(normalizedPlaylist.id),
+    cover_image_path: playlistSongs.find(song => song.can_play === true && song.image_path)?.image_path ?? null,
+    songs: memberships.map((item, index) => ({
+      playlist_id: String(item.playlist_id),
+      song_id: String(item.song_id),
+      position: item.position,
+      created_at: item.created_at,
+      song: playlistSongs[index],
+    })),
+    commerce: playlistCommerce,
   }
 }
 

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
-import { FiEdit2, FiLock, FiPlay, FiSearch, FiShuffle, FiMenu, FiTrash2 } from "react-icons/fi"
+import { FiEdit2, FiPlay, FiSearch, FiShuffle, FiMenu, FiTrash2 } from "react-icons/fi"
 import { PlaylistDetail, PlaylistSongWithSong, Song } from "@/types"
 import useOnPlay from "@/hooks/useOnPlay"
 import useEditSongModal from "@/hooks/useEditSongModal"
@@ -13,7 +13,9 @@ import AddToPlaylistButton from "@/components/AddToPlaylistButton"
 import DownloadSongButton from "@/components/DownloadSongButton"
 import Button from "@/components/Button"
 import Input from "@/components/Input"
+import Modal from "@/components/Modal"
 import SupportLink from "@/components/SupportLink"
+import { formatPlaylistPrice } from "@/libs/commerceRules"
 import PlaylistEditor from "./PlaylistEditor"
 import PlaylistPurchasePanel from "./PlaylistPurchasePanel"
 
@@ -67,7 +69,7 @@ function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, 
         <MediaItem data={item.song} onClick={onPlay} size={36} />
       </div>
       <span className={`flex shrink-0 items-center gap-1 text-[11px] ${locked ? "text-neutral-400" : "text-neon/80"}`}>
-        {item.song.access_unavailable ? "Unavailable" : locked ? <><FiLock size={12} /><span className="hidden sm:inline">Locked</span></> : item.song.is_paid ? canManage ? "Paid" : "Unlocked" : "Free"}
+        {item.song.access_unavailable ? "Unavailable" : locked && item.song.is_paid ? "Paid" : locked ? "Unavailable" : item.song.is_paid ? canManage ? "Paid" : "Unlocked" : "Free"}
       </span>
       {canEditSong && (
         <button type="button" onClick={() => onEdit(item.song)} aria-label={`Edit ${item.song.title}`}
@@ -101,6 +103,7 @@ export default function PlaylistDetailContent({
   const router = useRouter()
   const editSongModal = useEditSongModal()
   const [editing, setEditing] = useState(false)
+  const [purchaseModalOpen, setPurchaseModalOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [shuffle, setShuffle] = useState(false)
   const [shuffleSeed, setShuffleSeed] = useState<string[]>([])
@@ -123,13 +126,14 @@ export default function PlaylistDetailContent({
     if (!shuffle) return songs
     return [...songs].sort((a, b) => shuffleSeed.indexOf(a.id) - shuffleSeed.indexOf(b.id))
   }, [orderedSongs, shuffle, shuffleSeed])
-  const focusPurchase = () => {
-    const panel = document.getElementById("playlist-access")
-    panel?.scrollIntoView({ behavior: "smooth", block: "center" })
-    panel?.focus({ preventScroll: true })
-  }
   const commerce = playlist.commerce
-  const onPlay = useOnPlay(queue, commerce?.sales_enabled ? focusPurchase : undefined)
+  const handleLockedSong = (id: string) => {
+    const song = queue.find(item => item.id === id)
+    if (!song?.is_paid) return false
+    setPurchaseModalOpen(true)
+    return true
+  }
+  const onPlay = useOnPlay(queue, handleLockedSong, playlist.id)
   const playable = queue.filter(song => song.can_play)
   const hasAccess = Boolean(commerce?.purchased || commerce?.can_manage)
   const showPurchase =
@@ -312,9 +316,9 @@ export default function PlaylistDetailContent({
         )}
       </div>
       <div className={showPurchase ? "mb-6 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_280px]" : "mb-6"}>
-        {showPurchase && (
+        {showPurchase && !purchaseModalOpen && (
           <div className="xl:col-start-2 xl:row-start-1">
-            <PlaylistPurchasePanel playlist={playlist} />
+            <PlaylistPurchasePanel playlist={playlist} onOpenCheckout={() => setPurchaseModalOpen(true)} />
           </div>
         )}
         <section className="min-w-0 xl:col-start-1 xl:row-start-1" aria-label="Playlist songs">
@@ -374,6 +378,17 @@ export default function PlaylistDetailContent({
         </p>
       </footer>
       {editing && <PlaylistEditor playlist={playlist} onClose={() => setEditing(false)} />}
+      {purchaseModalOpen && (
+        <Modal
+          isOpen
+          onChange={open => { if (!open) setPurchaseModalOpen(false) }}
+          title="Unlock this playlist"
+          description={commerce?.sales_enabled
+            ? `One-time payment of ${formatPlaylistPrice(commerce.price_cents)} unlocks the paid tracks.`
+            : "This playlist has no tracks available for purchase yet."}>
+          <PlaylistPurchasePanel playlist={playlist} showAnchor={false} />
+        </Modal>
+      )}
     </div>
   )
 }
