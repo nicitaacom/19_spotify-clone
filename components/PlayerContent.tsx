@@ -54,7 +54,6 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     seek: seekValue,
     seekId,
     repeatMode,
-    savedPosition,
     setId,
     setActiveSong,
     setIsLoading,
@@ -386,6 +385,8 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     if (activeSoundIdRef.current === null) s.play()
     else s.play(activeSoundIdRef.current)
   }, [play])
+  const playSoundRef = useRef(playSound)
+  useEffect(() => { playSoundRef.current = playSound }, [playSound])
 
   useEffect(() => {
     if (!sound) setProgress(0)
@@ -401,13 +402,12 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
 
     if (didAutoPlayRef.current) {
       if (wasPlayingRef.current && !sound.playing()) {
-        const resumePos = savedPosition
+        const resumePos = usePlayer.getState().savedPosition
         setSavedPosition(0)
         if (resumePos > 0) {
           sound.once("play", () => seekCurrentSound(resumePos))
         }
-        if (activeSoundIdRef.current === null) sound.play()
-        else sound.play(activeSoundIdRef.current)
+        playSoundRef.current()
       }
       return
     }
@@ -416,7 +416,10 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     setIsLoading(true)
     const resumePosition = usePlayer.getState().savedPosition
     if (resumePosition > 0) sound.once("play", () => seekCurrentSound(resumePosition))
-    sound.play()
+    // Use the same guard as the play button and command handler. A track change can also
+    // trigger the play-command effect; calling Howler directly here can spawn a second HTML5
+    // audio node before the first one has started, leaving the next track paused.
+    playSoundRef.current()
 
     return () => {
       wasPlayingRef.current = isPlayingRef.current
@@ -425,8 +428,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       setIsPlayingInStore(false)
       sound.unload()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sound])
+  }, [seekCurrentSound, setIsLoading, setIsPlayingInStore, setSavedPosition, sound])
 
   // Stable refs for mediaSession next/previous handlers
   const onPlayNextRef = useRef(onPlayNext)
