@@ -150,6 +150,27 @@ All play call sites (command effect, `handlePlay`, the autoplay resume branch) n
 
 **Rule going forward:** never call `sound.play()` unguarded with `html5: true` — always check `sound.playing()` first, or you get a duplicate stream. And never assume a `useSound` `on*` callback sees current state — it sees the values from the render that created the Howl. Use a ref.
 
+### Bug: Next track was selected but did not start
+
+**Symptom:** At the end of a song (or after using next/previous), the player showed the next
+track's title while playback stayed stopped.
+
+**Root cause:** Track navigation changed `activeId` and relied only on the newly keyed
+`PlayerContent` mount to autoplay. React Strict Mode can replay that component's effects: the first
+play request may still be pending when cleanup unloads the HTML5 Howl, before Howler has fired
+`onplay`. Since the old cleanup only remembered confirmed playback, the replayed setup could lose
+the request. The global playback-command effect also waited for loading to finish, so it could not
+act as a fallback while the new sound was preparing.
+
+**Fix:** Next, previous, and repeat-all navigation now record an explicit `play` command for the
+target track. The target player handles that command as soon as its sound exists, even while the
+track is loading. A pending-play ref makes autoplay and the command share one guarded start path,
+so they cannot create duplicate HTML5 audio nodes. Effect cleanup preserves a pending request and
+always registers cleanup on each setup, allowing Strict Mode's replayed setup to restart the sound.
+
+**Rule going forward:** track navigation that is expected to continue playback must carry an
+explicit play intent to the new `PlayerContent`; do not depend only on a component mount effect.
+
 ---
 
 ### Bug: Progress bar frozen / showing stale time after tab switch
