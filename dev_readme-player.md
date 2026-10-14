@@ -30,9 +30,9 @@ Required for large MP3s (>~10MB). Without it the browser tries to decode the ent
 
 **Side effect:** Howler fires `onpause` multiple times in rapid succession when using `html5: true`. See bug fix below.
 
-### `savedPosition` in Zustand store
+### Track start and `savedPosition`
 
-When `PlayerContent` unmounts (song change via `key` prop), the cleanup saves the current seek position to `savedPosition` in the store. On mount of the new `PlayerContent`, if `savedPosition > 0` it seeks there after the first `play` event. This handles tab-switch resume.
+`startPlayback` updates the queue, active song, loading state, saved position, and `play` command in one Zustand update. `PlayerContent` waits for its Howl to load, then consumes that command. Cleanup saves the current position when the same song is being reloaded; the next `play` command restores it after the audio starts.
 
 ---
 
@@ -42,15 +42,9 @@ When `PlayerContent` unmounts (song change via `key` prop), the cleanup saves th
 
 **Symptom:** Pressing Space to pause caused the song to restart from the beginning on the next play. Progress bar showed stale position.
 
-**Root cause (confirmed via logs):** `html5: true` causes Howler to fire `onpause` multiple times in rapid succession. Each `onpause` call triggered:
+**Root cause:** With `html5: true`, Howler can emit several pause events close together. Treating every event as a new state change could re-run the same pause command.
 
-1. `setIsPlayingInStore(false)` → Zustand store update
-2. Store update → React re-render
-3. Re-render → `CMD-EFFECT` (playbackCommand effect) re-ran (it had `sound` in its dep array)
-4. `CMD-EFFECT` called `pause()` again
-5. → `onpause` fired again → infinite loop
-
-**Fix:**
+**Fix:** The `onpause` handler exits when the player is already paused. The command effect also records each `playbackCommandId` once. It keeps `sound` as a dependency so a newly loaded Howl can receive a pending play command.
 
 ```ts
 // In useSound onpause callback — guard against duplicate fires
@@ -62,114 +56,24 @@ onpause: () => {
 },
 ```
 
-Also removed `sound` from the `playbackCommand` effect's dependency array — it doesn't need `sound` directly (it calls `play()`/`pause()` which are stable refs from `useSound`), and having it there caused the effect to re-run on every re-render, compounding the loop.
-
-```ts
-// Before (wrong):
-}, [activeId, isLoading, pause, play, playbackCommand, playbackCommandId, song.id, sound])
-
-// After (correct):
-}, [activeId, isLoading, pause, play, playbackCommand, playbackCommandId, song.id])
-```
-
 **Rule going forward:** Any Howler callback (`onpause`, `onplay`, `onend`) must guard against being called when already in the target state. Use `isPlayingRef.current` (a ref, not state) as the guard — refs don't trigger re-renders.
 
 ---
 
-### Bug: Double play on tab switch
+### Bug: Duplicate playback and next track failing to start
 
-**Symptom:** Switching tabs while a song plays caused it to play twice simultaneously.
+**Symptoms:** A new track appeared in the player but did not start, or playback started twice.
 
-**Root cause:** `sound.play()` was called in a `useEffect([sound])` with no guard. Tab switching causes Howler to reinitialize `sound`, which changed the reference and re-triggered the effect, calling `play()` on the new instance while the old one was still audible.
-
-**Fix:** `didAutoPlayRef` tracks whether we've already initiated playback for this mount. The `wasPlayingRef` tracks whether we were playing before the sound re-init, so on tab-back we only resume if we were actually playing (not if paused):
-
-```ts
-const didAutoPlayRef = useRef(false)
-const wasPlayingRef = useRef(false)
-
-useEffect(() => {
-  if (!sound) return
-  if (didAutoPlayRef.current) {
-    if (wasPlayingRef.current) {
-      sound.play()  // resume only if was playing
-    }
-    return
-  }
-  didAutoPlayRef.current = true
-  sound.play()
-  return () => {
-    wasPlayingRef.current = isPlayingRef.current
-    sound.unload()
-  }
-}, [sound])
-```
-
----
-
-### Bug: Double play (two streams at once) AND song restarts instead of resuming — the real root cause
-
-**Symptoms:**
-1. The same song is audible twice at the same time.
-2. Pressing play after pause restarts the track from 0 instead of continuing.
-
-**Root cause (two parts, both confirmed against `use-sound@4.0.4` source):**
-
-**Part A — frozen Howler callbacks.** `use-sound` spreads the `on*` callbacks into `new Howl(...)` **once, at construction**, and never updates them (only `onload` is wired by use-sound itself; everything else rides along in `delegated`). So `onend` / `onpause` capture the **first render's** closures — `repeatMode` is stuck at its initial `"off"`, `onPlayNext` is stuck at the initial `ids`/`activeId`. The stale `onend` then drives playback with wrong state (wrong next track, or the repeat-one `seek(0); play()` path firing when it shouldn't → restart).
-
-**Part B — `play()` stacks a second node.** With `html5: true`, Howler's `.play()` does **not** no-op when a sound node is already active; it spawns a **second** `<audio>` element. Multiple call sites (autoplay effect, play-command effect, play button, replay) could each call `.play()` while a node was still alive → two simultaneous streams.
+**Causes:** `useSound` captures Howler callbacks when it constructs a Howl, and HTML5 Howler can create another audio node if `.play()` is called while a node is already playing. Track selection also used several separate store updates, so the active song and play intent could be observed at different times.
 
 **Fix:**
 
-1. Route the dynamic callbacks through a ref refreshed every render, so Howler always runs current logic:
+- `usePlayer.startPlayback` atomically sets the queue, active song, loading state, and a new `play` command. Initial selection, next, previous, and repeat-all use this action.
+- `PlayerContent` waits for its sound instance, then handles each command ID once. It no longer has a separate mount-autoplay path.
+- Every start goes through `playSound`, which skips calls while Howler is already playing or a request is pending. Natural end reads current repeat and queue state through a ref.
+- Cleanup saves the position only when the same track is being reloaded. A new sound instance replays the command and restores that position after playback starts.
 
-```ts
-const handleEndRef = useRef<() => void>(() => {})
-useEffect(() => {
-  handleEndRef.current = () => {
-    /* reads CURRENT repeatMode + onPlayNext */
-  }
-}, [repeatMode, onPlayNext, setIsPlayingInStore])
-
-// in useSound options — stable identity, always calls latest:
-onend: () => handleEndRef.current(),
-```
-
-2. Funnel every start/resume through one guarded helper that refuses to stack a node and never seeks on resume (html5 Howl keeps its position across `pause()`, so a plain `play()` continues):
-
-```ts
-const playSound = useCallback(() => {
-  const s = soundRef.current
-  if (!s) { play(); return }
-  if (s.playing()) return   // ← prevents the 2nd node (double play)
-  s.play()                  // ← resumes from retained position (no restart)
-}, [play])
-```
-
-All play call sites (command effect, `handlePlay`, the autoplay resume branch) now go through `playSound` / a `playing()` check. Only explicit **replay** and **repeat-one** call `seek(0)` before playing.
-
-**Rule going forward:** never call `sound.play()` unguarded with `html5: true` — always check `sound.playing()` first, or you get a duplicate stream. And never assume a `useSound` `on*` callback sees current state — it sees the values from the render that created the Howl. Use a ref.
-
-### Bug: Next track was selected but did not start
-
-**Symptom:** At the end of a song (or after using next/previous), the player showed the next
-track's title while playback stayed stopped.
-
-**Root cause:** Track navigation changed `activeId` and relied only on the newly keyed
-`PlayerContent` mount to autoplay. React Strict Mode can replay that component's effects: the first
-play request may still be pending when cleanup unloads the HTML5 Howl, before Howler has fired
-`onplay`. Since the old cleanup only remembered confirmed playback, the replayed setup could lose
-the request. The global playback-command effect also waited for loading to finish, so it could not
-act as a fallback while the new sound was preparing.
-
-**Fix:** Next, previous, and repeat-all navigation now record an explicit `play` command for the
-target track. The target player handles that command as soon as its sound exists, even while the
-track is loading. A pending-play ref makes autoplay and the command share one guarded start path,
-so they cannot create duplicate HTML5 audio nodes. Effect cleanup preserves a pending request and
-always registers cleanup on each setup, allowing Strict Mode's replayed setup to restart the sound.
-
-**Rule going forward:** track navigation that is expected to continue playback must carry an
-explicit play intent to the new `PlayerContent`; do not depend only on a component mount effect.
+**Rule going forward:** keep track selection and play intent together in `startPlayback`, and never call HTML5 Howler `.play()` without the `playing()` and pending-request guards.
 
 ---
 

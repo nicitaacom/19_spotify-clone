@@ -12,6 +12,7 @@ export interface Song {
   can_play?: boolean
   unlock_slug?: string | null
   access_unavailable?: boolean
+  tags?: string[]
 }
 
 export interface PlaylistCommerce {

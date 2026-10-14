@@ -162,9 +162,9 @@ export type Database = {
         Relationships: []
       }
       "19_songs": {
-        Row: { author: string | null; created_at: string; id: number; image_path: string | null; size_bytes: number | null; song_path: string | null; title: string | null; user_id: string | null }
-        Insert: { author?: string | null; created_at?: string; id?: number; image_path?: string | null; size_bytes?: number | null; song_path?: string | null; title?: string | null; user_id?: string | null }
-        Update: { author?: string | null; created_at?: string; id?: number; image_path?: string | null; size_bytes?: number | null; song_path?: string | null; title?: string | null; user_id?: string | null }
+        Row: { author: string | null; created_at: string; id: number; image_path: string | null; size_bytes: number | null; song_path: string | null; title: string | null; user_id: string | null; tags: string[] }
+        Insert: { author?: string | null; created_at?: string; id?: number; image_path?: string | null; size_bytes?: number | null; song_path?: string | null; title?: string | null; user_id?: string | null; tags?: string[] }
+        Update: { author?: string | null; created_at?: string; id?: number; image_path?: string | null; size_bytes?: number | null; song_path?: string | null; title?: string | null; user_id?: string | null; tags?: string[] }
         Relationships: []
       }
       "19_subscriptions": {
@@ -256,7 +256,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      search_music_songs: { Args: { p_query: string }; Returns: Database["public"]["Tables"]["19_songs"]["Row"][] }
+      recommend_public_music: { Args: { p_tags: string[]; p_limit?: number }; Returns: { id: number; title: string | null; author: string | null; image_path: string | null; tags: string[]; playlist_slug: string; matched_tags: string[] }[] }
     }
     Enums: {
       playlist_visibility: "public" | "unlisted" | "private"

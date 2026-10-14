@@ -85,6 +85,27 @@ export const slugifyFilePart = (value: string) => {
 
 export const getPlaylistSlug = (value: string) => slugifyFilePart(value)
 
+export const getPlaylistSlugPreservingCase = (value: string) => {
+  const transliterated = value
+    .trim()
+    .split("")
+    .map(char => {
+      const lowerChar = char.toLowerCase()
+      const mapped = CYRILLIC_TO_LATIN_MAP[lowerChar]
+      if (mapped === undefined) return char
+      return char === lowerChar ? mapped : mapped.toUpperCase()
+    })
+    .join("")
+
+  const normalized = transliterated.normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
+  const slug = normalized
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-")
+
+  return slug || "file"
+}
+
 export const getSupabasePublicUrl = (bucket: string, path?: string | null) => {
   return buildSupabasePublicUrl(process.env.NEXT_PUBLIC_SUPABASE_URL, bucket, path)
 }

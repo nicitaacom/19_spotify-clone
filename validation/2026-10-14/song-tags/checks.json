@@ -1,0 +1,26 @@
+{
+  "scope": "song tag input",
+  "widths": [
+    1440,
+    390
+  ],
+  "browserChecksPassed": true,
+  "sqlRepeatedAndRlsPassed": true,
+  "typeScriptPassed": true,
+  "hostedSqlApplied": false,
+  "privateEnvironmentFilesAccessed": false,
+  "tagValidationTestsPassed": 3,
+  "targetedLintPassed": true,
+  "sqlSha256": "c8a08162c673f9c43d8faf68b2af4ad554f36ad16ac63d56892ac703ce34b60d",
+  "sourceSha256": {
+    "libs/songTags.ts": "41880588481dfc466929d166ea162ecace2b9b2fa6bdd40af599de73cfa3d3d7",
+    "components/SongTagsInput.tsx": "58aa0d9decd76ddee07572fc20be05a0a432dbde532e517f8bacd2262cf5d55c",
+    "components/AddASongModal.tsx": "8690f66fc4843b7c276470bda05f6e62fb5eb8400198e5b7c96e54bbbc9d53d3",
+    "components/EditSongModal.tsx": "282b388bc123e72354cfac0422172d9e087eefa6e05a02ec611baeb86e75923f",
+    "app/api/songs/route.ts": "d0291d58b6cdf6aeb35530097e4724cfa739017bc5e85c89af00d2ca589dcb74",
+    "app/api/songs/[id]/route.ts": "2758c4bb0a1743d7d3f582620fa6c64ea8a1b4b3cee8e021262d3bf6458d3558",
+    "actions/getSongsByTitle.ts": "309af42b2700142bd4aa52bd7da5e84884d2d4d1a8b73fb456300d180c1a8feb",
+    "actions/searchSongsAndPlaylistsAction.ts": "b10ff37ea32b8b6695a34605a070cad4699d218e8af01ab24a62330e655d5548",
+    "libs/playlistAccess.ts": "5a0200ce9c86b621f8f412473b02a727f5d1f253769e109efc2ab96248321cb6"
+  }
+}

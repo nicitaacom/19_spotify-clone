@@ -84,7 +84,6 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassNam
       } else {
         setIsLiked(true)
         onToggle?.(true)
-        toast.success("Success")
       }
     }
 

@@ -96,6 +96,7 @@ function redactLockedPaidSong(song: Song): Song {
     author: "",
     song_path: "",
     image_path: "",
+    tags: [],
     unlock_slug: null,
   }
 }
@@ -118,6 +119,7 @@ export async function withSongAccess(songs: Song[]): Promise<Song[]> {
       author: "",
       song_path: "",
       image_path: "",
+      tags: [],
       can_play: false,
       access_unavailable: true,
     }))

@@ -4,6 +4,7 @@ import uniqid from "uniqid"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { getSafeStoragePath } from "@/libs/helpers"
+import { parseSongTags } from "@/libs/songTags"
 
 import { requireUser } from "../backup/requireUser"
 
@@ -36,6 +37,9 @@ export async function POST(request: Request) {
   const author = formData.get("author") as string | null
   const playlistId = formData.get("playlistId") as string | null
   const isPaid = formData.get("isPaid") === "true"
+  let tags: string[]
+  try { tags = parseSongTags(formData.get("tags")) }
+  catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid tags." }, { status: 400 }) }
 
   if (!(songFile instanceof File) || !(imageFile instanceof File) || !title?.trim() || !author?.trim()) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
@@ -115,6 +119,7 @@ export async function POST(request: Request) {
       image_path: imagePath,
       song_path: songPath,
       size_bytes: songFile.size,
+      tags,
     })
     .select("id")
     .single()

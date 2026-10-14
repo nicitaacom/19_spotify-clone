@@ -10,6 +10,7 @@ module.exports = {
   ...require("./no-undeclared-envs"),
   ...require("./no-void-only-jsx-handler"),
   ...require("./no-inline-on-click"),
+  ...require("./no-zustand-get-state-in-condition"),
   // runs on package.json through ./json-processor.js
   ...require("./no-unused-dependencies"),
 }

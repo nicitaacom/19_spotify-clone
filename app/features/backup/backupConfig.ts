@@ -69,7 +69,7 @@ export const BACKUP_TABLES: BackupTableConfig[] = [
     name: "19_songs",
     onConflict: "id",
     numericColumns: ["id", "size_bytes"],
-    arrayColumns: [],
+    arrayColumns: ["tags"],
     jsonColumns: [],
     scopeSelect: async (admin, userId) => await admin.from("19_songs").select("*").eq("user_id", userId),
     scopeRows: scopeOwnedSongs,

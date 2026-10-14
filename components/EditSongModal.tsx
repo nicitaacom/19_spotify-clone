@@ -6,16 +6,24 @@ import toast from "react-hot-toast"
 import { useRouter } from "next/navigation"
 
 import useEditSongModal from "@/hooks/useEditSongModal"
+import { useUser } from "@/hooks/useUser"
+import { isOwnerId } from "@/libs/getOwnerIds"
+import { songTagsWithDraft } from "@/libs/songTags"
 
 import Modal from "./Modal"
 import Input from "./Input"
 import Button from "./Button"
+import { SongTagsInput } from "./SongTagsInput"
 
 const EditSongModal = () => {
   const { isOpen, song, playlistId, onUpdate, onClose } = useEditSongModal()
 
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [tagDraft, setTagDraft] = useState<{ songId: string; tags: string[] } | null>(null)
+  const { user } = useUser()
+  const canEditTags = isOwnerId(user?.id)
+  const tags = tagDraft && tagDraft.songId === song?.id ? tagDraft.tags : song?.tags ?? []
 
   const { register, handleSubmit, reset } = useForm<FieldValues>({
     defaultValues: { title: "", author: "", image: null, isPaid: false },
@@ -28,11 +36,16 @@ const EditSongModal = () => {
   const onChange = (open: boolean) => {
     if (!open) {
       reset()
+      setTagDraft(null)
       onClose()
     }
   }
 
-  const onSubmit: SubmitHandler<FieldValues> = async values => {
+  const handleTagsChange = (nextTags: string[]) => {
+    if (song) setTagDraft({ songId: song.id, tags: nextTags })
+  }
+
+  const onSubmit: SubmitHandler<FieldValues> = async (values, event) => {
     if (!song) return
     const title = values.title.trim()
     const author = values.author.trim()
@@ -41,10 +54,14 @@ const EditSongModal = () => {
 
     setIsLoading(true)
     let imagePath = song.image_path
+    let submittedTags = tags
     try {
+      const form = event?.target instanceof HTMLFormElement ? event.target : null
+      if (canEditTags) submittedTags = songTagsWithDraft(tags, form?.querySelector<HTMLInputElement>("[data-song-tags-input]")?.value ?? "")
       const formData = new FormData()
       formData.append("title", title)
       formData.append("author", author)
+      if (canEditTags) formData.append("tags", JSON.stringify(submittedTags))
       if (values.image?.[0]) formData.append("image", values.image[0])
       if (playlistId) {
         formData.append("playlistId", playlistId)
@@ -60,7 +77,7 @@ const EditSongModal = () => {
     } finally { setIsLoading(false) }
 
     toast.success("Song updated.")
-    onUpdate?.({ ...song, title, author, image_path: imagePath, is_paid: playlistId ? Boolean(values.isPaid) : song.is_paid })
+    onUpdate?.({ ...song, title, author, image_path: imagePath, ...(canEditTags ? { tags: submittedTags } : {}), is_paid: playlistId ? Boolean(values.isPaid) : song.is_paid })
     router.refresh()
     onChange(false)
   }
@@ -82,6 +99,7 @@ const EditSongModal = () => {
           {...register("author", { required: true })}
           placeholder="Song author"
         />
+        {canEditTags && <SongTagsInput key={song?.id} id="edit-song-tags" value={tags} onChange={handleTagsChange} disabled={isLoading} />}
         <label className="block space-y-2 text-sm">
           <span>Replace cover image (optional)</span>
           <Input id="image" type="file" accept="image/*" disabled={isLoading} {...register("image")} />

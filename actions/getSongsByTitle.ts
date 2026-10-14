@@ -13,10 +13,7 @@ const getSongsByTitle = async (title: string): Promise<Song[]> => {
   }
 
   const { data, error } = await supabase
-    .from("19_songs")
-    .select("*")
-    .ilike("title", `%${title}%`)
-    .order("created_at", { ascending: false })
+    .rpc("search_music_songs", { p_query: title.trim().slice(0, 200) })
 
   if (error) {
     console.log(25, "error - ", error.message)

@@ -5,6 +5,7 @@ import { getSafeStoragePath } from "@/libs/helpers"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { createRouteHandlerClient } from "@/libs/supabaseServer"
 import { getSongAccess } from "@/libs/playlistAccess"
+import { parseSongTags } from "@/libs/songTags"
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -24,7 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
     const { data: song, error } = await admin
       .from("19_songs")
-      .select("id, user_id, title, author, image_path")
+      .select("id, user_id, title, author, image_path, tags")
       .eq("id", Number(id))
       .maybeSingle()
     if (error) throw error
@@ -51,6 +52,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const image = isForm ? input.get("image") : null
     const playlistId = isForm ? input.get("playlistId") : input.playlistId
     const paidValue = isForm ? input.get("isPaid") : input.isPaid
+    const hasTags = isForm ? input.has("tags") : Object.hasOwn(input, "tags")
+    if (hasTags && !isOwnerId(user.id)) return NextResponse.json({ error: "Only the site administrator can change song tags." }, { status: 403 })
+    const tags = hasTags ? parseSongTags(isForm ? input.get("tags") : input.tags) : undefined
     if (typeof title !== "string" || !title.trim() || typeof author !== "string" || !author.trim()) {
       throw new Error("Title and artist are required.")
     }
@@ -107,7 +111,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { error: updateError } = await admin
       .from("19_songs")
-      .update({ title: title.trim(), author: author.trim(), ...(imagePath ? { image_path: imagePath } : {}) })
+      .update({ title: title.trim(), author: author.trim(), ...(imagePath ? { image_path: imagePath } : {}), ...(tags ? { tags } : {}) })
       .eq("id", Number(id))
     if (updateError) {
       if (playlistId) {

@@ -14,11 +14,12 @@ import PlayerContent from "./PlayerContent"
 
 const Player = () => {
   const { user } = useUser()
+  const resetPlayer = usePlayer(state => state.reset)
   const previousUser = useRef(user?.id)
   useEffect(() => {
-    if (previousUser.current !== user?.id) usePlayer.getState().reset()
+    if (previousUser.current !== user?.id) resetPlayer()
     previousUser.current = user?.id
-  }, [user?.id])
+  }, [resetPlayer, user?.id])
   const {
     activeId,
     activeSong: currentStoreSong,
@@ -33,7 +34,8 @@ const Player = () => {
   } = usePlayer()
 
   const pauseForExternalPlayback = useCallback(() => {
-    if (usePlayer.getState().isPlaying) requestPlaybackCommand("pause")
+    const isPlayingNow = usePlayer.getState().isPlaying
+    if (isPlayingNow) requestPlaybackCommand("pause")
   }, [requestPlaybackCommand])
 
   useExclusivePlaybackSource({
