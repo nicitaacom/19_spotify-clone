@@ -40,18 +40,35 @@ const SearchModal = () => {
   useEffect(() => {
     if (!isOpen || !debouncedSearchValue) return
 
+    let isCancelled = false
+
     const fetchFn = async () => {
       setErrorMessage("")
-      const result = await searchSongsAndPlaylistsAction(debouncedSearchValue)
-      if (typeof result === "string") {
-        setErrorMessage(result)
-        return
+      try {
+        const result = await searchSongsAndPlaylistsAction(debouncedSearchValue)
+        if (isCancelled) return
+
+        if (typeof result === "string") {
+          setSongs([])
+          setPlaylists([])
+          setErrorMessage(result)
+          return
+        }
+
+        setSongs(result.songs)
+        setPlaylists(result.playlists)
+      } catch {
+        if (isCancelled) return
+        setSongs([])
+        setPlaylists([])
+        setErrorMessage("Search is temporarily unavailable. Please try again.")
       }
-      setSongs(result.songs)
-      setPlaylists(result.playlists)
     }
 
     fetchFn()
+    return () => {
+      isCancelled = true
+    }
   }, [isOpen, debouncedSearchValue])
 
   const onChange = (open: boolean) => {

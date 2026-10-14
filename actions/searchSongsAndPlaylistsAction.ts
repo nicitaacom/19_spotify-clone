@@ -6,23 +6,56 @@ import { withSongAccess } from "@/libs/playlistAccess"
 
 const searchSongsAndPlaylistsAction = async (query: string): Promise<{ songs: Song[]; playlists: Playlist[] } | string> => {
   const supabase = await createServerComponentClient()
+  const normalizedQuery = query.trim().slice(0, 200)
 
-  if (!query) return { songs: [], playlists: [] }
+  if (!normalizedQuery) return { songs: [], playlists: [] }
 
-  const [{ data: songs, error: songsError }, { data: playlists, error: playlistsError }] = await Promise.all([
+  const [{ data: rpcSongs, error: songsError }, { data: playlists, error: playlistsError }] = await Promise.all([
     supabase
-      .from("19_songs")
-      .select("*")
-      .or(`title.ilike.%${query}%,author.ilike.%${query}%`)
-      .order("created_at", { ascending: false }),
-    supabase.from("19_playlists").select("*").ilike("title", `%${query}%`).order("created_at", { ascending: false }),
+      .rpc("search_music_songs", { p_query: normalizedQuery }),
+    supabase.from("19_playlists").select("*").ilike("title", `%${normalizedQuery}%`).order("created_at", { ascending: false }),
   ])
 
-  if (songsError) console.log("searchSongsAndPlaylistsAction songs error - ", songsError.message)
+  let songs = (rpcSongs as Song[] | null) ?? []
+
+  if (songsError) {
+    console.log("searchSongsAndPlaylistsAction RPC error - ", songsError.message)
+
+    // Keep title/author search working while the optional tag-search RPC is unavailable.
+    const [titleResult, authorResult] = await Promise.all([
+      supabase
+        .from("19_songs")
+        .select("*")
+        .ilike("title", `%${normalizedQuery}%`)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      supabase
+        .from("19_songs")
+        .select("*")
+        .ilike("author", `%${normalizedQuery}%`)
+        .order("created_at", { ascending: false })
+        .limit(100),
+    ])
+
+    if (titleResult.error || authorResult.error) {
+      console.log("searchSongsAndPlaylistsAction fallback error - ", titleResult.error?.message ?? authorResult.error?.message)
+      return "Song search is temporarily unavailable. Please try again."
+    }
+
+    const uniqueSongs = new Map<string, Song>()
+    for (const song of [...((titleResult.data as Song[] | null) ?? []), ...((authorResult.data as Song[] | null) ?? [])]) {
+      uniqueSongs.set(String(song.id), song)
+    }
+
+    songs = Array.from(uniqueSongs.values())
+      .sort((first, second) => (second.created_at ?? "").localeCompare(first.created_at ?? ""))
+      .slice(0, 100)
+  }
+
   if (playlistsError) console.log("searchSongsAndPlaylistsAction playlists error - ", playlistsError.message)
 
   return {
-    songs: await withSongAccess((songs as Song[]) ?? []),
+    songs: await withSongAccess(songs),
     playlists: (playlists as Playlist[]) ?? [],
   }
 }
