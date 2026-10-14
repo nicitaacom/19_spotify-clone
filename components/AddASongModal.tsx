@@ -63,7 +63,6 @@ const AddASongModal = () => {
   const playlistSlugInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const metadataRequest = useRef(0)
-  const coverPreviewRef = useRef<{ file: File; url: string } | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
 
   useAutoFocus(playlistSlugInputRef, editingPlaylistId !== null, 50)
@@ -118,15 +117,14 @@ const AddASongModal = () => {
   const coverPreviewUrl = coverImage && coverPreview?.file === coverImage ? coverPreview.url : null
 
   const setCoverPreviewFile = (file?: File | null) => {
-    if (coverPreviewRef.current) URL.revokeObjectURL(coverPreviewRef.current.url)
     const preview = file ? { file, url: URL.createObjectURL(file) } : null
-    coverPreviewRef.current = preview
     setCoverPreview(preview)
   }
 
-  useEffect(() => () => {
-    if (coverPreviewRef.current) URL.revokeObjectURL(coverPreviewRef.current.url)
-  }, [])
+  useEffect(() => {
+    if (!coverPreview) return
+    return () => URL.revokeObjectURL(coverPreview.url)
+  }, [coverPreview])
 
   const onPaste = (event: React.ClipboardEvent<HTMLFormElement>) => {
     const input = imageInputRef.current
