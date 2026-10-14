@@ -11,9 +11,11 @@ export interface MusicRecommendation {
 }
 export function recommendationQuery(parameters: URLSearchParams) {
   const raw = parameters.get("tags") ?? ""
-  if (raw.length > 400) throw new Error("Too many tags.")
+  if (raw.length > 1100) throw new Error("Too many tags.")
   const tags = normalizeSongTags(raw.split(",").filter(tag => tag.trim()))
   const requested = parameters.get("limit") ?? "6"
   if (!/^\d{1,2}$/.test(requested) || Number(requested) < 1 || Number(requested) > 12) throw new Error("Use a limit between 1 and 12.")
-  return { tags, limit: Number(requested) }
+  const query = parameters.get("q")?.trim() ?? ""
+  if (query.length > 200) throw new Error("Keep search within 200 characters.")
+  return { tags, limit: Number(requested), ...(query ? { query } : {}) }
 }

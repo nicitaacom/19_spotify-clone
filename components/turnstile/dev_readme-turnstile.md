@@ -22,7 +22,7 @@ Both must be present in production for Turnstile to activate. If `NEXT_PUBLIC_TU
 | File                                          | Role                                                                                                                    |
 | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `hooks/useVerifyHuman.ts`                     | Renders the Cloudflare widget, returns `{ isVerified, token, resetTurnstileFn, shouldRenderChallenge }`. No-ops in dev. |
-| `components/turnstile/TurnstileChallenge.tsx` | UI wrapper around the widget div. Returns `null` when site key is missing.                                              |
+| `components/turnstile/TurnstileChallenge.tsx` | Minimal widget mount point. Song upload places it inside the song preview card to avoid a separate challenge panel. Returns `null` when site key is missing. |
 | `app/utils/verifyTurnstileToken.ts`           | Client-side fetch to `POST /api/turnstile`.                                                                             |
 | `app/api/turnstile/route.ts`                  | Server route — forwards token + secret to Cloudflare's siteverify endpoint.                                             |
 
@@ -48,9 +48,9 @@ if (isHumanGateEnabled) {
   }
 }
 
-// In JSX
+// In JSX (for song uploads, place inside the song preview card)
 {
-  isHumanGateEnabled && <TurnstileChallenge turnstileRef={turnstileRef} isVerified={isVerified} />
+  isHumanGateEnabled && <TurnstileChallenge turnstileRef={turnstileRef} />
 }
 ```
 

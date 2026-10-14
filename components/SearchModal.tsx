@@ -90,7 +90,7 @@ const SearchModal = () => {
           <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neon/70" size={16} />
           <Input
             className="pl-9"
-            placeholder="Search songs and playlists..."
+            placeholder="Search songs, tags and playlists..."
             value={searchValue}
             onChange={event => setSearchValue(event.target.value)}
             autoFocus

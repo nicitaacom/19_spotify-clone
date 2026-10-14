@@ -8,13 +8,15 @@ export async function GET(request: Request) {
   try { query = recommendationQuery(new URL(request.url).searchParams) }
   catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid tags." }, { status: 400 }) }
   const headers = { "Cache-Control": "public, max-age=60, s-maxage=300" }
-  if (!query.tags.length) return NextResponse.json({ items: [], relatedTags: [] }, { headers })
+  if (!query.tags.length && !query.query) return NextResponse.json({ items: [], relatedTags: [] }, { headers })
   try {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) throw new Error("Catalog unavailable")
     // Never inherit request cookies, a service key, or a signed-in listener's purchases.
     const client = createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       { auth: { persistSession: false, autoRefreshToken: false } })
-    const { data, error } = await client.rpc("recommend_public_music", { p_tags: query.tags, p_limit: query.limit })
+    const { data, error } = query.query
+      ? await client.rpc("search_public_music", { p_query: query.query, p_limit: query.limit })
+      : await client.rpc("recommend_public_music", { p_tags: query.tags, p_limit: query.limit })
     if (error) throw new Error("Catalog unavailable")
     const items: MusicRecommendation[] = (data ?? []).map(song => ({
       id: String(song.id), title: song.title ?? "Untitled", author: song.author ?? "",

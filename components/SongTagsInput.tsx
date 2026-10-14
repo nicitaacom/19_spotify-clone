@@ -10,7 +10,7 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
   const suggestionsRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ pointerId: number; startX: number; startScrollLeft: number; moved: boolean } | null>(null)
   const suppressClickRef = useRef(false)
-  const suggestions = SONG_TAG_SUGGESTIONS.filter(tag => !value.includes(tag)).slice(0, 8)
+  const suggestions = SONG_TAG_SUGGESTIONS.filter(tag => !value.includes(tag))
 
   const showMoreSuggestions = () => {
     const suggestionsElement = suggestionsRef.current
@@ -41,14 +41,17 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
       startScrollLeft: event.currentTarget.scrollLeft,
       moved: false,
     }
-    event.currentTarget.setPointerCapture(event.pointerId)
   }
   const handleSuggestionsPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
 
     const distance = event.clientX - drag.startX
-    if (Math.abs(distance) > 3) drag.moved = true
+    if (Math.abs(distance) > 3) {
+      drag.moved = true
+      if (!event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.setPointerCapture(event.pointerId)
+    }
+    if (!drag.moved) return
     event.currentTarget.scrollLeft = drag.startScrollLeft - distance
   }
   const finishSuggestionsDrag = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -66,7 +69,7 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
 
   return (
     <div className="min-w-0 space-y-2">
-      <label htmlFor={id} className="block text-sm text-neutral-300">Tags (optional)</label>
+      <label htmlFor={id} className="block text-sm text-neutral-300">Tags (image that comes with music)</label>
       <div className="flex min-w-0 flex-nowrap items-center gap-1.5 rounded-md border border-white/15 bg-elevated px-2 py-1.5 focus-within:border-neon">
         {value.length > 0 && (
           <div className="flex max-w-[42%] shrink items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

@@ -258,6 +258,7 @@ export type Database = {
     Functions: {
       search_music_songs: { Args: { p_query: string }; Returns: Database["public"]["Tables"]["19_songs"]["Row"][] }
       recommend_public_music: { Args: { p_tags: string[]; p_limit?: number }; Returns: { id: number; title: string | null; author: string | null; image_path: string | null; tags: string[]; playlist_slug: string; matched_tags: string[] }[] }
+      search_public_music: { Args: { p_query: string; p_limit?: number }; Returns: { id: number; title: string | null; author: string | null; image_path: string | null; tags: string[]; playlist_slug: string; matched_tags: string[] }[] }
     }
     Enums: {
       playlist_visibility: "public" | "unlisted" | "private"

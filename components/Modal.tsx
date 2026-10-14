@@ -10,6 +10,7 @@ interface ModalProps {
   children: React.ReactNode
   contentClassName?: string
   descriptionClassName?: string
+  titleAside?: React.ReactNode
   overlayClassName?: string
   titleClassName?: string
   hideHeader?: boolean
@@ -24,11 +25,29 @@ const Modal: React.FC<ModalProps> = ({
   children,
   contentClassName,
   descriptionClassName,
+  titleAside,
   overlayClassName,
   titleClassName,
   hideHeader = false,
   isShowCloseButton = true,
 }) => {
+  const titleElement = (
+    <Dialog.Title
+      className={twMerge(
+        hideHeader
+          ? "sr-only"
+          : `
+              text-xl
+              text-center
+              font-bold
+              mb-4
+            `,
+        titleClassName,
+      )}>
+      {title}
+    </Dialog.Title>
+  )
+
   return (
     <Dialog.Root open={isOpen} defaultOpen={isOpen} onOpenChange={onChange}>
       <Dialog.Portal>
@@ -74,20 +93,15 @@ const Modal: React.FC<ModalProps> = ({
           `,
             contentClassName,
           )}>
-          <Dialog.Title
-            className={twMerge(
-              hideHeader
-                ? "sr-only"
-                : `
-              text-xl 
-              text-center 
-              font-bold 
-              mb-4
-            `,
-              titleClassName,
-            )}>
-            {title}
-          </Dialog.Title>
+          {titleAside ? (
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center">
+              <div className="flex h-10 min-w-0 items-center">{titleAside}</div>
+              {titleElement}
+              <div aria-hidden="true" />
+            </div>
+          ) : (
+            titleElement
+          )}
           {description ? (
             <Dialog.Description
               className={twMerge(

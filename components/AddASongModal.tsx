@@ -585,6 +585,15 @@ const AddASongModal = () => {
       description="Upload an MP3 or M4A file"
       isOpen={uploadModal.isOpen}
       onChange={onChange}
+      titleAside={(
+        <div className="flex h-10 w-full min-w-0 items-center">
+          {uploadError && (
+            <p role="alert" title={uploadError} className="line-clamp-2 w-full break-words rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-xs leading-4 text-red-200">
+              {uploadError}
+            </p>
+          )}
+        </div>
+      )}
       contentClassName="h-auto w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] max-w-[960px] overflow-hidden p-3 sm:p-5 md:w-[94vw] md:max-h-[90dvh] md:max-w-[960px] md:p-7"
       titleClassName="mb-2 text-2xl"
       descriptionClassName="mb-6 text-neutral-300">
@@ -659,10 +668,6 @@ const AddASongModal = () => {
 
           <SongTagsInput key={uploadModal.isOpen ? "open" : "closed"} value={tags} onChange={setTags} disabled={isLoading} />
 
-          {requiresChallenge && isHumanGateEnabled && (
-            <TurnstileChallenge isVerified={isVerified} turnstileRef={turnstileRef} />
-          )}
-
           <section className="mt-auto min-w-0 rounded-lg border border-white/10 bg-elevated/50 p-4">
             <div className="mb-3 text-sm font-medium text-white">Song preview</div>
             <div className="flex min-w-0 items-center gap-4">
@@ -684,6 +689,7 @@ const AddASongModal = () => {
                 Your browser does not support audio preview.
               </audio>
             ) : null}
+            {requiresChallenge && isHumanGateEnabled && <TurnstileChallenge turnstileRef={turnstileRef} />}
           </section>
         </section>
 
@@ -725,7 +731,7 @@ const AddASongModal = () => {
                 className="py-2"
               />
 
-              <div role="group" aria-label="Your playlists" className="h-48 min-h-0 max-h-48 min-w-0 flex-none overflow-y-auto overscroll-contain rounded-md border border-white/10 bg-surface md:h-auto md:min-h-[10rem] md:max-h-none md:flex-1">
+              <div role="group" aria-label="Your playlists" className="h-48 min-h-0 max-h-48 min-w-0 flex-none overflow-y-auto overscroll-contain rounded-md border border-white/10 bg-surface md:h-[min(42dvh,24rem)] md:min-h-0 md:max-h-[min(42dvh,24rem)] md:flex-none">
                 {filteredPlaylists.map(playlist => (
                   <div key={playlist.id} className={`transition hover:bg-elevated ${selectedPlaylist?.id === playlist.id ? "bg-elevated" : ""}`}>
                     <div className="flex items-center">
@@ -821,12 +827,6 @@ const AddASongModal = () => {
         </aside>
 
         <div className="sticky bottom-0 z-10 min-w-0 space-y-3 border-t border-white/10 bg-surface/95 pt-3 pb-1 backdrop-blur md:static md:col-span-2 md:bg-transparent md:pt-4 md:pb-0 md:backdrop-blur-none">
-          {uploadError && (
-            <p role="alert" className="select-text break-words rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-              {uploadError}
-            </p>
-          )}
-
           {isLoading && <ProgressBar progress={uploadProgress} speed={uploadSpeed} label={isPreparingAudio ? "Preparing audio..." : "Uploading..."} />}
 
           <Button disabled={isCreateDisabled} type="submit" className="w-full rounded-md">

@@ -2,6 +2,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import ts from "typescript"
+import * as vocabulary from "../config/music-tags.mjs"
 
 async function load(path, dependencies = {}, environment = {}) {
   const compiled = ts.transpileModule(await readFile(new URL(path, import.meta.url), "utf8"), {
@@ -14,7 +15,7 @@ async function load(path, dependencies = {}, environment = {}) {
   }, compiledModule, compiledModule.exports, { env: environment })
   return compiledModule.exports
 }
-const tags = await load("../libs/songTags.ts")
+const tags = await load("../libs/songTags.ts", { "../config/music-tags.mjs": vocabulary })
 const query = await load("../libs/musicRecommendations.ts", { "./songTags": tags })
 test("recommendation queries normalize tags and reject invalid bounds", () => {
   assert.deepEqual(query.recommendationQuery(new URLSearchParams("tags=HAPPY,slow,happy&limit=3")), { tags: ["happy","slow"], limit: 3 })
@@ -43,6 +44,10 @@ test("the public API uses an anonymous client and returns only recommendation me
   assert.equal(calls[0][1], "fixture-anon")
   assert.deepEqual(calls[0][2], { auth: { persistSession: false, autoRefreshToken: false } })
   assert.deepEqual(calls[1], { name: "recommend_public_music", parameters: { p_tags: ["rainy"], p_limit: 6 } })
+  await route.GET(new Request("https://music.jokik.fi/api/recommendations?q=lo-fi"))
+  assert.deepEqual(calls[3],{name:"search_public_music",parameters:{p_query:"lo-fi",p_limit:6}})
+  assert.equal(calls[2][1],"fixture-anon")
+  assert.throws(()=>query.recommendationQuery(new URLSearchParams(`q=${"a".repeat(201)}`)))
   assert.equal(data.items[0].href, "https://music.jokik.fi/playlists/Quiet%20evening")
   assert.equal(JSON.stringify(data).includes("private-audio"), false)
   assert.equal(JSON.stringify(data).includes("private-user"), false)

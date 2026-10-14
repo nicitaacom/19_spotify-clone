@@ -1,19 +1,12 @@
-export const MAX_SONG_TAGS = 12
+import { normalizeTagList, tagGroups, inferPlaylistGenreTags } from "../config/music-tags.mjs"
+export { inferPlaylistGenreTags }
+export const MAX_SONG_TAGS = 32
+export const MAX_MUSIC_QUERY_TAGS = 32
 export const MAX_SONG_TAG_LENGTH = 32
-export const SONG_TAG_SUGGESTIONS = ["sad", "happy", "energy", "slow", "fast", "calm", "cozy", "ambient", "rainy", "sunny", "night", "winter"]
+export const SONG_TAG_SUGGESTIONS = Array.from(new Set(["sad", "happy", "energy", "slow", "fast", ...Object.values(tagGroups).flat()]))
 
 export function normalizeSongTags(value: unknown): string[] {
-  if (!Array.isArray(value) || value.length > MAX_SONG_TAGS) throw new Error(`Use up to ${MAX_SONG_TAGS} tags.`)
-  const tags: string[] = []
-  for (const item of value) {
-    if (typeof item !== "string") throw new Error("Each tag must be text.")
-    const tag = item.trim().normalize("NFC").toLowerCase().replace(/\s+/g, " ")
-    if (!tag) continue
-    if (tag.length > MAX_SONG_TAG_LENGTH || !/^[\p{L}\p{N}][\p{L}\p{N} _-]*$/u.test(tag))
-      throw new Error(`Tags can use letters, numbers, spaces, hyphens, and underscores, up to ${MAX_SONG_TAG_LENGTH} characters.`)
-    if (!tags.includes(tag)) tags.push(tag)
-  }
-  return tags
+  return normalizeTagList(value, MAX_SONG_TAGS)
 }
 export function parseSongTags(value: unknown): string[] {
   if (value === null || value === undefined) return []

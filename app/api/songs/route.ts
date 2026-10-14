@@ -4,7 +4,7 @@ import uniqid from "uniqid"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { getSafeStoragePath } from "@/libs/helpers"
-import { parseSongTags } from "@/libs/songTags"
+import { parseSongTags, normalizeSongTags, inferPlaylistGenreTags } from "@/libs/songTags"
 
 import { requireUser } from "../backup/requireUser"
 
@@ -67,12 +67,14 @@ export async function POST(request: Request) {
   if (playlistId) {
     const { data: playlist, error } = await supabaseAdmin
       .from("19_playlists")
-      .select("user_id")
+      .select("user_id,title,slug")
       .eq("id", playlistId)
       .maybeSingle()
     if (error || !playlist || playlist.user_id !== auth.userId) {
       return NextResponse.json({ error: "Playlist not found." }, { status: 404 })
     }
+    try { tags = normalizeSongTags([...tags, ...inferPlaylistGenreTags(playlist.title, playlist.slug)]) }
+    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Too many song tags." }, { status: 400 }) }
   }
 
   const uniqueID = uniqid()

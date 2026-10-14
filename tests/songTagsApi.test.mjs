@@ -2,6 +2,7 @@ import test from "node:test"
 import assert from "node:assert/strict"
 import { readFile } from "node:fs/promises"
 import ts from "typescript"
+import * as vocabulary from "../config/music-tags.mjs"
 
 async function load(path, dependencies = {}) {
   const compiled = ts.transpileModule(await readFile(new URL(path, import.meta.url), "utf8"), {
@@ -16,7 +17,7 @@ async function load(path, dependencies = {}) {
 class NextResponse extends Response {
   static json(data, options) { return new NextResponse(JSON.stringify(data), options) }
 }
-const tags = await load("../libs/songTags.ts")
+const tags = await load("../libs/songTags.ts", { "../config/music-tags.mjs": vocabulary })
 test("non-administrators cannot create songs or change tags, before storage/catalog writes", async () => {
   let touches = 0
   const deniedDatabase = { from: () => { touches++; throw Error("Unexpected catalog access") } }
