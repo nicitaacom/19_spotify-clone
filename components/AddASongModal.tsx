@@ -63,7 +63,6 @@ const AddASongModal = () => {
   const playlistSlugInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const metadataRequest = useRef(0)
-  const audioPreviewRef = useRef<{ file: File; url: string } | null>(null)
   const coverPreviewRef = useRef<{ file: File; url: string } | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -95,17 +94,8 @@ const AddASongModal = () => {
   const { register, handleSubmit, reset, resetField, control } = useForm<FieldValues>({
     defaultValues: { author: "", title: "", song: null, image: null, isPaid: false },
   })
-  const selectedSong = (useWatch({ control, name: "song" }) as FileList | null)?.[0]
-  const selectedImage = (useWatch({ control, name: "image" }) as FileList | null)?.[0]
-  const previewTitle = (useWatch({ control, name: "title" }) as string) || "Song title"
-  const previewAuthor = (useWatch({ control, name: "author" }) as string) || "Song author"
-  const coverImage = selectedImage ?? embeddedImage
   const playlistQuery = playlistSearch.trim().toLocaleLowerCase()
   const filteredPlaylists = playlists.filter(playlist => playlist.title.toLocaleLowerCase().includes(playlistQuery))
-  const [audioPreview, setAudioPreview] = useState<{ file: File; url: string } | null>(null)
-  const [coverPreview, setCoverPreview] = useState<{ file: File; url: string } | null>(null)
-  const audioPreviewUrl = selectedSong && audioPreview?.file === selectedSong ? audioPreview.url : null
-  const coverPreviewUrl = coverImage && coverPreview?.file === coverImage ? coverPreview.url : null
   const isPaid = Boolean(useWatch({ control, name: "isPaid" }))
   const isCreateDisabled = isCreateBlocked || readingMetadata || (isPaid && !selectedPlaylist)
 
@@ -120,13 +110,12 @@ const AddASongModal = () => {
 
   const songInput = register("song", { required: true })
   const imageInput = register("image")
-
-  const setAudioPreviewFile = (file?: File | null) => {
-    if (audioPreviewRef.current) URL.revokeObjectURL(audioPreviewRef.current.url)
-    const preview = file ? { file, url: URL.createObjectURL(file) } : null
-    audioPreviewRef.current = preview
-    setAudioPreview(preview)
-  }
+  const selectedImage = (useWatch({ control, name: "image" }) as FileList | null)?.[0]
+  const previewTitle = (useWatch({ control, name: "title" }) as string) || "Song title"
+  const previewAuthor = (useWatch({ control, name: "author" }) as string) || "Song author"
+  const coverImage = selectedImage ?? embeddedImage
+  const [coverPreview, setCoverPreview] = useState<{ file: File; url: string } | null>(null)
+  const coverPreviewUrl = coverImage && coverPreview?.file === coverImage ? coverPreview.url : null
 
   const setCoverPreviewFile = (file?: File | null) => {
     if (coverPreviewRef.current) URL.revokeObjectURL(coverPreviewRef.current.url)
@@ -136,7 +125,6 @@ const AddASongModal = () => {
   }
 
   useEffect(() => () => {
-    if (audioPreviewRef.current) URL.revokeObjectURL(audioPreviewRef.current.url)
     if (coverPreviewRef.current) URL.revokeObjectURL(coverPreviewRef.current.url)
   }, [])
 
@@ -249,7 +237,6 @@ const AddASongModal = () => {
       setPlaylistSlugError("")
       setUploadError("")
       setEmbeddedImage(null)
-      setAudioPreviewFile(null)
       setCoverPreviewFile(null)
       setReadingMetadata(false)
       metadataRequest.current++
@@ -388,7 +375,6 @@ const AddASongModal = () => {
 
   const handleSongChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     songInput.onChange(event)
-    setAudioPreviewFile(event.target.files?.[0])
     readSongMetadata(event.target.files?.[0])
   }
 
@@ -565,10 +551,7 @@ const AddASongModal = () => {
       setSelectedPlaylist(null)
       setPlaylistSearch("")
       setEmbeddedImage(null)
-      if (audioPreview) URL.revokeObjectURL(audioPreview.url)
-      if (coverPreview) URL.revokeObjectURL(coverPreview.url)
-      setAudioPreview(null)
-      setCoverPreview(null)
+      setCoverPreviewFile(null)
       resetTurnstileFn()
       uploadModal.onClose()
     } catch (error) {
@@ -681,14 +664,8 @@ const AddASongModal = () => {
               <div className="min-w-0">
                 <p className="break-words text-base font-semibold text-white">{previewTitle}</p>
                 <p className="mt-1 break-words text-sm text-neutral-400">{previewAuthor}</p>
-                {selectedSong && <p className="mt-2 break-all text-xs text-neutral-500">{selectedSong.name}</p>}
               </div>
             </div>
-            {audioPreviewUrl ? (
-              <audio controls preload="metadata" src={audioPreviewUrl} className="mt-4 block w-full max-w-full">
-                Your browser does not support audio preview.
-              </audio>
-            ) : null}
             {requiresChallenge && isHumanGateEnabled && <TurnstileChallenge turnstileRef={turnstileRef} />}
           </section>
         </section>
