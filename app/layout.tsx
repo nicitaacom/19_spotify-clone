@@ -19,6 +19,11 @@ export const metadata = {
   icons: {
     icon: "/favicon.png",
   },
+  // Dark Reader rewrites svg stroke/fill into --darkreader-inline-* before hydration.
+  // This tag makes that extension remove those edits. The site is already dark.
+  other: {
+    "darkreader-lock": "true",
+  },
 }
 
 export const revalidate = 0
@@ -27,9 +32,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const userSongs = await getSongsByUserId()
   const isOwner = await getIsOwner()
 
+  // Dark Reader sets data-darkreader-* on html/body before hydration.
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         {process.env.NODE_ENV === "production" && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
           <Script
             src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
