@@ -96,10 +96,9 @@ const Modal: React.FC<ModalProps> = ({
             contentClassName,
           )}>
           {titleAside ? (
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center">
-              <div className="flex h-10 min-w-0 items-center">{titleAside}</div>
+            <div className="mb-2 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 pr-8">
               {titleElement}
-              <div aria-hidden="true" />
+              <div className="flex min-h-10 min-w-0 items-center">{titleAside}</div>
             </div>
           ) : (
             titleElement

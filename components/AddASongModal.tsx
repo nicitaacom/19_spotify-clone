@@ -24,7 +24,8 @@ import Button from "./Button"
 import TurnstileChallenge from "./turnstile/TurnstileChallenge"
 import ProgressBar from "./ProgressBar"
 import { SongTagsInput } from "./SongTagsInput"
-import { songTagsWithDraft } from "@/libs/songTags"
+import { inferPlaylistGenreTags, songTagsWithDraft } from "@/libs/songTags"
+import { usePlaylistRecentTags } from "@/hooks/usePlaylistRecentTags"
 
 // Show Turnstile challenge on ~10% of uploads
 const TURNSTILE_PROBABILITY = 0.1
@@ -102,9 +103,43 @@ const AddASongModal = () => {
     modifiers: CREATE_SONG_HOTKEY_MODIFIERS,
     isEnabled: uploadModal.isOpen && editingPlaylistId === null && !isCreateDisabled,
     onKeyPressFn: () => {
-      if (!document.activeElement?.hasAttribute("data-song-tags-input")) formRef.current?.requestSubmit()
+      formRef.current?.requestSubmit()
     },
   })
+
+  const selectedPlaylistId = selectedPlaylist?.id ?? ""
+  const playlistRecentTags = usePlaylistRecentTags(selectedPlaylistId, uploadModal.isOpen && Boolean(user))
+  const [tagsCustomized, setTagsCustomized] = useState(false)
+  const [tagsPlaylistId, setTagsPlaylistId] = useState(selectedPlaylistId)
+  const [appliedSuggestionKey, setAppliedSuggestionKey] = useState("")
+  if (selectedPlaylistId !== tagsPlaylistId) {
+    setTagsPlaylistId(selectedPlaylistId)
+    setAppliedSuggestionKey("")
+    if (!selectedPlaylistId) setTagsCustomized(false)
+    if (!selectedPlaylistId || !tagsCustomized) setTags([])
+  }
+  const genreTags = selectedPlaylist ? inferPlaylistGenreTags(selectedPlaylist.title, selectedPlaylist.slug) : []
+  const playlistReady = playlistRecentTags.ready && playlistRecentTags.playlistId === selectedPlaylistId
+  const playlistSuggestionTags = playlistReady ? [...new Set([...playlistRecentTags.recent, ...genreTags])] : []
+  const tagsToApply = !playlistReady ? [] : playlistRecentTags.autofill.length ? playlistRecentTags.autofill : genreTags
+  const suggestionKey = playlistReady ? `${selectedPlaylistId}:${tagsToApply.join("\0")}` : ""
+  const applyingSuggestion = !tagsCustomized && Boolean(suggestionKey) && suggestionKey !== appliedSuggestionKey
+  if (applyingSuggestion) {
+    setAppliedSuggestionKey(suggestionKey)
+    setTags(tagsToApply)
+  }
+  const visibleTags = applyingSuggestion ? tagsToApply : tags
+  const tagsMatchApplied = tagsToApply.length > 0 && visibleTags.length === tagsToApply.length && tagsToApply.every(tag => visibleTags.includes(tag))
+  const playlistNote = !tagsMatchApplied || !selectedPlaylist
+    ? ""
+    : playlistRecentTags.autofill.length
+      ? `Filled from recent tags on ${selectedPlaylist.title}.`
+      : `Filled from the ${selectedPlaylist.title} playlist name.`
+  const playlistLabel = !playlistReady || !selectedPlaylist || playlistSuggestionTags.length === 0
+    ? ""
+    : playlistRecentTags.recent.length
+      ? `Recent on ${selectedPlaylist.title}`
+      : `From ${selectedPlaylist.title}`
 
   const songInput = register("song", { required: true })
   const imageInput = register("image")
@@ -447,7 +482,7 @@ const AddASongModal = () => {
   const onSubmit: SubmitHandler<FieldValues> = async (values, event) => {
     try {
       const form = event?.target instanceof HTMLFormElement ? event.target : null
-      const submittedTags = songTagsWithDraft(tags, form?.querySelector<HTMLInputElement>("[data-song-tags-input]")?.value ?? "")
+      const submittedTags = songTagsWithDraft(visibleTags, form?.querySelector<HTMLInputElement>("[data-song-tags-input]")?.value ?? "")
       setIsLoading(true)
       setUploadError("")
       setUploadProgress(0)
@@ -566,17 +601,17 @@ const AddASongModal = () => {
       isOpen={uploadModal.isOpen}
       onChange={onChange}
       titleAside={(
-        <div className="flex h-10 w-full min-w-0 items-center">
+        <div className="flex w-full min-w-0 items-center">
           {uploadError && (
-            <p role="alert" title={uploadError} className="line-clamp-2 w-full break-words rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-xs leading-4 text-red-200">
+            <p role="alert" title={uploadError} className="line-clamp-2 w-full min-w-0 overflow-hidden break-words rounded-md border border-red-500/40 bg-red-500/10 px-2 py-1 text-xs leading-4 text-red-200">
               {uploadError}
             </p>
           )}
         </div>
       )}
       contentClassName="h-auto w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] max-w-[960px] overflow-hidden p-3 sm:p-5 md:w-[94vw] md:max-h-[90dvh] md:max-w-[960px] md:p-7"
-      titleClassName="mb-2 text-2xl"
-      descriptionClassName="mb-6 text-neutral-300">
+      titleClassName="mb-0 text-left text-2xl"
+      descriptionClassName="mb-6 text-left text-neutral-300">
       <form
         ref={formRef}
         onPaste={onPaste}
@@ -646,7 +681,19 @@ const AddASongModal = () => {
           </div>
           </div>
 
-          <SongTagsInput key={uploadModal.isOpen ? "open" : "closed"} value={tags} onChange={setTags} disabled={isLoading} />
+          {playlistRecentTags.error && playlistReady && (
+            <p role="alert" className="text-xs text-red-300">{playlistRecentTags.error}</p>
+          )}
+          <SongTagsInput
+            key={uploadModal.isOpen ? "open" : "closed"}
+            value={visibleTags}
+            onChange={nextTags => { setTagsCustomized(true); setTags(nextTags) }}
+            disabled={isLoading}
+            playlistTags={playlistSuggestionTags}
+            playlistLabel={playlistLabel}
+            playlistNote={playlistNote}
+            onUsePlaylistTags={tagsToApply.length > 0 && !tagsMatchApplied ? () => { setTagsCustomized(true); setTags(tagsToApply) } : undefined}
+          />
 
           <section className="mt-auto min-w-0 rounded-lg border border-white/10 bg-elevated/50 p-4">
             <div className="mb-3 text-sm font-medium text-white">Song preview</div>

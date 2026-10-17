@@ -3,14 +3,22 @@ import { useRef, useState } from "react"
 import { FiChevronRight, FiPlus, FiX } from "react-icons/fi"
 import { normalizeSongTags, MAX_SONG_TAGS, MAX_SONG_TAG_LENGTH, SONG_TAG_SUGGESTIONS } from "@/libs/songTags"
 
-export function SongTagsInput({ value, onChange, disabled = false, id = "song-tags" }: {
-  value: string[]; onChange: (tags: string[]) => void; disabled?: boolean; id?: string
+export function SongTagsInput({ value, onChange, disabled = false, id = "song-tags", playlistTags = [], playlistLabel = "", onUsePlaylistTags, playlistNote = "" }: {
+  value: string[]
+  onChange: (tags: string[]) => void
+  disabled?: boolean
+  id?: string
+  playlistTags?: string[]
+  playlistLabel?: string
+  onUsePlaylistTags?: () => void
+  playlistNote?: string
 }) {
   const [draft, setDraft] = useState(""), [error, setError] = useState("")
   const suggestionsRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ pointerId: number; startX: number; startScrollLeft: number; moved: boolean } | null>(null)
   const suppressClickRef = useRef(false)
-  const suggestions = SONG_TAG_SUGGESTIONS.filter(tag => !value.includes(tag))
+  const playlistSuggestions = playlistTags.filter(tag => !value.includes(tag))
+  const suggestions = SONG_TAG_SUGGESTIONS.filter(tag => !value.includes(tag) && !playlistTags.includes(tag))
 
   const showMoreSuggestions = () => {
     const suggestionsElement = suggestionsRef.current
@@ -85,6 +93,7 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
           onChange={event => { setDraft(event.target.value); setError("") }}
           onKeyDown={event => {
             if (event.nativeEvent.isComposing) return
+            if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) return
             if (event.key === "Enter" || event.key === ",") { event.preventDefault(); event.stopPropagation(); add() }
             else if (event.key === "Backspace" && !draft && value.length) { event.preventDefault(); remove(value[value.length - 1]) }
           }}
@@ -93,8 +102,19 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
           onClick={() => add()} aria-label="Add tag" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neon hover:bg-neon/10 disabled:opacity-40"><FiPlus size={16} /></button>
       </div>
       <p id={`${id}-help`} className="text-xs text-neutral-400">Press Enter or comma to add a tag. {value.length}/{MAX_SONG_TAGS}</p>
+      {playlistNote && <p className="text-xs text-neutral-400">{playlistNote}</p>}
       {error && <p id={`${id}-error`} role="alert" className="text-xs text-red-300">{error}</p>}
-      <div role="group" aria-label="Suggested tags" className="min-w-0">
+      {(playlistLabel || onUsePlaylistTags) && (
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          {playlistLabel ? <p className="min-w-0 truncate text-xs text-neutral-400">{playlistLabel}</p> : <span />}
+          {onUsePlaylistTags && (
+            <button type="button" disabled={disabled} onClick={onUsePlaylistTags} className="shrink-0 text-xs text-neon hover:underline disabled:opacity-40">
+              Use recent tags
+            </button>
+          )}
+        </div>
+      )}
+      <div role="group" aria-label={playlistLabel ? `Suggested tags, ${playlistLabel}` : "Suggested tags"} className="min-w-0">
         <div className="relative min-w-0">
           <div
             ref={suggestionsRef}
@@ -104,12 +124,16 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
             onPointerCancel={finishSuggestionsDrag}
             onClickCapture={handleSuggestionsClickCapture}
             className="flex min-h-8 min-w-0 cursor-grab touch-pan-y select-none items-center gap-1.5 overflow-x-auto whitespace-nowrap pr-8 active:cursor-grabbing [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {playlistSuggestions.map(tag => (
+              <button key={`playlist-${tag}`} type="button" disabled={disabled || value.length >= MAX_SONG_TAGS} onClick={() => add(tag)}
+                className="shrink-0 rounded-full border border-neon/40 bg-neon/10 px-2 py-0.5 text-[11px] text-neon hover:bg-neon/20 disabled:opacity-40">+ {tag}</button>
+            ))}
             {suggestions.map(tag => (
               <button key={tag} type="button" disabled={disabled || value.length >= MAX_SONG_TAGS} onClick={() => add(tag)}
                 className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-neutral-400 hover:border-neon/40 hover:text-neon disabled:opacity-40">+ {tag}</button>
             ))}
           </div>
-          {suggestions.length > 0 && (
+          {(playlistSuggestions.length > 0 || suggestions.length > 0) && (
             <>
               <div
                 aria-hidden="true"

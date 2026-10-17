@@ -4,18 +4,18 @@ import { Song } from "@/types"
 const getSongsByUserId = async (): Promise<Song[]> => {
   const supabase = await createServerComponentClient()
 
-  const { data: { user }, error: sessionError } = await supabase.auth.getUser()
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+  const userId = session?.user?.id
 
-  if (sessionError) {
+  if (sessionError && sessionError.message !== "Auth session missing!") {
     console.log(14, "session error in getSongsByUserId - ", sessionError.message)
-    return []
   }
-  if (!user) return []
+  if (sessionError || !userId) return []
 
   const { data, error } = await supabase
     .from("19_songs")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false })
 
   if (error) {
