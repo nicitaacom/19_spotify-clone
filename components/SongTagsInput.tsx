@@ -70,20 +70,17 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
   return (
     <div className="min-w-0 space-y-2">
       <label htmlFor={id} className="block text-sm text-neutral-300">Tags (image that comes with music)</label>
-      <div className="flex min-w-0 flex-nowrap items-center gap-1.5 rounded-md border border-white/15 bg-elevated px-2 py-1.5 focus-within:border-neon">
-        {value.length > 0 && (
-          <div className="flex max-w-[42%] shrink items-center gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {value.map(tag => (
-              <span key={tag} className="inline-flex max-w-40 shrink-0 items-center gap-0.5 rounded-full border border-neon/30 bg-neon/10 py-0.5 pl-2 pr-0.5 text-[11px] text-neon">
-                <span className="truncate">{tag}</span>
-                <button type="button" disabled={disabled} aria-label={`Remove tag ${tag}`} onClick={() => remove(tag)}
-                  className="grid h-5 w-5 shrink-0 place-items-center rounded-full hover:bg-neon/20 disabled:opacity-50"><FiX size={12} /></button>
-              </span>
-            ))}
-          </div>
-        )}
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-md border border-white/10 bg-elevated px-2 py-1.5 focus-within:border-neon/50 focus-within:ring-1 focus-within:ring-neon/30">
+        {value.map(tag => (
+          <span key={tag} className="inline-flex max-w-full items-center gap-0.5 rounded-full border border-neon/30 bg-neon/10 py-0.5 pl-2 pr-0.5 text-[11px] text-neon">
+            <span className="min-w-0 break-words">{tag}</span>
+            <button type="button" disabled={disabled} aria-label={`Remove tag ${tag}`} onClick={() => remove(tag)}
+              className="grid h-5 w-5 shrink-0 place-items-center rounded-full hover:bg-neon/20 disabled:opacity-50"><FiX size={12} /></button>
+          </span>
+        ))}
         <input id={id} name="songTagDraft" data-song-tags-input value={draft} disabled={disabled || value.length >= MAX_SONG_TAGS}
-          placeholder="e.g. sad, happy, energy, slow, fast" maxLength={MAX_SONG_TAG_LENGTH * MAX_SONG_TAGS}
+          size={1}
+          placeholder={value.length ? "Add a tag" : "e.g. sad, happy, energy, slow, fast"} maxLength={MAX_SONG_TAG_LENGTH * MAX_SONG_TAGS}
           aria-describedby={`${id}-help${error ? ` ${id}-error` : ""}`} aria-invalid={Boolean(error)}
           onChange={event => { setDraft(event.target.value); setError("") }}
           onKeyDown={event => {
@@ -91,7 +88,7 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
             if (event.key === "Enter" || event.key === ",") { event.preventDefault(); event.stopPropagation(); add() }
             else if (event.key === "Backspace" && !draft && value.length) { event.preventDefault(); remove(value[value.length - 1]) }
           }}
-          className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-white outline-none placeholder:text-neutral-500 disabled:opacity-50" />
+          className="w-0 min-w-[7rem] flex-1 border-0 bg-transparent py-1.5 text-sm text-white outline-none placeholder:text-neutral-500 disabled:opacity-50" />
         <button type="button" disabled={disabled || !draft.trim() || value.length >= MAX_SONG_TAGS}
           onClick={() => add()} aria-label="Add tag" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neon hover:bg-neon/10 disabled:opacity-40"><FiPlus size={16} /></button>
       </div>
