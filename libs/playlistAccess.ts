@@ -1,6 +1,7 @@
 import "server-only"
 import { cache } from "react"
 import { commerceAdmin as admin } from "@/libs/commerceAdmin"
+import { isSupabaseGatewayUnauthorized, logSupabaseServiceRoleRejected } from "@/libs/supabaseGatewayError"
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { DEFAULT_PLAYLIST_PRICE, isPlaylistPurchaseAvailable } from "@/libs/commerceRules"
@@ -110,7 +111,8 @@ export async function withSongAccess(songs: Song[]): Promise<Song[]> {
     const accessibleSongs = songs.map(song => ({ ...song, id: String(song.id), ...access.get(String(song.id)) }))
     return accessibleSongs.map(redactLockedPaidSong)
   } catch (error) {
-    if (!isCommerceSchemaMissing(error)) throw error
+    if (isSupabaseGatewayUnauthorized(error)) logSupabaseServiceRoleRejected()
+    if (!isCommerceSchemaMissing(error) && !isSupabaseGatewayUnauthorized(error)) throw error
     // Fail closed while commerce tables are being installed so no unknown paid metadata is sent.
     return songs.map(song => ({
       ...song,
@@ -159,7 +161,8 @@ export async function getPlaylistCommerce(playlists: Playlist[]): Promise<Map<st
   try {
     return await loadPlaylistCommerce(playlists)
   } catch (error) {
-    if (!isCommerceSchemaMissing(error)) throw error
+    if (isSupabaseGatewayUnauthorized(error)) logSupabaseServiceRoleRejected()
+    if (!isCommerceSchemaMissing(error) && !isSupabaseGatewayUnauthorized(error)) throw error
     const viewer = await getViewer()
     return new Map(
       playlists.map(p => [

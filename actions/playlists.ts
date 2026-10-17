@@ -10,6 +10,7 @@ import {
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { commerceAdmin } from "@/libs/commerceAdmin"
 import { isOwnerId } from "@/libs/getOwnerIds"
+import { isSupabaseGatewayUnauthorized, logSupabaseServiceRoleRejected } from "@/libs/supabaseGatewayError"
 import {
   applyPlaylistSongAccess,
   getPlaylistCommerce,
@@ -61,7 +62,7 @@ const getAuthorsById = async (userIds: string[]) => {
   const { data, error } = await commerceAdmin.from("19_users").select("id, avatar_url, full_name").in("id", userIds)
 
   if (error || !data) {
-    if (error) {
+    if (error && error.message !== "Unauthorized") {
       console.log(48, "getAuthorsById error - ", error.message)
     }
 
@@ -128,6 +129,33 @@ export const getPlaylistSongsByPlaylistIds = async (playlistIds: string[]) => {
     commerceAdmin.from("19_song_access").select("playlist_id,song_id").eq("is_paid", true).in("playlist_id", playlistIds).in("song_id", songIds),
     commerceAdmin.from("19_songs").select("id,user_id").in("id", songIds),
   ])
+  const adminDenied = [playlistError, songOwnersError, accessResult.error].some(queryError => queryError?.message === "Unauthorized")
+  if (adminDenied) {
+    const { data: publicSongs, error: publicSongsError } = await supabase
+      .from("19_songs")
+      .select("id, image_path")
+      .in("id", songIds)
+    if (publicSongsError) {
+      console.log(79, "public song covers error - ", publicSongsError.message)
+      return new Map<string, PlaylistSongCover[]>()
+    }
+    const publicImages = new Map((publicSongs ?? []).map(song => [String(song.id), song.image_path as string | null]))
+    const publicSongsMap = new Map<string, PlaylistSongCover[]>()
+    for (const item of memberships) {
+      const playlistId = String(item.playlist_id)
+      const songId = String(item.song_id)
+      const existingItems = publicSongsMap.get(playlistId) ?? []
+      existingItems.push({
+        playlist_id: playlistId,
+        song_id: songId,
+        position: item.position,
+        created_at: item.created_at,
+        song: publicImages.has(songId) ? { id: songId, image_path: publicImages.get(songId) ?? null } : null,
+      })
+      publicSongsMap.set(playlistId, existingItems)
+    }
+    return publicSongsMap
+  }
   if (playlistError) throw playlistError
   if (songOwnersError) throw songOwnersError
   const accessUnavailable = Boolean(accessResult.error && isCommerceSchemaMissing(accessResult.error))
@@ -373,7 +401,8 @@ export const getPlaylistBySlug = async (slug: string): Promise<PlaylistDetail | 
   try {
     songAccess = await applyPlaylistSongAccess(normalizedPlaylist.id, songAccessSeeds, viewer, canManage)
   } catch (error) {
-    if (!isCommerceSchemaMissing(error)) throw error
+    if (isSupabaseGatewayUnauthorized(error)) logSupabaseServiceRoleRejected()
+    if (!isCommerceSchemaMissing(error) && !isSupabaseGatewayUnauthorized(error)) throw error
     accessUnavailable = true
     songAccess = songAccessSeeds.map(song => ({ ...song, can_play: false, access_unavailable: true }))
   }
@@ -385,7 +414,8 @@ export const getPlaylistBySlug = async (slug: string): Promise<PlaylistDetail | 
         .select("id, user_id, author, title, song_path, image_path")
         .in("id", visibleSongIds.map(Number))
     : { data: [], error: null }
-  if (songError) throw songError
+  if (songError && isSupabaseGatewayUnauthorized(songError)) logSupabaseServiceRoleRejected()
+  if (songError && !isSupabaseGatewayUnauthorized(songError)) throw songError
   const songsById = new Map((songRows ?? []).map(song => [String(song.id), song]))
 
   const playlistSongs: Song[] = songAccess.map(song => {
@@ -455,7 +485,14 @@ export const getPlaylistBySlug = async (slug: string): Promise<PlaylistDetail | 
 export const getPurchasedPlaylists = async (): Promise<PlaylistSummary[]> => {
   let ids: string[]
   try { ids = Array.from(await purchasedPlaylists((await getViewer()).id)) }
-  catch (error) { if (isCommerceSchemaMissing(error)) return []; throw error }
+  catch (error) {
+    if (isCommerceSchemaMissing(error)) return []
+    if (isSupabaseGatewayUnauthorized(error)) {
+      logSupabaseServiceRoleRejected()
+      return []
+    }
+    throw error
+  }
   if (!ids.length) return []
   const supabase = await createServerComponentClient()
   const { data, error } = await supabase.from("19_playlists").select("*").in("id", ids)

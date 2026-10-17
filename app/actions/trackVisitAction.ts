@@ -19,6 +19,7 @@ import {
 } from "@/libs/deviceIdRedis"
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
+import { isSupabaseGatewayUnauthorized, logSupabaseServiceRoleRejected } from "@/libs/supabaseGatewayError"
 
 interface UTMParams {
   source?: string
@@ -160,6 +161,10 @@ async function insertDBUTMVisitAction(
       url: pageUrl,
       user_agent: userAgent,
     })
+    if (error && isSupabaseGatewayUnauthorized(error)) {
+      logSupabaseServiceRoleRejected()
+      return "Error tracking UTM visit: SUPABASE_SERVICE_ROLE_KEY was rejected"
+    }
     if (error) throw Error(error.message)
   } catch (error) {
     return `Error tracking UTM visit: ${error instanceof Error ? error.message : "Unknown error"}`
