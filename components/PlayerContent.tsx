@@ -2,7 +2,9 @@
 
 import useSound from "use-sound"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { BsPauseFill, BsPlayFill, BsRepeat, BsRepeat1, BsSkipStartFill } from "react-icons/bs"
+import { BsPauseFill, BsPlayFill, BsSkipStartFill } from "react-icons/bs"
+import { MdMusicNote } from "react-icons/md"
+import { TbPlaylist } from "react-icons/tb"
 import { HiSpeakerWave, HiSpeakerXMark } from "react-icons/hi2"
 import { AiFillStepBackward, AiFillStepForward, AiOutlineLoading3Quarters } from "react-icons/ai"
 
@@ -67,7 +69,9 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
 
   const Icon = isLoading || isBuffering ? AiOutlineLoading3Quarters : isPlaying ? BsPauseFill : BsPlayFill
   const VolumeIcon = volume === 0 ? HiSpeakerXMark : HiSpeakerWave
-  const RepeatIcon = repeatMode === "one" ? BsRepeat1 : BsRepeat
+  const RepeatIcon = repeatMode === "one" ? MdMusicNote : TbPlaylist
+  const repeatLabel =
+    repeatMode === "one" ? "Repeating this song" : repeatMode === "all" ? "Repeating playlist" : "Repeat is off"
 
   // Ref so mediaSession seekto handler always has the latest Howl instance
   const soundRef = useRef<ReturnType<typeof useSound>[1]["sound"]>(null)
@@ -561,6 +565,8 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
         <RepeatIcon
           onClick={cycleRepeatMode}
           size={22}
+          title={repeatLabel}
+          aria-label={repeatLabel}
           className={`cursor-pointer transition ${repeatMode === "off" ? "text-neutral-400 hover:text-neon" : "text-neon drop-shadow-[0_0_4px_rgba(74,222,128,0.3)]"}`}
         />
       </div>
