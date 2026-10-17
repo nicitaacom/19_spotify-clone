@@ -134,32 +134,39 @@ const AddToPlaylistModal = () => {
       title={addToPlaylistModal.song ? `Add "${addToPlaylistModal.song.title}"` : "Add to playlist"}
       description="Choose one of your playlists or create a new one."
       isOpen={addToPlaylistModal.isOpen}
-      onChange={onChange}>
-      <div className="flex flex-col gap-y-3">
-        <Button className="bg-white text-black" onClick={handleCreateShortcut}>
+      onChange={onChange}
+      titleClassName="break-words px-8"
+      contentClassName="flex h-auto max-h-[calc(100dvh-2rem)] flex-col overflow-hidden md:max-h-[min(40rem,calc(100dvh-6rem))]"
+      bodyClassName="flex h-auto min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <Button className="shrink-0 bg-white text-black" onClick={handleCreateShortcut}>
           Create new playlist
         </Button>
 
-        {isLoading ? <p className="text-sm text-neutral-400">Loading your playlists...</p> : null}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+          {isLoading ? <p className="text-sm text-neutral-400">Loading your playlists...</p> : null}
 
-        {!isLoading && playlists.length === 0 ? (
-          <p className="text-sm text-neutral-400">You do not have any playlists yet.</p>
-        ) : null}
+          {!isLoading && playlists.length === 0 ? (
+            <p className="text-sm text-neutral-400">You do not have any playlists yet.</p>
+          ) : null}
 
-        {playlists.map(playlist => (
-          <button
-            key={playlist.id}
-            type="button"
-            disabled={loadingPlaylistId === playlist.id}
-            onClick={() => handleAddToPlaylist(playlist.id)}
-            className="flex items-center justify-between rounded-md border border-white/10 px-4 py-3 text-left transition hover:border-neon/30 hover:bg-elevated/40 disabled:cursor-not-allowed disabled:opacity-50">
-            <div className="min-w-0">
-              <p className="truncate font-medium text-white">{playlist.title}</p>
-              <p className="text-xs capitalize text-neutral-400">{playlist.visibility}</p>
-            </div>
-            <span className="text-sm font-medium text-neon/80">{loadingPlaylistId === playlist.id ? "Adding..." : "Add"}</span>
-          </button>
-        ))}
+          <div className="flex flex-col gap-2 pb-1">
+            {playlists.map(playlist => (
+              <button
+                key={playlist.id}
+                type="button"
+                disabled={loadingPlaylistId === playlist.id}
+                onClick={() => handleAddToPlaylist(playlist.id)}
+                className="flex shrink-0 items-center justify-between gap-3 rounded-md border border-white/10 px-4 py-3 text-left transition hover:border-neon/30 hover:bg-elevated/40 disabled:cursor-not-allowed disabled:opacity-50">
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-white">{playlist.title}</span>
+                  <span className="block text-xs capitalize text-neutral-400">{playlist.visibility}</span>
+                </span>
+                <span className="shrink-0 text-sm font-medium text-neon/80">{loadingPlaylistId === playlist.id ? "Adding..." : "Add"}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </Modal>
   )

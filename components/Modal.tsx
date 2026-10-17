@@ -9,6 +9,7 @@ interface ModalProps {
   description: string
   children: React.ReactNode
   contentClassName?: string
+  bodyClassName?: string
   descriptionClassName?: string
   titleAside?: React.ReactNode
   overlayClassName?: string
@@ -24,6 +25,7 @@ const Modal: React.FC<ModalProps> = ({
   description,
   children,
   contentClassName,
+  bodyClassName,
   descriptionClassName,
   titleAside,
   overlayClassName,
@@ -118,7 +120,7 @@ const Modal: React.FC<ModalProps> = ({
               {description}
             </Dialog.Description>
           ) : null}
-          <div className="h-full">{children}</div>
+          <div className={twMerge("h-full", bodyClassName)}>{children}</div>
           {isShowCloseButton && (
             <Dialog.Close asChild>
               <button
