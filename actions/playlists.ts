@@ -276,85 +276,49 @@ export const getUserPlaylists = async (): Promise<PlaylistSummary[]> => {
   return summaries.map(p => ({ ...p, commerce: commerce.get(p.id) }))
 }
 
-export const getUserPlaylistOptions = async (): Promise<PlaylistOption[]> => {
-  const supabase = await createServerComponentClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  if (!session?.user?.id) {
-    return []
-  }
-
-  const { data, error } = await supabase
-    .from("19_playlists")
-    .select("id, slug, title, updated_at, visibility")
-    .eq("user_id", session.user.id)
-    .order("updated_at", { ascending: false })
-
-  if (error || !data) {
-    if (error) {
-      console.log(184, "getUserPlaylistOptions error - ", error.message)
-    }
-
-    return []
-  }
-
-  return data.map(playlist => ({
-    id: String(playlist.id),
-    slug: playlist.slug,
-    title: playlist.title,
-    updated_at: playlist.updated_at,
-    visibility: playlist.visibility,
-  }))
-}
-
 export const getUserSongPlaylists = async (songIds: string[]): Promise<Record<string, Pick<PlaylistOption, "id" | "slug" | "title">[]>> => {
   if (!songIds.length) return {}
-  const playlists = await getUserPlaylistOptions()
-  if (!playlists.length) return {}
-
   const supabase = await createServerComponentClient()
-  const requestedSongs = new Set(songIds.map(String))
-  const playlistsById = new Map(playlists.map(playlist => [playlist.id, playlist]))
-  const playlistOrder = new Map(playlists.map((playlist, index) => [playlist.id, index]))
-  const result: Record<string, Pick<PlaylistOption, "id" | "slug" | "title">[]> = {}
+  const numericSongIds = [...new Set(songIds.map(id => Number(id)).filter(id => Number.isInteger(id)))]
+  if (!numericSongIds.length) return {}
 
-  for (let batchStart = 0; batchStart < playlists.length; batchStart += 100) {
-    const playlistIds = playlists.slice(batchStart, batchStart + 100).map(playlist => playlist.id)
-    for (let songStart = 0; songStart < songIds.length; songStart += 100) {
-      let offset = 0
+  const memberships: { playlist_id: string; song_id: number }[] = []
+  for (let start = 0; start < numericSongIds.length; start += 100) {
+    const { data, error } = await supabase
+      .from("19_playlist_songs")
+      .select("playlist_id, song_id")
+      .in("song_id", numericSongIds.slice(start, start + 100))
 
-      while (true) {
-        const { data, error } = await supabase
-          .from("19_playlist_songs")
-          .select("playlist_id, song_id")
-          .in("playlist_id", playlistIds)
-          .in("song_id", songIds.slice(songStart, songStart + 100))
-          .order("playlist_id")
-          .order("song_id")
-          .range(offset, offset + 999)
-
-        if (error) {
-          console.log("getUserSongPlaylists error - ", error.message)
-          return {}
-        }
-
-        for (const item of data ?? []) {
-          const songId = String(item.song_id)
-          const playlist = playlistsById.get(String(item.playlist_id))
-          if (!requestedSongs.has(songId) || !playlist) continue
-          ;(result[songId] ??= []).push({ id: playlist.id, slug: playlist.slug, title: playlist.title })
-        }
-
-        if (!data || data.length < 1000) break
-        offset += data.length
-      }
+    if (error) {
+      console.log("getUserSongPlaylists error - ", error.message)
+      return {}
     }
+    memberships.push(...(data ?? []))
+  }
+  if (!memberships.length) return {}
+
+  const playlistIds = [...new Set(memberships.map(item => item.playlist_id))]
+  const { data: playlists, error } = await supabase
+    .from("19_playlists")
+    .select("id, slug, title")
+    .in("id", playlistIds)
+
+  if (error || !playlists) {
+    if (error) console.log("getUserSongPlaylists playlists error - ", error.message)
+    return {}
   }
 
+  const playlistsById = new Map(playlists.map(playlist => [String(playlist.id), playlist]))
+  const result: Record<string, Pick<PlaylistOption, "id" | "slug" | "title">[]> = {}
+  for (const item of memberships) {
+    const playlist = playlistsById.get(String(item.playlist_id))
+    if (!playlist) continue
+    const locations = (result[String(item.song_id)] ??= [])
+    if (locations.some(location => location.id === String(playlist.id))) continue
+    locations.push({ id: String(playlist.id), slug: playlist.slug, title: playlist.title })
+  }
   for (const locations of Object.values(result)) {
-    locations.sort((a, b) => (playlistOrder.get(a.id) ?? 0) - (playlistOrder.get(b.id) ?? 0))
+    locations.sort((a, b) => a.title.localeCompare(b.title))
   }
   return result
 }
