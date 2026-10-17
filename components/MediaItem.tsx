@@ -13,9 +13,10 @@ interface MediaItemProps {
   data: Song
   onClick?: (id: string) => void
   size?: number
+  titleClassName?: string
 }
 
-const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48 }) => {
+const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleClassName }) => {
   const player = usePlayer()
   const imageUrl = useLoadImage(data)
   const lockedPaid = data.is_paid === true && data.can_play === false
@@ -75,7 +76,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48 }) => {
         )}
       </div>
       <div className="flex flex-col gap-y-1 overflow-hidden">
-        <p className={twMerge("truncate text-white", player.activeId === data.id && "text-neon", lockedPaid && "blur-sm")}>{data.title}</p>
+        <p className={twMerge("truncate text-white", player.activeId === data.id && "text-neon", lockedPaid && "blur-sm", titleClassName)}>{data.title}</p>
         <p className="text-neutral-400 text-sm truncate">
           {lockedPaid ? "Paid track" : `${data.author}${data.access_unavailable ? " · Unavailable" : data.can_play === false ? " · Locked" : ""}`}
         </p>

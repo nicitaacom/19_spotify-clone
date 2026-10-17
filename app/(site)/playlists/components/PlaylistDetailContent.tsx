@@ -35,27 +35,36 @@ const actionColumnClass = (canManage: boolean) =>
     ? "flex w-[8.75rem] items-center justify-center gap-1 sm:w-[11rem]"
     : "flex w-[4.25rem] items-center justify-center gap-1 sm:w-[6.5rem]"
 
+function isAdminUnlocked(song: Song, canManage: boolean) {
+  return canManage && song.is_paid === true && song.can_play !== false && !song.access_unavailable
+}
+
 function AccessBadge({ song, canManage }: { song: Song; canManage: boolean }) {
   const locked = song.can_play === false
+  const adminUnlock = isAdminUnlocked(song, canManage)
   const label = song.access_unavailable
     ? "Unavailable"
     : locked && song.is_paid
       ? "Paid"
       : locked
         ? "Unavailable"
-        : song.is_paid
-          ? canManage ? "Paid" : "Unlocked"
-          : "Free"
-  const open = label === "Free" || label === "Unlocked"
+        : adminUnlock
+          ? "UNLOCKED - ADMIN"
+          : song.is_paid
+            ? "Unlocked"
+            : "Free"
+  const open = label === "Free" || label === "Unlocked" || adminUnlock
   const Icon = open ? FiUnlock : FiLock
-  const tone = open
-    ? "border-neon/30 bg-neon/10 text-neon"
-    : label === "Paid"
-      ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
-      : "border-white/10 bg-white/5 text-neutral-400"
+  const tone = adminUnlock
+    ? "border-sky-400/40 bg-sky-500/15 text-sky-100"
+    : open
+      ? "border-neon/30 bg-neon/10 text-neon"
+      : label === "Paid"
+        ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+        : "border-white/10 bg-white/5 text-neutral-400"
 
   return (
-    <span className={`inline-flex h-7 items-center justify-center gap-1 rounded-full border px-2.5 text-xs font-medium ${tone}`}>
+    <span className={`inline-flex h-7 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-xs font-medium ${tone}`}>
       <Icon size={12} />
       {label}
     </span>
@@ -81,8 +90,14 @@ function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, 
   onPointerCancel: (event: PointerEvent<HTMLButtonElement>) => void
   onMove: (songId: string, direction: number) => void
 }) {
+  const adminUnlock = isAdminUnlocked(item.song, canManage)
+  const rowTone = isDragging
+    ? "border-white/20 bg-elevated"
+    : adminUnlock
+      ? "border-sky-400/30 bg-sky-500/10 hover:border-sky-300/50 hover:bg-sky-500/15"
+      : "border-transparent hover:border-white/5 hover:bg-elevated"
   return (
-    <div className={`group relative rounded-md border py-0.5 hover:bg-elevated ${trackColumns(canManage)} ${isDragging ? "border-white/20 bg-elevated" : "border-transparent hover:border-white/5"}`}>
+    <div className={`group relative rounded-md border py-0.5 ${trackColumns(canManage)} ${rowTone}`}>
       {dropEdge && <span aria-hidden="true" className={`pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-neon ${dropEdge === "top" ? "-top-px" : "-bottom-px"}`} />}
       {canManage && (
         <button type="button" disabled={!canReorder} aria-label={`Reorder ${item.song.title}`}
@@ -105,7 +120,7 @@ function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, 
       )}
       <span className="hidden w-6 shrink-0 text-center text-xs text-neutral-500 sm:block">{index + 1}</span>
       <div className="min-w-0 flex-1">
-        <MediaItem data={item.song} onClick={onPlay} size={36} />
+        <MediaItem data={item.song} onClick={onPlay} size={36} titleClassName={adminUnlock ? "text-sky-100" : undefined} />
       </div>
       <AccessBadge song={item.song} canManage={canManage} />
       <div className={actionColumnClass(canManage)}>
