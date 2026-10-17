@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react"
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
-import { FiEdit2, FiPlay, FiSearch, FiShuffle, FiMenu, FiTrash2 } from "react-icons/fi"
+import { FiEdit2, FiLock, FiMenu, FiPlay, FiSearch, FiShuffle, FiTrash2, FiUnlock } from "react-icons/fi"
 import { PlaylistDetail, PlaylistSongWithSong, Song } from "@/types"
 import useOnPlay from "@/hooks/useOnPlay"
 import useEditSongModal from "@/hooks/useEditSongModal"
@@ -21,6 +21,46 @@ import PlaylistPurchasePanel from "./PlaylistPurchasePanel"
 
 type DragPreview = { songId: string; destination: number }
 type ActiveDrag = { songId: string; source: number; pointerId: number; startY: number; moved: boolean; initialOrder: PlaylistSongWithSong[] }
+
+const iconButtonClass = "grid h-8 w-8 place-items-center rounded text-neutral-400 focus-visible:outline-neon"
+
+function trackColumns(canManage: boolean) {
+  return canManage
+    ? "grid grid-cols-[2rem_minmax(0,1fr)_auto_8.75rem] items-center gap-x-2 px-1 sm:grid-cols-[2rem_1.5rem_minmax(0,1fr)_auto_11rem] sm:gap-x-3 sm:px-3"
+    : "grid grid-cols-[minmax(0,1fr)_auto_4.25rem] items-center gap-x-2 px-1 sm:grid-cols-[1.5rem_minmax(0,1fr)_auto_6.5rem] sm:gap-x-3 sm:px-3"
+}
+
+const actionColumnClass = (canManage: boolean) =>
+  canManage
+    ? "flex w-[8.75rem] items-center justify-center gap-1 sm:w-[11rem]"
+    : "flex w-[4.25rem] items-center justify-center gap-1 sm:w-[6.5rem]"
+
+function AccessBadge({ song, canManage }: { song: Song; canManage: boolean }) {
+  const locked = song.can_play === false
+  const label = song.access_unavailable
+    ? "Unavailable"
+    : locked && song.is_paid
+      ? "Paid"
+      : locked
+        ? "Unavailable"
+        : song.is_paid
+          ? canManage ? "Paid" : "Unlocked"
+          : "Free"
+  const open = label === "Free" || label === "Unlocked"
+  const Icon = open ? FiUnlock : FiLock
+  const tone = open
+    ? "border-neon/30 bg-neon/10 text-neon"
+    : label === "Paid"
+      ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
+      : "border-white/10 bg-white/5 text-neutral-400"
+
+  return (
+    <span className={`inline-flex h-7 items-center justify-center gap-1 rounded-full border px-2.5 text-xs font-medium ${tone}`}>
+      <Icon size={12} />
+      {label}
+    </span>
+  )
+}
 
 function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, canReorder, removing, dropEdge, isDragging, onPlay, onEdit, onRemove, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onMove }: {
   item: PlaylistSongWithSong
@@ -41,9 +81,8 @@ function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, 
   onPointerCancel: (event: PointerEvent<HTMLButtonElement>) => void
   onMove: (songId: string, direction: number) => void
 }) {
-  const locked = item.song.can_play === false
   return (
-    <div className={`group relative flex items-center gap-2 rounded-md border px-1 py-0.5 hover:bg-elevated sm:gap-3 sm:px-3 ${isDragging ? "border-white/20 bg-elevated" : "border-transparent hover:border-white/5"}`}>
+    <div className={`group relative rounded-md border py-0.5 hover:bg-elevated ${trackColumns(canManage)} ${isDragging ? "border-white/20 bg-elevated" : "border-transparent hover:border-white/5"}`}>
       {dropEdge && <span aria-hidden="true" className={`pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-neon ${dropEdge === "top" ? "-top-px" : "-bottom-px"}`} />}
       {canManage && (
         <button type="button" disabled={!canReorder} aria-label={`Reorder ${item.song.title}`}
@@ -60,33 +99,35 @@ function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, 
               onMove(item.song_id, event.key === "ArrowUp" ? -1 : 1)
             }
           }}
-          className="touch-none cursor-grab rounded p-1 text-neutral-500 hover:text-white focus-visible:outline-neon active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-30">
-          <FiMenu size={17} />
+          className={`${iconButtonClass} touch-none cursor-grab text-neutral-500 hover:text-white active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-30`}>
+          <FiMenu size={16} />
         </button>
       )}
       <span className="hidden w-6 shrink-0 text-center text-xs text-neutral-500 sm:block">{index + 1}</span>
       <div className="min-w-0 flex-1">
         <MediaItem data={item.song} onClick={onPlay} size={36} />
       </div>
-      <span className={`flex shrink-0 items-center gap-1 text-[11px] ${locked ? "text-neutral-400" : "text-neon/80"}`}>
-        {item.song.access_unavailable ? "Unavailable" : locked && item.song.is_paid ? "Paid" : locked ? "Unavailable" : item.song.is_paid ? canManage ? "Paid" : "Unlocked" : "Free"}
-      </span>
-      {canEditSong && (
-        <button type="button" onClick={() => onEdit(item.song)} aria-label={`Edit ${item.song.title}`}
-          className="rounded p-1 text-neutral-400 hover:text-white focus-visible:outline-neon">
-          <FiEdit2 size={15} />
-        </button>
-      )}
-      {canManage && (
-        <button type="button" disabled={removing} onClick={() => onRemove(item.song)}
-          aria-label={`Remove ${item.song.title} from playlist`} title="Remove from playlist"
-          className="rounded p-1 text-neutral-400 hover:text-red-400 focus-visible:outline-neon disabled:opacity-40">
-          <FiTrash2 size={15} />
-        </button>
-      )}
-      <LikeButton songId={item.song.id} />
-      <div className="hidden sm:block"><AddToPlaylistButton song={item.song} /></div>
-      <DownloadSongButton song={item.song} playlistTitle={playlistTitle} />
+      <AccessBadge song={item.song} canManage={canManage} />
+      <div className={actionColumnClass(canManage)}>
+        {canEditSong && (
+          <button type="button" onClick={() => onEdit(item.song)} aria-label={`Edit ${item.song.title}`}
+            className={`${iconButtonClass} hover:text-white`}>
+            <FiEdit2 size={16} />
+          </button>
+        )}
+        {canManage && (
+          <button type="button" disabled={removing} onClick={() => onRemove(item.song)}
+            aria-label={`Remove ${item.song.title} from playlist`} title="Remove from playlist"
+            className={`${iconButtonClass} hover:text-red-400 disabled:opacity-40`}>
+            <FiTrash2 size={16} />
+          </button>
+        )}
+        <LikeButton songId={item.song.id} size={16} className={iconButtonClass} />
+        <div className="hidden sm:grid sm:h-8 sm:w-8 sm:place-items-center">
+          <AddToPlaylistButton song={item.song} size={16} className={iconButtonClass} />
+        </div>
+        <DownloadSongButton song={item.song} playlistTitle={playlistTitle} iconSize={16} className={`${iconButtonClass} hover:text-neon disabled:cursor-not-allowed disabled:opacity-40`} />
+      </div>
     </div>
   )
 }
@@ -269,13 +310,18 @@ export default function PlaylistDetailContent({
     }
   }
   const toggleShuffle = () => {
+    if (shuffle) {
+      setShuffle(false)
+      return
+    }
+    if (!window.confirm("Mix these songs into a random order?")) return
     const ids = orderedSongs.map(item => item.song.id)
     for (let i = ids.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
       ;[ids[i], ids[j]] = [ids[j], ids[i]]
     }
     setShuffleSeed(ids)
-    setShuffle(!shuffle)
+    setShuffle(true)
   }
 
   return (
@@ -309,7 +355,7 @@ export default function PlaylistDetailContent({
         {canManage && (
           <button
             onClick={() => setEditing(true)}
-            className="ml-auto flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs text-neutral-300 hover:border-white/25">
+            className="flex items-center gap-2 rounded-full border border-white/10 px-3 py-2 text-xs text-neutral-300 hover:border-white/25">
             <FiEdit2 size={14} />
             Edit playlist
           </button>
@@ -322,31 +368,17 @@ export default function PlaylistDetailContent({
           </div>
         )}
         <section className="min-w-0 xl:col-start-1 xl:row-start-1" aria-label="Playlist songs">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-semibold text-white">Tracks</h2>
-              <p className="mt-1 text-xs text-neutral-500">
-                {orderedSongs.length} songs
-                {commerce?.ready !== false &&
-                  ` · ${orderedSongs.filter(item => !item.song.is_paid).length} free to listen`}
-              </p>
-            </div>
-            <div className="relative w-full sm:w-56">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-              <Input
-                aria-label="Search songs in this playlist"
-                className="py-2 pl-9"
-                placeholder="Find a song…"
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-              />
-            </div>
+          <div className="relative mb-4 w-full sm:w-56">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+            <Input
+              aria-label="Search songs in this playlist"
+              className="py-2 pl-9"
+              placeholder="Find a song…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
           </div>
-          <div className="mb-1 flex gap-3 border-b border-white/10 px-3 pb-2 text-[11px] font-medium uppercase tracking-widest text-neutral-500">
-            <span className="hidden w-6 text-center sm:block">#</span>
-            <span className="flex-1">Title / Artist</span>
-            <span>Access</span>
-          </div>
+          <div className="mb-1 border-b border-white/10 pb-2" />
           {filtered.length === 0 && (
             <div className="rounded-lg border border-dashed border-white/10 px-4 py-6 text-center text-sm text-neutral-400">
               {query
