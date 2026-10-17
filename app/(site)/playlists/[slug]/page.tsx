@@ -75,7 +75,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
                 <p className="text-xs text-neon">
                   {playlist.commerce.purchased
                     ? "Purchased · Future additions included"
-                    : `${formatPlaylistPrice(playlist.commerce.price_cents)} once · Updated monthly`}
+                    : `${formatPlaylistPrice(playlist.commerce.price_cents)} once`}
                 </p>
               )}
             </div>
