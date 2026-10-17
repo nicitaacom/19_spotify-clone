@@ -1,7 +1,7 @@
 import Header from "@/components/Header"
 import { getPublicPlaylists, getUserPlaylists } from "@/actions/playlists"
 
-import PlaylistCard from "./components/PlaylistCard"
+import PlaylistsBrowser from "./components/PlaylistsBrowser"
 import PlaylistsPageActions from "./components/PlaylistsPageActions"
 
 export const revalidate = 0
@@ -17,7 +17,7 @@ export default async function PlaylistsPage() {
             <div>
               <h1 className="text-3xl font-semibold text-white">Playlists</h1>
               <p className="mt-2 max-w-2xl text-sm text-neutral-200">
-                Browse public playlists, open unlisted playlists by link, and manage your own public, unlisted, and private playlists.
+                Browse public playlists. When your own list is a different size, switch between Public playlists and My playlists.
               </p>
             </div>
             <div className="w-full max-w-[220px]">
@@ -27,36 +27,8 @@ export default async function PlaylistsPage() {
         </div>
       </Header>
 
-      <div className="mb-7 flex flex-col gap-y-10 px-6 pb-6 pt-4">
-        <section className="flex flex-col gap-y-4">
-          <div>
-            <h2 className="text-2xl font-semibold text-white">Public playlists</h2>
-            <p className="mt-1 text-sm text-neutral-400">Visible to everyone and listed on this page.</p>
-          </div>
-          {publicPlaylists.length === 0 ? (
-            <p className="text-sm text-neutral-400">No public playlists yet.</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {publicPlaylists.map(playlist => (
-                <PlaylistCard key={playlist.id} playlist={playlist} />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {userPlaylists.length > 0 ? (
-          <section className="flex flex-col gap-y-4">
-            <div>
-              <h2 className="text-2xl font-semibold text-white">Your playlists</h2>
-              <p className="mt-1 text-sm text-neutral-400">Includes your public, unlisted, and private playlists.</p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-              {userPlaylists.map(playlist => (
-                <PlaylistCard key={playlist.id} playlist={playlist} showVisibility />
-              ))}
-            </div>
-          </section>
-        ) : null}
+      <div className="mb-7 px-6 pb-6 pt-4">
+        <PlaylistsBrowser publicPlaylists={publicPlaylists} userPlaylists={userPlaylists} />
       </div>
     </div>
   )
