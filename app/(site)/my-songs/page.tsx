@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation"
+
 import getSongsByUserId from "@/actions/getSongsByUserId"
 import { getUserSongPlaylists } from "@/actions/playlists"
 import Header from "@/components/Header"
@@ -7,11 +9,11 @@ import MySongsContent from "./components/MySongsContent"
 export const revalidate = 0
 
 export default async function MySongs() {
+  const isOwner = await getIsOwner()
+  if (!isOwner) redirect("/")
+
   const songs = await getSongsByUserId()
-  const [isOwner, playlistsBySong] = await Promise.all([
-    getIsOwner(),
-    getUserSongPlaylists(songs.map(song => String(song.id))),
-  ])
+  const playlistsBySong = await getUserSongPlaylists(songs.map(song => String(song.id)))
 
   return (
     <div className="h-full w-full overflow-x-hidden rounded-lg bg-surface text-white">

@@ -47,12 +47,16 @@ const Sidebar: React.FC<SidebarProps> = ({ children, songs, isOwner }) => {
         active: pathname.startsWith("/playlists"),
         href: "/playlists",
       },
-      {
-        icon: MdMusicNote,
-        label: "My Songs",
-        active: pathname.startsWith("/my-songs"),
-        href: "/my-songs",
-      },
+      ...(isOwner
+        ? [
+            {
+              icon: MdMusicNote,
+              label: "My Songs",
+              active: pathname.startsWith("/my-songs"),
+              href: "/my-songs",
+            },
+          ]
+        : []),
       {
         icon: TbWaveSine,
         label: "Slow & Reverb",
@@ -66,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ children, songs, isOwner }) => {
         href: "/8d-generator",
       },
     ],
-    [pathname],
+    [pathname, isOwner],
   )
 
   return (
