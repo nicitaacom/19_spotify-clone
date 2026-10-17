@@ -95,8 +95,7 @@ const AddASongModal = () => {
   })
   const playlistQuery = playlistSearch.trim().toLocaleLowerCase()
   const filteredPlaylists = playlists.filter(playlist => playlist.title.toLocaleLowerCase().includes(playlistQuery))
-  const isPaid = Boolean(useWatch({ control, name: "isPaid" }))
-  const isCreateDisabled = isCreateBlocked || readingMetadata || (isPaid && !selectedPlaylist)
+  const isCreateDisabled = isCreateBlocked || readingMetadata || !selectedPlaylist
 
   useHotkey({
     hotkey: "Enter",
@@ -482,8 +481,8 @@ const AddASongModal = () => {
         setIsLoading(false)
         return
       }
-      if (values.isPaid && !selectedPlaylist) {
-        setUploadError("Select a playlist for a paid song.")
+      if (!selectedPlaylist) {
+        setUploadError("Select a playlist before uploading.")
         setIsLoading(false)
         return
       }
@@ -670,7 +669,7 @@ const AddASongModal = () => {
 
         <aside className="min-w-0">
           <section className="flex min-h-0 min-w-0 flex-col rounded-lg border border-white/10 p-3 sm:p-4 md:h-full">
-            <div className="pb-2 text-sm text-neutral-300">Add to Playlist (Optional)</div>
+            <div className="pb-2 text-sm text-neutral-300">Add to Playlist</div>
             <div className="flex min-w-0 flex-col gap-1.5 md:min-h-0 md:flex-1">
               <button
                 type="button"
@@ -679,19 +678,6 @@ const AddASongModal = () => {
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neon transition hover:bg-elevated disabled:opacity-50">
                 <FiPlus size={14} />
                 Create new playlist
-              </button>
-
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={() => {
-                  setSelectedPlaylist(null)
-                  setUploadError("")
-                }}
-                aria-pressed={!selectedPlaylist}
-                className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm text-neutral-300 transition hover:bg-elevated disabled:opacity-50">
-                No playlist
-                {!selectedPlaylist && <FiCheck size={14} className="text-neon" />}
               </button>
 
               <Input
@@ -795,8 +781,8 @@ const AddASongModal = () => {
               <input type="checkbox" disabled={isLoading} className="accent-green-400" {...register("isPaid", { onChange: () => setUploadError("") })} />
               Paid in selected playlist
             </label>
-            {isPaid && !selectedPlaylist && (
-              <p className="mt-2 text-xs text-neutral-400">Select a playlist to make this song paid.</p>
+            {!selectedPlaylist && (
+              <p className="mt-2 text-xs text-neutral-400">Select a playlist before uploading.</p>
             )}
           </section>
         </aside>

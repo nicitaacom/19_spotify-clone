@@ -51,8 +51,8 @@ export async function POST(request: Request) {
   if (songFile.size > 50 * 1024 * 1024) {
     return NextResponse.json({ error: "Audio exceeds the 50 MB upload limit." }, { status: 400 })
   }
-  if (isPaid && !playlistId) {
-    return NextResponse.json({ error: "Select a playlist for a paid song." }, { status: 400 })
+  if (!playlistId) {
+    return NextResponse.json({ error: "Select a playlist before uploading." }, { status: 400 })
   }
   const imageExtension = imageFile.name.split(".").pop()?.toLowerCase() ?? ""
   if (
