@@ -279,7 +279,7 @@ export const getUserPlaylists = async (): Promise<PlaylistSummary[]> => {
 export const getUserSongPlaylists = async (songIds: string[]): Promise<Record<string, Pick<PlaylistOption, "id" | "slug" | "title">[]>> => {
   if (!songIds.length) return {}
   const supabase = await createServerComponentClient()
-  const numericSongIds = [...new Set(songIds.map(id => Number(id)).filter(id => Number.isInteger(id)))]
+  const numericSongIds = Array.from(new Set(songIds.map(id => Number(id)).filter(id => Number.isInteger(id))))
   if (!numericSongIds.length) return {}
 
   const memberships: { playlist_id: string; song_id: number }[] = []
@@ -297,7 +297,7 @@ export const getUserSongPlaylists = async (songIds: string[]): Promise<Record<st
   }
   if (!memberships.length) return {}
 
-  const playlistIds = [...new Set(memberships.map(item => item.playlist_id))]
+  const playlistIds = Array.from(new Set(memberships.map(item => item.playlist_id)))
   const { data: playlists, error } = await supabase
     .from("19_playlists")
     .select("id, slug, title")

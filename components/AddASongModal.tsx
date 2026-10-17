@@ -120,7 +120,7 @@ const AddASongModal = () => {
   }
   const genreTags = selectedPlaylist ? inferPlaylistGenreTags(selectedPlaylist.title, selectedPlaylist.slug) : []
   const playlistReady = playlistRecentTags.ready && playlistRecentTags.playlistId === selectedPlaylistId
-  const playlistSuggestionTags = playlistReady ? [...new Set([...playlistRecentTags.recent, ...genreTags])] : []
+  const playlistSuggestionTags = playlistReady ? Array.from(new Set([...playlistRecentTags.recent, ...genreTags])) : []
   const tagsToApply = !playlistReady ? [] : playlistRecentTags.autofill.length ? playlistRecentTags.autofill : genreTags
   const suggestionKey = playlistReady ? `${selectedPlaylistId}:${tagsToApply.join("\0")}` : ""
   const applyingSuggestion = !tagsCustomized && Boolean(suggestionKey) && suggestionKey !== appliedSuggestionKey

@@ -45,7 +45,9 @@ export function recentPlaylistTags(entries: RecentPlaylistSong[]): { autofill: s
     }
   })
 
-  const ranked = [...stats.entries()].sort((first, second) => {
+  const ranked: [string, { count: number; newestIndex: number; order: number }][] = []
+  stats.forEach((stat, tag) => ranked.push([tag, stat]))
+  ranked.sort((first, second) => {
     if (second[1].count !== first[1].count) return second[1].count - first[1].count
     if (first[1].newestIndex !== second[1].newestIndex) return first[1].newestIndex - second[1].newestIndex
     return first[1].order - second[1].order
