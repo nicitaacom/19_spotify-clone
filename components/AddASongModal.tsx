@@ -28,7 +28,7 @@ import { songTagsWithDraft } from "@/libs/songTags"
 
 // Show Turnstile challenge on ~10% of uploads
 const TURNSTILE_PROBABILITY = 0.1
-const IMAGE_ACCEPT = ".jpg,.jpeg,.webp,.avif,.png"
+const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif"
 const CREATE_SONG_HOTKEY_MODIFIERS: Array<"ctrl"> = ["ctrl"]
 const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
   jpg: "image/jpeg",

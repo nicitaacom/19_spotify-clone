@@ -102,7 +102,7 @@ const EditSongModal = () => {
         {canEditTags && <SongTagsInput key={song?.id} id="edit-song-tags" value={tags} onChange={handleTagsChange} disabled={isLoading} />}
         <label className="block space-y-2 text-sm">
           <span>Replace cover image (optional)</span>
-          <Input id="image" type="file" accept="image/*" disabled={isLoading} {...register("image")} />
+          <Input id="image" type="file" accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif" disabled={isLoading} {...register("image")} />
         </label>
         {playlistId && (
           <label className="flex items-center gap-3 text-sm text-neutral-300">
