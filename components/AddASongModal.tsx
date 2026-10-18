@@ -57,6 +57,7 @@ const AddASongModal = () => {
   const [playlistSlugError, setPlaylistSlugError] = useState("")
   const [isSavingPlaylistSlug, setIsSavingPlaylistSlug] = useState(false)
   const [requiresChallenge, setRequiresChallenge] = useState(false)
+  const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [uploadError, setUploadError] = useState("")
   const [embeddedImage, setEmbeddedImage] = useState<File | null>(null)
   const [readingMetadata, setReadingMetadata] = useState(false)
@@ -91,7 +92,7 @@ const AddASongModal = () => {
   })
   const isCreateBlocked = isLoading || (requiresChallenge && isHumanGateEnabled && !isVerified)
 
-  const { register, handleSubmit, reset, resetField, control } = useForm<FieldValues>({
+  const { register, handleSubmit, reset, resetField, control, getValues } = useForm<FieldValues>({
     defaultValues: { author: "", title: "", song: null, image: null, isPaid: false },
   })
   const playlistQuery = playlistSearch.trim().toLocaleLowerCase()
@@ -101,7 +102,7 @@ const AddASongModal = () => {
   useHotkey({
     hotkey: "Enter",
     modifiers: CREATE_SONG_HOTKEY_MODIFIERS,
-    isEnabled: uploadModal.isOpen && editingPlaylistId === null && !isCreateDisabled,
+    isEnabled: uploadModal.isOpen && editingPlaylistId === null && !isCreateDisabled && !confirmDiscard,
     onKeyPressFn: () => {
       formRef.current?.requestSubmit()
     },
@@ -184,7 +185,10 @@ const AddASongModal = () => {
   const [prevModalIsOpen, setPrevModalIsOpen] = useState(uploadModal.isOpen)
   if (uploadModal.isOpen !== prevModalIsOpen) {
     setPrevModalIsOpen(uploadModal.isOpen)
-    if (!uploadModal.isOpen) setRequiresChallenge(false)
+    if (!uploadModal.isOpen) {
+      setRequiresChallenge(false)
+      setConfirmDiscard(false)
+    }
   }
 
   useEffect(() => {
@@ -255,26 +259,59 @@ const AddASongModal = () => {
     }
   }, [createPlaylistModal.isOpen, fetchPlaylists])
 
+  const discardAndClose = () => {
+    reset()
+    setTags([])
+    setUploadProgress(0)
+    setUploadSpeed("")
+    setSelectedPlaylist(null)
+    setPlaylistSearch("")
+    setEditingPlaylistId(null)
+    setPlaylistSlugDraft("")
+    setPlaylistSlugError("")
+    setUploadError("")
+    setEmbeddedImage(null)
+    setCoverPreviewFile(null)
+    setReadingMetadata(false)
+    setConfirmDiscard(false)
+    metadataRequest.current++
+    resetTurnstileFn()
+    uploadModal.onClose()
+  }
+
+  const hasUnsavedSongChanges = () => {
+    const values = getValues()
+    const title = typeof values.title === "string" ? values.title.trim() : ""
+    const author = typeof values.author === "string" ? values.author.trim() : ""
+    const draftTag = formRef.current?.querySelector<HTMLInputElement>("[data-song-tags-input]")?.value.trim() ?? ""
+    const routePlaylistSlug = playlistSlug ? decodeURIComponent(playlistSlug) : ""
+    const playlistChanged = selectedPlaylist !== null && selectedPlaylist.slug !== routePlaylistSlug
+    return Boolean(
+      title
+      || author
+      || values.song?.[0]
+      || values.image?.[0]
+      || embeddedImage
+      || values.isPaid
+      || tagsCustomized
+      || draftTag
+      || playlistChanged
+    )
+  }
+
   const onChange = (open: boolean) => {
-    if (isLoading || editingPlaylistId !== null) return
-    if (!open) {
-      reset()
-      setTags([])
-      setUploadProgress(0)
-      setUploadSpeed("")
-      setSelectedPlaylist(null)
-      setPlaylistSearch("")
-      setEditingPlaylistId(null)
-      setPlaylistSlugDraft("")
-      setPlaylistSlugError("")
-      setUploadError("")
-      setEmbeddedImage(null)
-      setCoverPreviewFile(null)
-      setReadingMetadata(false)
-      metadataRequest.current++
-      resetTurnstileFn()
-      uploadModal.onClose()
+    if (open || isLoading || editingPlaylistId !== null || confirmDiscard) return
+    if (hasUnsavedSongChanges()) {
+      setConfirmDiscard(true)
+      return
     }
+    discardAndClose()
+  }
+
+  const handleEscapeKeyDown = (event: { preventDefault: () => void }) => {
+    if (!confirmDiscard) return
+    event.preventDefault()
+    setConfirmDiscard(false)
   }
 
   const savePlaylistSlug = async (event: React.SyntheticEvent, playlist: PlaylistOption) => {
@@ -611,9 +648,13 @@ const AddASongModal = () => {
       )}
       contentClassName="h-auto w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] max-w-[960px] overflow-hidden p-3 sm:p-5 md:w-[94vw] md:max-h-[90dvh] md:max-w-[960px] md:p-7"
       titleClassName="mb-0 text-left text-2xl"
-      descriptionClassName="mb-6 text-left text-neutral-300">
+      descriptionClassName="mb-6 text-left text-neutral-300"
+      isShowCloseButton={!confirmDiscard}
+      onEscapeKeyDown={handleEscapeKeyDown}>
+      <>
       <form
         ref={formRef}
+        inert={confirmDiscard || undefined}
         onPaste={onPaste}
         onSubmit={handleSubmit(onSubmit, errors => {
           if (errors.title) setUploadError("Song title is required.")
@@ -859,6 +900,39 @@ const AddASongModal = () => {
           </Button>
         </div>
       </form>
+      {confirmDiscard && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 p-4">
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="discard-add-song-title"
+            aria-describedby="discard-add-song-description"
+            className="w-full max-w-sm rounded-lg border border-white/10 bg-surface p-5 shadow-2xl">
+            <h2 id="discard-add-song-title" className="text-center text-xl font-bold text-white">
+              Close and discard changes?
+            </h2>
+            <p id="discard-add-song-description" className="mb-5 mt-2 text-center text-sm text-neutral-300">
+              The song details you entered will be lost.
+            </p>
+            <div className="flex gap-x-3">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setConfirmDiscard(false)}
+                className="flex-1 rounded-md border border-white/10 bg-elevated px-4 py-2.5 text-sm font-semibold text-neutral-300 transition hover:bg-elevated/80">
+                Keep editing
+              </button>
+              <button
+                type="button"
+                onClick={discardAndClose}
+                className="flex-1 rounded-md bg-red-500/90 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-500">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
     </Modal>
   )
 }

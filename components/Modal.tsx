@@ -16,6 +16,7 @@ interface ModalProps {
   titleClassName?: string
   hideHeader?: boolean
   isShowCloseButton?: boolean
+  onEscapeKeyDown?: React.ComponentProps<typeof Dialog.Content>["onEscapeKeyDown"]
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -32,6 +33,7 @@ const Modal: React.FC<ModalProps> = ({
   titleClassName,
   hideHeader = false,
   isShowCloseButton = true,
+  onEscapeKeyDown,
 }) => {
   const titleElement = (
     <Dialog.Title
@@ -66,6 +68,7 @@ const Modal: React.FC<ModalProps> = ({
           )}
         />
         <Dialog.Content
+          onEscapeKeyDown={onEscapeKeyDown}
           onPointerDownOutside={event => {
             const target = event.target
             if (target instanceof Element && target.closest(".app-toast-viewport")) event.preventDefault()
