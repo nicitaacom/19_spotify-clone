@@ -662,8 +662,10 @@ const AddASongModal = () => {
           else if (errors.song) setUploadError("Please select an MP3 or M4A file.")
           else if (errors.image) setUploadError("Please select a cover image.")
         })}
-        className="grid min-h-0 max-h-[calc(100dvh-140px)] min-w-0 grid-cols-1 content-start gap-4 overflow-y-auto overscroll-contain md:max-h-none md:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] md:gap-6 md:overflow-visible">
-        <section className="flex min-w-0 flex-col gap-4">
+        className="grid min-h-0 max-h-[calc(100dvh-140px)] min-w-0 grid-cols-1 content-start items-stretch gap-4 overflow-y-auto overscroll-contain md:max-h-none md:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] md:gap-6 md:overflow-visible">
+        <section className="relative min-w-0 self-stretch">
+          <div className="md:absolute md:inset-0 md:overflow-y-auto md:overscroll-contain">
+            <div className="flex min-w-0 flex-col gap-4 md:min-h-full">
           <div className="space-y-4">
           <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
             <div className="min-w-0">
@@ -753,6 +755,8 @@ const AddASongModal = () => {
             </div>
             {requiresChallenge && isHumanGateEnabled && <TurnstileChallenge turnstileRef={turnstileRef} />}
           </section>
+            </div>
+          </div>
         </section>
 
         <aside className="min-w-0">
