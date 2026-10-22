@@ -130,7 +130,7 @@ without reading the same files four times. **Each screenshot is its own commit**
   - **Docs:** `dev_readme-player.md` "Keyboard shortcuts (Player.tsx)" → one line: song rows are not
     focusable on purpose.
 
-- [ ] **3. Arrow keys: ±5 s, Shift+Arrow next/previous** — `28.09.2026 at 16-29.jpg`
+- [x] **3. Arrow keys: ±5 s, Shift+Arrow next/previous** — `28.09.2026 at 16-29.jpg`
   `feat: arrow keys seek and switch songs`
   - **Change:**
     - `components/PlayerContent.tsx`: 4 `useHotkey` calls (`hooks/useHotkey.ts`) with

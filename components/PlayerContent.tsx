@@ -9,6 +9,7 @@ import { HiSpeakerWave, HiSpeakerXMark } from "react-icons/hi2"
 import { AiFillStepBackward, AiFillStepForward, AiOutlineLoading3Quarters } from "react-icons/ai"
 
 import { Song } from "@/types"
+import { useHotkey } from "@/hooks/useHotkey"
 import usePlayer from "@/hooks/usePlayer"
 import usePreloadNextTrack from "@/hooks/usePreloadNextTrack"
 import useVolumeStore from "@/hooks/useVolumeStore"
@@ -36,6 +37,8 @@ interface HowlWithHtml5Nodes {
 
 const STALL_RECOVERY_DELAY_MS = 5_000
 const MAX_STALL_RECOVERY_ATTEMPTS = 3
+const SEEK_STEP_SECONDS = 5
+const SHIFT_MODIFIER: Array<"shift"> = ["shift"]
 
 const setMediaPlaybackState = (playbackState: "playing" | "paused") => {
   if (!("mediaSession" in navigator)) return
@@ -286,6 +289,24 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     const previousIndex = currentIndex === 0 ? ids.length - 1 : currentIndex - 1
     playTrack(ids[previousIndex])
   }, [activeId, ids, playTrack])
+
+  const seekBySeconds = useCallback((deltaSeconds: number) => {
+    const currentSound = soundRef.current
+    if (!currentSound) return
+    const duration = currentSound.duration()
+    if (!Number.isFinite(duration) || duration <= 0) return
+    const currentPosition = seekCurrentSound()
+    if (typeof currentPosition !== "number" || !Number.isFinite(currentPosition)) return
+    const position = Math.max(0, Math.min(duration, currentPosition + deltaSeconds))
+    seekCurrentSound(position)
+    setSavedPosition(position)
+    setProgress(position / duration)
+  }, [seekCurrentSound, setProgress, setSavedPosition])
+
+  useHotkey({ hotkey: "ArrowRight", ignoreInputs: true, onKeyPressFn: () => seekBySeconds(SEEK_STEP_SECONDS) })
+  useHotkey({ hotkey: "ArrowLeft", ignoreInputs: true, onKeyPressFn: () => seekBySeconds(-SEEK_STEP_SECONDS) })
+  useHotkey({ hotkey: "ArrowRight", modifiers: SHIFT_MODIFIER, ignoreInputs: true, onKeyPressFn: onPlayNext })
+  useHotkey({ hotkey: "ArrowLeft", modifiers: SHIFT_MODIFIER, ignoreInputs: true, onKeyPressFn: onPlayPrevious })
 
   const cycleRepeatMode = () => {
     if (repeatMode === "off") setRepeatMode("all")

@@ -85,7 +85,8 @@ export const useHotkey = ({
       const activeTag = (activeEl?.tagName || "").toUpperCase()
       const isEditableContext = ["INPUT", "TEXTAREA", "SELECT"].includes(activeTag) || activeEl?.isContentEditable
 
-      if (isEditableContext && ALWAYS_SKIP_IN_INPUTS.has(event.key)) return
+      const isSlider = activeEl?.getAttribute("role") === "slider"
+      if ((isEditableContext || isSlider) && ALWAYS_SKIP_IN_INPUTS.has(event.key)) return
       if (ignoreInputs && isEditableContext) return
       if (ignoreButtons && activeTag === "BUTTON") return
 

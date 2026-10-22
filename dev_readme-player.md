@@ -175,6 +175,10 @@ PUSHER_SECRET=''
 | `Space` | Toggle play/pause |
 | `Escape` | Seek to 0 (restart) |
 | `F8` | Stop (pause + seek to 0) |
+| `ArrowRight` | Seek forward 5 seconds |
+| `ArrowLeft` | Seek back 5 seconds |
+| `Shift` + `ArrowRight` | Next song |
+| `Shift` + `ArrowLeft` | Previous song |
 
 Shortcuts are ignored when focus is on an `INPUT`, `TEXTAREA`, or `contentEditable` element.
 Song rows (`MediaItem`, `SongItem`) are not focusable on purpose, so Space pauses the current song instead of starting the clicked row.
