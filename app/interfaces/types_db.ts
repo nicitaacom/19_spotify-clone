@@ -164,6 +164,42 @@ export type Database = {
         Update: { active?: boolean | null; description?: string | null; id?: string; image?: string | null; metadata?: Json | null; name?: string | null }
         Relationships: []
       }
+      "19_song_suggestions": {
+        Row: {
+          id: number
+          created_at: string
+          song_id: number
+          user_id: string
+          title: string | null
+          author: string | null
+          tags: string[] | null
+          status: string
+          reviewed_at: string | null
+        }
+        Insert: {
+          id?: number
+          created_at?: string
+          song_id: number
+          user_id: string
+          title?: string | null
+          author?: string | null
+          tags?: string[] | null
+          status?: string
+          reviewed_at?: string | null
+        }
+        Update: {
+          id?: number
+          created_at?: string
+          song_id?: number
+          user_id?: string
+          title?: string | null
+          author?: string | null
+          tags?: string[] | null
+          status?: string
+          reviewed_at?: string | null
+        }
+        Relationships: []
+      }
       "19_songs": {
         Row: { author: string | null; created_at: string; id: number; image_path: string | null; size_bytes: number | null; song_path: string | null; title: string | null; user_id: string | null; tags: string[] }
         Insert: { author?: string | null; created_at?: string; id?: number; image_path?: string | null; size_bytes?: number | null; song_path?: string | null; title?: string | null; user_id?: string | null; tags?: string[] }

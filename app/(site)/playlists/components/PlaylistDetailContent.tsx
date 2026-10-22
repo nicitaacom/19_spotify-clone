@@ -7,6 +7,7 @@ import { FiEdit2, FiLock, FiMenu, FiPlay, FiSearch, FiShuffle, FiTrash2, FiUnloc
 import { PlaylistDetail, PlaylistSongWithSong, Song } from "@/types"
 import useOnPlay from "@/hooks/useOnPlay"
 import useEditSongModal from "@/hooks/useEditSongModal"
+import useSuggestSongModal from "@/hooks/useSuggestSongModal"
 import MediaItem from "@/components/MediaItem"
 import LikeButton from "@/components/LikeButton"
 import AddToPlaylistButton from "@/components/AddToPlaylistButton"
@@ -71,7 +72,7 @@ function AccessBadge({ song, canManage }: { song: Song; canManage: boolean }) {
   )
 }
 
-function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, canReorder, removing, dropEdge, isDragging, onPlay, onEdit, onRemove, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onMove }: {
+function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, canReorder, removing, dropEdge, isDragging, onPlay, onEdit, onSuggest, onRemove, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onMove }: {
   item: PlaylistSongWithSong
   index: number
   playlistTitle: string
@@ -83,6 +84,7 @@ function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, 
   isDragging: boolean
   onPlay: (id: string) => void
   onEdit: (song: Song) => void
+  onSuggest?: (song: Song) => void
   onRemove: (song: Song) => void
   onPointerDown: (event: PointerEvent<HTMLButtonElement>, songId: string) => void
   onPointerMove: (event: PointerEvent<HTMLButtonElement>) => void
@@ -130,6 +132,12 @@ function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, 
             <FiEdit2 size={16} />
           </button>
         )}
+        {!canEditSong && onSuggest && (
+          <button type="button" onClick={() => onSuggest(item.song)} aria-label={`Suggest edit for ${item.song.title}`}
+            className={`${iconButtonClass} hover:text-white`}>
+            <FiEdit2 size={16} />
+          </button>
+        )}
         {canManage && (
           <button type="button" disabled={removing} onClick={() => onRemove(item.song)}
             aria-label={`Remove ${item.song.title} from playlist`} title="Remove from playlist"
@@ -158,6 +166,7 @@ export default function PlaylistDetailContent({
 }) {
   const router = useRouter()
   const editSongModal = useEditSongModal()
+  const suggestSongModal = useSuggestSongModal()
   const [editing, setEditing] = useState(false)
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false)
   const [query, setQuery] = useState("")
@@ -411,7 +420,7 @@ export default function PlaylistDetailContent({
                 removing={savingOrder || removingSongId !== null}
                 isDragging={dragPreview?.songId === item.song_id}
                 dropEdge={dropMarker?.songId === item.song_id ? dropMarker.edge : null}
-                onPlay={onPlay} onEdit={editSong} onRemove={removeSong}
+                onPlay={onPlay} onEdit={editSong} onSuggest={viewerId ? song => suggestSongModal.onOpen(song) : undefined} onRemove={removeSong}
                 onPointerDown={startDrag} onPointerMove={updateDrag} onPointerUp={stopDrag} onPointerCancel={cancelDrag}
                 onMove={moveSong} />
             ))}

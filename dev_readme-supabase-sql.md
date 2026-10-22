@@ -1030,3 +1030,25 @@ COMMIT;
 
 -- ✅ "Success. No rows returned" is normal.
 ```
+
+## Song suggestions
+
+```sql
+CREATE TABLE IF NOT EXISTS public."19_song_suggestions" (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  song_id BIGINT NOT NULL REFERENCES public."19_songs" (id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  title TEXT NULL,
+  author TEXT NULL,
+  tags TEXT[] NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  reviewed_at TIMESTAMPTZ NULL
+);
+ALTER TABLE public."19_song_suggestions" ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS "19_song_suggestions_status_idx" ON public."19_song_suggestions" (status, created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS "19_song_suggestions_one_pending_idx"
+  ON public."19_song_suggestions" (song_id, user_id) WHERE status = 'pending';
+```
+
+No policies on purpose. Only server routes using the service role read or write this table.

@@ -386,7 +386,7 @@ without reading the same files four times. **Each screenshot is its own commit**
   - **Docs:** new `dev_readme-playlists.md` covering how the cover is picked (custom, else the first
     song) and the cover route.
 
-- [ ] **19. Users suggest song edits, the admin approves** — `2026-10-18_at_17-30.jpg`
+- [x] **19. Users suggest song edits, the admin approves** — `2026-10-18_at_17-30.jpg`
   `feat: suggest song edits`
   - **Asked:** users may suggest other tags, title or author. The ADMIN reviews and approves or rejects.
   - **SQL** (also in `dev_readme-supabase-sql.md`):

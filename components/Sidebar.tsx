@@ -1,7 +1,8 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { FiEdit2 } from "react-icons/fi"
 import { HiHome } from "react-icons/hi"
 import { BiSearch } from "react-icons/bi"
 import { TbPlaylist, TbWaveSine } from "react-icons/tb"
@@ -26,6 +27,17 @@ const Sidebar: React.FC<SidebarProps> = ({ children, songs, isOwner }) => {
   const player = usePlayer()
 
   useSyncOwnerStore(isOwner)
+  const [pendingCount, setPendingCount] = useState(0)
+
+  useEffect(() => {
+    if (!isOwner) return
+    let ignore = false
+    void fetch("/api/suggestions").then(async response => {
+      const body = await response.json().catch(() => ({}))
+      if (!ignore && response.ok && Array.isArray(body.suggestions)) setPendingCount(body.suggestions.length)
+    })
+    return () => { ignore = true }
+  }, [isOwner, pathname])
 
   const routes = useMemo(
     () => [
@@ -55,6 +67,12 @@ const Sidebar: React.FC<SidebarProps> = ({ children, songs, isOwner }) => {
               active: pathname.startsWith("/my-songs"),
               href: "/my-songs",
             },
+            {
+              icon: FiEdit2,
+              label: pendingCount > 0 ? `Suggestions ${pendingCount}` : "Suggestions",
+              active: pathname.startsWith("/suggestions"),
+              href: "/suggestions",
+            },
           ]
         : []),
       {
@@ -70,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({ children, songs, isOwner }) => {
         href: "/8d-generator",
       },
     ],
-    [pathname, isOwner],
+    [pathname, isOwner, pendingCount],
   )
 
   return (
