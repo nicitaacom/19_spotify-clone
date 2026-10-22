@@ -49,11 +49,7 @@ const EditSongModal = () => {
   }, [isOpen, isOwner, song])
 
   const onChange = (open: boolean) => {
-    if (!open) {
-      reset()
-      setTagDraft(null)
-      onClose()
-    }
+    if (!open) onClose()
   }
 
   const handleTagsChange = (nextTags: string[]) => {
@@ -98,7 +94,17 @@ const EditSongModal = () => {
   }
 
   return (
-    <Modal title="Edit song" description="Update the song details" isOpen={isOpen} onChange={onChange}>
+    <Modal
+      title="Edit song"
+      description="Update the song details"
+      isOpen={isOpen}
+      onChange={onChange}
+      onExitComplete={() => {
+        if (isOpen) return
+        reset()
+        setTagDraft(null)
+        setPlaylistMemberships(null)
+      }}>
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="flex flex-col gap-y-4">

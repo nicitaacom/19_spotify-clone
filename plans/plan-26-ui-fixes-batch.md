@@ -327,7 +327,7 @@ without reading the same files four times. **Each screenshot is its own commit**
   - **Check:** scroll the sidebar list. The header and its `+` stay on top, and no row shows above or
     under them.
 
-- [ ] **16. Close animation for every modal** — `2026-10-18_at_18-09.jpg`
+- [x] **16. Close animation for every modal** — `2026-10-18_at_18-09.jpg`
   `upd: animate every modal close`
   - **Asked:** "NO, FOR EVERY MODAL, fix pattern". Fix this once in the shared shell, not per modal.
   - **Change:**

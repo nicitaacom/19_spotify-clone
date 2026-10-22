@@ -1,4 +1,7 @@
+"use client"
+
 import * as Dialog from "@radix-ui/react-dialog"
+import { AnimatePresence, motion } from "framer-motion"
 import { twMerge } from "tailwind-merge"
 import { IoMdClose } from "react-icons/io"
 
@@ -17,6 +20,8 @@ interface ModalProps {
   hideHeader?: boolean
   isShowCloseButton?: boolean
   onEscapeKeyDown?: React.ComponentProps<typeof Dialog.Content>["onEscapeKeyDown"]
+  onOpenAutoFocus?: React.ComponentProps<typeof Dialog.Content>["onOpenAutoFocus"]
+  onExitComplete?: () => void
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -34,6 +39,8 @@ const Modal: React.FC<ModalProps> = ({
   hideHeader = false,
   isShowCloseButton = true,
   onEscapeKeyDown,
+  onOpenAutoFocus,
+  onExitComplete,
 }) => {
   const titleElement = (
     <Dialog.Title
@@ -53,27 +60,35 @@ const Modal: React.FC<ModalProps> = ({
   )
 
   return (
-    <Dialog.Root open={isOpen} defaultOpen={isOpen} onOpenChange={onChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay
-          className={twMerge(
-            `
-            bg-dark-base/90
-            backdrop-blur-sm
-            fixed
-            inset-0
-            z-50
-          `,
-            overlayClassName,
-          )}
-        />
-        <Dialog.Content
-          onEscapeKeyDown={onEscapeKeyDown}
+    <Dialog.Root open={isOpen} onOpenChange={onChange}>
+      <AnimatePresence onExitComplete={onExitComplete}>
+        {isOpen && (
+          <Dialog.Portal forceMount>
+            <Dialog.Overlay asChild forceMount>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className={twMerge("fixed inset-0 z-50 bg-dark-base/90 backdrop-blur-sm", overlayClassName)}
+              />
+            </Dialog.Overlay>
+            <Dialog.Content
+              asChild
+              forceMount
+              onOpenAutoFocus={onOpenAutoFocus}
+              onEscapeKeyDown={onEscapeKeyDown}
           onPointerDownOutside={event => {
             const target = event.target
             if (target instanceof Element && target.closest(".app-toast-viewport")) event.preventDefault()
           }}
-          className={twMerge(
+        >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
+                animate={{ opacity: 1, scale: 1, x: "-50%", y: "-50%" }}
+                exit={{ opacity: 0, scale: 0.95, x: "-50%", y: "-50%" }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className={twMerge(
             `
             fixed
             drop-shadow-md
@@ -86,8 +101,6 @@ const Modal: React.FC<ModalProps> = ({
             w-full
             md:w-[90vw]
             md:max-w-[450px]
-            translate-x-[-50%]
-            translate-y-[-50%]
             rounded-md
             bg-surface
             border
@@ -146,8 +159,11 @@ const Modal: React.FC<ModalProps> = ({
               </button>
             </Dialog.Close>
           )}
-        </Dialog.Content>
-      </Dialog.Portal>
+              </motion.div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        )}
+      </AnimatePresence>
     </Dialog.Root>
   )
 }

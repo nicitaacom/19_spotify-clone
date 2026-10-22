@@ -272,7 +272,7 @@ const AddASongModal = () => {
     }
   }, [createPlaylistModal.isOpen, fetchPlaylists])
 
-  const discardAndClose = () => {
+  const resetSongForm = () => {
     reset()
     setTags([])
     setUploadProgress(0)
@@ -291,6 +291,9 @@ const AddASongModal = () => {
     setLastUploadedPlaylistSlug(null)
     setUploadCount(0)
     resetTurnstileFn()
+  }
+
+  const discardAndClose = () => {
     uploadModal.onClose()
   }
 
@@ -680,6 +683,9 @@ const AddASongModal = () => {
       description="Upload any audio file — it is stored as MP3"
       isOpen={uploadModal.isOpen}
       onChange={onChange}
+      onExitComplete={() => {
+        if (!uploadModal.isOpen) resetSongForm()
+      }}
       titleAside={(
         <div className="flex w-full min-w-0 items-center">
           {uploadError && (

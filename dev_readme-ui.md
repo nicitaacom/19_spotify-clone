@@ -38,6 +38,10 @@ Kept intentionally subtle — avoid neon-everywhere syndrome:
 - Play button appears on `group-hover` via opacity transition
 - Action buttons (like, add to playlist) top-right with `bg-black/60` glass background
 
+### Modals
+
+`components/Modal.tsx` is the one dialog shell. Search uses it too. The overlay fades, and the dialog fades and scales from 0.95 over 0.2s. The position is a motion `x` and `y` of `-50%`, not a Tailwind translate, so the two transforms do not fight. Form resets go in `onExitComplete`. Resetting in the close handler would show an empty form during the exit. The backup dialogs keep their own shell.
+
 ### Buttons
 
 - Primary: `bg-neon text-black font-bold hover:bg-neon-strong` — black text on neon for contrast

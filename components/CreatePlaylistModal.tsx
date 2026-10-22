@@ -48,10 +48,7 @@ const CreatePlaylistModal = () => {
   }
 
   const onChange = (open: boolean) => {
-    if (!open) {
-      resetForm()
-      createPlaylistModal.onClose()
-    }
+    if (!open) createPlaylistModal.onClose()
   }
 
   const handleCreatePlaylist = async () => {
@@ -78,7 +75,6 @@ const CreatePlaylistModal = () => {
         createPlaylistStore.setCreatedPlaylistId(createdPlaylistId)
         toast.success("Playlist created. Add paid tracks to make it available for purchase.")
         createPlaylistModal.onClose()
-        resetForm()
         if (!createPlaylistModal.skipRedirect) router.push(`/playlists/${body.slug}`)
         router.refresh()
         return
@@ -100,7 +96,6 @@ const CreatePlaylistModal = () => {
           createPlaylistStore.setCreatedPlaylistId(createdPlaylistId)
           toast.success("Playlist created!")
           createPlaylistModal.onClose()
-          resetForm()
           if (!createPlaylistModal.skipRedirect) {
             router.push(`/playlists/${slug}`)
           }
@@ -135,7 +130,10 @@ const CreatePlaylistModal = () => {
       description="Create a new playlist and choose who can open it."
       isOpen={createPlaylistModal.isOpen}
       contentClassName="overflow-y-auto"
-      onChange={onChange}>
+      onChange={onChange}
+      onExitComplete={() => {
+        if (!createPlaylistModal.isOpen) resetForm()
+      }}>
       <div className="flex flex-col gap-y-4">
         <Input value={title} disabled={isLoading} onChange={event => setTitle(event.target.value)} placeholder="Playlist title" />
         <textarea

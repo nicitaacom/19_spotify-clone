@@ -11,8 +11,8 @@ import useOwnerStore from "@/hooks/useOwnerStore"
 import searchSongsAndPlaylistsAction from "@/actions/searchSongsAndPlaylistsAction"
 import { Playlist, Song } from "@/types"
 
-import AnimatedSearchModalShell from "./AnimatedSearchModalShell"
 import Input from "./Input"
+import Modal from "./Modal"
 import MediaItem from "./MediaItem"
 import DeleteSongButton from "./DeleteSongButton"
 
@@ -72,19 +72,20 @@ const SearchModal = () => {
   }, [isOpen, debouncedSearchValue])
 
   const onChange = (open: boolean) => {
-    if (!open) {
-      setSearchValue("")
-      onClose()
-    }
+    if (!open) onClose()
   }
 
   return (
-    <AnimatedSearchModalShell
+    <Modal
       isOpen={isOpen}
       onChange={onChange}
       title="Search"
       description="Search songs and playlists."
-      contentClassName="md:max-w-[600px] border-neon/20 shadow-neon-lg">
+      contentClassName="md:max-w-[600px] border-neon/20 shadow-neon-lg"
+      onOpenAutoFocus={event => event.preventDefault()}
+      onExitComplete={() => {
+        if (!isOpen) setSearchValue("")
+      }}>
       <div className="flex flex-col gap-y-4">
         <div className="relative">
           <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neon/70" size={16} />
@@ -134,7 +135,7 @@ const SearchModal = () => {
           <p className="text-sm text-neutral-400">No results found.</p>
         )}
       </div>
-    </AnimatedSearchModalShell>
+    </Modal>
   )
 }
 
