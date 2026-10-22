@@ -78,7 +78,7 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
   return (
     <div className="min-w-0 space-y-2">
       <label htmlFor={id} className="block text-sm text-neutral-300">Tags (image that comes with music)</label>
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5 rounded-md border border-white/10 bg-elevated px-2 py-1.5 focus-within:border-neon/50 focus-within:ring-1 focus-within:ring-neon/30">
+      <div className="flex max-h-[4.5rem] min-w-0 flex-wrap items-center gap-1.5 overflow-y-auto overscroll-contain rounded-md border border-white/10 bg-elevated px-2 py-1.5 focus-within:border-neon/50 focus-within:ring-1 focus-within:ring-neon/30">
         {value.map(tag => (
           <span key={tag} className="inline-flex max-w-full items-center gap-0.5 rounded-full border border-neon/30 bg-neon/10 py-0.5 pl-2 pr-0.5 text-[11px] text-neon">
             <span className="min-w-0 break-words">{tag}</span>

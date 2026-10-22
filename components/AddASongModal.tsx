@@ -22,7 +22,6 @@ import Modal from "./Modal"
 import Input from "./Input"
 import Button from "./Button"
 import TurnstileChallenge from "./turnstile/TurnstileChallenge"
-import ProgressBar from "./ProgressBar"
 import { SongTagsInput } from "./SongTagsInput"
 import { inferPlaylistGenreTags, songTagsWithDraft } from "@/libs/songTags"
 import { usePlaylistRecentTags } from "@/hooks/usePlaylistRecentTags"
@@ -662,10 +661,8 @@ const AddASongModal = () => {
           else if (errors.song) setUploadError("Please select an MP3 or M4A file.")
           else if (errors.image) setUploadError("Please select a cover image.")
         })}
-        className="grid min-h-0 max-h-[calc(100dvh-140px)] min-w-0 grid-cols-1 content-start items-stretch gap-4 overflow-y-auto overscroll-contain md:max-h-none md:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] md:gap-6 md:overflow-visible">
-        <section className="relative min-w-0 self-stretch">
-          <div className="md:absolute md:inset-0 md:overflow-y-auto md:overscroll-contain">
-            <div className="flex min-w-0 flex-col gap-4 md:min-h-full">
+        className="grid min-h-0 max-h-[calc(100dvh-140px)] min-w-0 grid-cols-1 content-start gap-4 overflow-y-auto overscroll-contain md:max-h-none md:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] md:gap-6 md:overflow-visible">
+        <section className="flex min-w-0 flex-col gap-4">
           <div className="space-y-4">
           <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
             <div className="min-w-0">
@@ -755,8 +752,6 @@ const AddASongModal = () => {
             </div>
             {requiresChallenge && isHumanGateEnabled && <TurnstileChallenge turnstileRef={turnstileRef} />}
           </section>
-            </div>
-          </div>
         </section>
 
         <aside className="min-w-0">
@@ -880,11 +875,16 @@ const AddASongModal = () => {
         </aside>
 
         <div className="sticky bottom-0 z-10 min-w-0 space-y-3 border-t border-white/10 bg-surface/95 pt-3 pb-1 backdrop-blur md:static md:col-span-2 md:bg-transparent md:pt-4 md:pb-0 md:backdrop-blur-none">
-          {isLoading && <ProgressBar progress={uploadProgress} speed={uploadSpeed} label={isPreparingAudio ? "Preparing audio..." : "Uploading..."} />}
-
-          <Button disabled={isCreateDisabled} type="submit" className="w-full rounded-md">
+          <Button disabled={isCreateDisabled} type="submit" className="relative w-full overflow-hidden rounded-md">
+            {isLoading && (
+              <span style={{ width: `${uploadProgress}%` }} className="absolute inset-y-0 left-0 bg-black/15" aria-hidden="true" />
+            )}
             {isLoading ? (
-              isPreparingAudio ? "Preparing audio..." : "Uploading..."
+              <span className="relative">
+                {isPreparingAudio
+                  ? `Preparing audio… ${Math.round(uploadProgress)}%`
+                  : `Uploading… ${Math.round(uploadProgress)}%${uploadSpeed ? ` · ${uploadSpeed}` : ""}`}
+              </span>
             ) : (
               <span className="inline-flex items-center justify-center gap-2">
                 <span>Create</span>

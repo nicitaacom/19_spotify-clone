@@ -174,7 +174,7 @@ without reading the same files four times. **Each screenshot is its own commit**
 
 ### Chat 2 — Add a song modal (`components/AddASongModal.tsx`)
 
-- [ ] **5. The upload progress bar changes the modal height** — `2026-10-18_at_10-51.jpg`
+- [x] **5. The upload progress bar changes the modal height** — `2026-10-18_at_10-51.jpg`
   `style: no modal jump while uploading`
   - **Starts from the 2 uncommitted edits** listed under "Confirmed by reading the code". Commit them
     with this task. Do this task first in this chat, before anything else touches these two files.
