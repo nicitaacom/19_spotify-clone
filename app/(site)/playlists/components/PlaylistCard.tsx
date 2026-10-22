@@ -1,8 +1,12 @@
+"use client"
+
 import Link from "next/link"
+import { twMerge } from "tailwind-merge"
 
 import PlaylistVisibilityBadge from "@/components/PlaylistVisibilityBadge"
 import CoverImage from "@/components/CoverImage"
 import LockedArtwork from "@/components/LockedArtwork"
+import usePlayer from "@/hooks/usePlayer"
 import { PlaylistSummary } from "@/types"
 import { getSupabasePublicUrl } from "@/libs/helpers"
 import { formatPlaylistPrice } from "@/libs/commerceRules"
@@ -15,11 +19,16 @@ interface PlaylistCardProps {
 const PlaylistCard: React.FC<PlaylistCardProps> = ({ playlist, showVisibility = false }) => {
   const coverUrl = getSupabasePublicUrl("images", playlist.cover_image_path)
   const authorName = playlist.author.full_name || playlist.author.username
+  const { sourcePlaylistId, isPlaying } = usePlayer()
+  const isSourcePlaying = sourcePlaylistId === playlist.id && isPlaying
 
   return (
     <Link
       href={`/playlists/${playlist.slug}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-white/5 bg-elevated/40 transition duration-200 hover:border-neon/20 hover:bg-elevated focus-visible:outline-neon">
+      className={twMerge(
+        "group flex flex-col overflow-hidden rounded-xl border border-white/5 bg-elevated/40 transition duration-200 hover:border-neon/40 hover:bg-elevated hover:shadow-neon-sm focus-visible:outline-neon",
+        isSourcePlaying && "animate-playing-glow border-neon/25",
+      )}>
       <div className="relative aspect-square w-full overflow-hidden">
         {coverUrl ? (
           <CoverImage

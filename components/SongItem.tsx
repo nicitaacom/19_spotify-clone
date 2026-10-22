@@ -39,7 +39,7 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
       className={twMerge(
         `group relative flex flex-col overflow-hidden rounded-xl border border-white/5 bg-surface
         shadow-[0_4px_12px_rgba(0,0,0,0.5)]
-        transition duration-200 hover:border-white/10 hover:bg-elevated
+        transition duration-200 hover:border-neon/40 hover:bg-elevated hover:shadow-neon-sm
         focus:outline-none focus-visible:ring-1 focus-visible:ring-neon/40`,
         className,
       )}>

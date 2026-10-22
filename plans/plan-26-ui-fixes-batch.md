@@ -150,7 +150,7 @@ without reading the same files four times. **Each screenshot is its own commit**
     change the song. With the volume slider focused, ← / → change only the volume.
   - **Docs:** `dev_readme-player.md` "Keyboard shortcuts" table → 4 new rows.
 
-- [ ] **4. Show which playlist is playing, and a stronger hover** — `28.09.2026 at 16-34_1.jpg`
+- [x] **4. Show which playlist is playing, and a stronger hover** — `28.09.2026 at 16-34_1.jpg`
   `upd: glow on the playing playlist card`
   - **Asked:** a barely visible animation on the card of the playlist that is playing now, plus a
     stronger hover on `PlaylistCard` (the class string in the ask is

@@ -33,7 +33,8 @@ Kept intentionally subtle — avoid neon-everywhere syndrome:
 
 - `rounded-xl border border-white/5 bg-surface shadow-[0_4px_12px_rgba(0,0,0,0.5)]` — dark bottom shadow for depth
 - Gradient overlay on image: `from-neutral-900 via-neutral-900/20 to-transparent` — makes text readable
-- On hover: `hover:bg-elevated hover:border-neon/20` — subtle surface lift, no default glow
+- On hover: `hover:border-neon/40 hover:bg-elevated hover:shadow-neon-sm`
+- The playlist card that started the current queue uses `animate-playing-glow border-neon/25` while that queue is playing. The border moves from neon/15 to neon/35 over 2.4s, with a fainter shadow than `pulse-glow`. The glow stops while playback is paused.
 - Play button appears on `group-hover` via opacity transition
 - Action buttons (like, add to playlist) top-right with `bg-black/60` glass background
 

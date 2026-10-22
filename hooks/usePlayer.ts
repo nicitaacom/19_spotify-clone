@@ -19,7 +19,8 @@ interface PlayerStore {
   seekId: number
   repeatMode: RepeatMode
   savedPosition: number
-  startPlayback: (id: string, songs?: Song[]) => void
+  sourcePlaylistId?: string
+  startPlayback: (id: string, songs?: Song[], playlistId?: string) => void
   setActiveSong: (song?: Song) => void
   setIsLoading: (isLoading: boolean) => void
   setIsPlaying: (isPlaying: boolean) => void
@@ -49,7 +50,8 @@ const usePlayer = create<PlayerStore>(set => ({
   seekId: 0,
   repeatMode: "off",
   savedPosition: 0,
-  startPlayback: (id: string, songs?: Song[]) =>
+  sourcePlaylistId: undefined,
+  startPlayback: (id: string, songs?: Song[], playlistId?: string) =>
     set(state => {
       const queue = songs ?? state.songs
       return {
@@ -64,6 +66,7 @@ const usePlayer = create<PlayerStore>(set => ({
         seek: undefined,
         playbackCommand: "play",
         playbackCommandId: state.playbackCommandId + 1,
+        sourcePlaylistId: songs ? playlistId : state.sourcePlaylistId,
       }
     }),
   setActiveSong: (song?: Song) => set({ activeSong: song }),
@@ -111,6 +114,7 @@ const usePlayer = create<PlayerStore>(set => ({
       seekId: 0,
       repeatMode: "off",
       savedPosition: 0,
+      sourcePlaylistId: undefined,
     }),
 }))
 

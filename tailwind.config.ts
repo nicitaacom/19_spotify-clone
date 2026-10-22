@@ -27,9 +27,20 @@ const config: Config = {
           "0%,100%": { boxShadow: "0 0 10px rgba(74,222,128,0.35)" },
           "50%": { boxShadow: "0 0 22px rgba(74,222,128,0.6)" },
         },
+        "playing-glow": {
+          "0%,100%": {
+            borderColor: "rgba(74,222,128,0.15)",
+            boxShadow: "0 0 6px rgba(74,222,128,0.08)",
+          },
+          "50%": {
+            borderColor: "rgba(74,222,128,0.35)",
+            boxShadow: "0 0 10px rgba(74,222,128,0.16)",
+          },
+        },
       },
       animation: {
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        "playing-glow": "playing-glow 2.4s ease-in-out infinite",
         "kenburns": "kenburns 15s ease-in-out infinite",
       },
     },

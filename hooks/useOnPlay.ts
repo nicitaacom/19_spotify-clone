@@ -39,7 +39,7 @@ const useOnPlay = (songs: Song[], onLocked?: (id: string) => boolean | void, pla
         return
       }
       const queue = songs.map(s => ({ ...s, id: String(s.id), ...access[String(s.id)] })).filter(s => s.can_play)
-      player.startPlayback(id, queue)
+      player.startPlayback(id, queue, playlistId)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to check song access. Please try again.")
     }
