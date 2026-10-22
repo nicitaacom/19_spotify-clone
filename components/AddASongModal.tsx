@@ -206,7 +206,7 @@ const AddASongModal = () => {
   }, [uploadModal.isOpen, uploadCount])
 
   const fetchPlaylists = useCallback(async () => {
-    if (!user) return
+    if (!user) return []
     const { data, error } = await supabaseClient
       .from("19_playlists")
       .select("id, slug, title, updated_at, visibility")
@@ -215,6 +215,7 @@ const AddASongModal = () => {
 
     if (error) {
       setUploadError(error.message)
+      return []
     } else {
       const mapped: PlaylistOption[] = (data ?? []).map(p => ({
         id: String(p.id),
@@ -228,6 +229,7 @@ const AddASongModal = () => {
       setSelectedPlaylist(prev => prev
         ? (mapped.find(p => p.id === prev.id) ?? null)
         : (mapped.find(p => p.slug === decodeURIComponent(playlistSlug ?? "")) ?? null))
+      return mapped
     }
   }, [user, playlistSlug])
 
@@ -252,11 +254,21 @@ const AddASongModal = () => {
   // Re-fetch playlists when create modal closes (user may have just created one)
   const createModalWasOpen = useRef(false)
   useEffect(() => {
+    const createPlaylistStore = useCreatePlaylistModal.getState()
+    const createdId = createPlaylistStore.createdPlaylistId
     if (createPlaylistModal.isOpen) {
       createModalWasOpen.current = true
     } else if (createModalWasOpen.current) {
       createModalWasOpen.current = false
-      fetchPlaylists()
+      void fetchPlaylists().then(mapped => {
+        if (!createdId || !mapped) return
+        const created = mapped.find(playlist => playlist.id === createdId)
+        if (created) {
+          setSelectedPlaylist(created)
+          setPlaylistSearch("")
+        }
+        createPlaylistStore.setCreatedPlaylistId(null)
+      })
     }
   }, [createPlaylistModal.isOpen, fetchPlaylists])
 
@@ -793,7 +805,7 @@ const AddASongModal = () => {
               <button
                 type="button"
                 disabled={isLoading}
-                onClick={() => createPlaylistModal.onOpen({ skipRedirect: true })}
+                onClick={() => createPlaylistModal.onOpen({ skipRedirect: true, initialTitle: playlistSearch.trim() })}
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-neon transition hover:bg-elevated disabled:opacity-50">
                 <FiPlus size={14} />
                 Create new playlist

@@ -28,6 +28,11 @@ const CreatePlaylistModal = () => {
   const { isOwner } = useOwnerStore()
 
   const [title, setTitle] = useState("")
+  const [prevIsOpen, setPrevIsOpen] = useState(createPlaylistModal.isOpen)
+  if (createPlaylistModal.isOpen !== prevIsOpen) {
+    setPrevIsOpen(createPlaylistModal.isOpen)
+    if (createPlaylistModal.isOpen) setTitle(createPlaylistModal.initialTitle)
+  }
   const [description, setDescription] = useState("")
   const [visibility, setVisibility] = useState<PlaylistVisibility>("public")
   const [isLoading, setIsLoading] = useState(false)
@@ -56,6 +61,7 @@ const CreatePlaylistModal = () => {
     }
 
     setIsLoading(true)
+    const createPlaylistStore = useCreatePlaylistModal.getState()
 
     const baseSlug = getPlaylistSlug(title)
     const now = new Date().toISOString()
@@ -68,6 +74,8 @@ const CreatePlaylistModal = () => {
         }) })
         const body = await response.json()
         if (!response.ok) throw new Error(body.error)
+        const createdPlaylistId = body.id ? String(body.id) : null
+        createPlaylistStore.setCreatedPlaylistId(createdPlaylistId)
         toast.success("Playlist created. Add paid tracks to make it available for purchase.")
         createPlaylistModal.onClose()
         resetForm()
@@ -78,16 +86,18 @@ const CreatePlaylistModal = () => {
       for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt += 1) {
         const slug = attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`
 
-        const { error } = await supabaseClient.from("19_playlists").insert({
+        const { data: created, error } = await supabaseClient.from("19_playlists").insert({
           user_id: user.id,
           slug,
           title: title.trim(),
           description: description.trim() || null,
           visibility,
           updated_at: now,
-        })
+        }).select("id").maybeSingle()
 
+        const createdPlaylistId = created?.id ? String(created.id) : null
         if (!error) {
+          createPlaylistStore.setCreatedPlaylistId(createdPlaylistId)
           toast.success("Playlist created!")
           createPlaylistModal.onClose()
           resetForm()

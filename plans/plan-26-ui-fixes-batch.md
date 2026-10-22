@@ -279,7 +279,7 @@ without reading the same files four times. **Each screenshot is its own commit**
   - **Check:** pick a song, rename it on disk, press Create. The red message names that file and
     explains it was moved or renamed.
 
-- [ ] **12. "Create new playlist" keeps the name already typed** — `2026-10-18_at_17-19.jpg`
+- [x] **12. "Create new playlist" keeps the name already typed** — `2026-10-18_at_17-19.jpg`
   `fix: prefill new playlist with search`
   - **Change:**
     - `hooks/useCreatePlaylistModal.ts`: `onOpen({ skipRedirect, initialTitle })` stores
