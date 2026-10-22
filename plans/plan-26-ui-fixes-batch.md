@@ -236,7 +236,7 @@ without reading the same files four times. **Each screenshot is its own commit**
     so `aria-describedby` still works.
   - **Check:** under the tags box there is one line of text, then the badge row.
 
-- [ ] **9. Remove the image format hint** — `2026-10-18_at_15-17.jpg`
+- [x] **9. Remove the image format hint** — `2026-10-18_at_15-17.jpg`
   `style: drop image format hint`
   - **Change:** `AddASongModal.tsx:717-721`. Delete the `JPG, JPEG, PNG, WebP, or AVIF…` sentence.
     Keep `Embedded cover art found…` only when `embeddedImage` is set. Ctrl+V paste still works and

@@ -724,11 +724,11 @@ const AddASongModal = () => {
                 imageInputRef.current = input
               }}
             />
-            <p className="break-words text-xs leading-5 text-neutral-400">
-              {embeddedImage
-                ? "Embedded cover art found. Choose or paste an image to replace it."
-                : "JPG, JPEG, PNG, WebP, or AVIF. You can also paste an image with Ctrl+V (⌘V on Mac)."}
-            </p>
+            {embeddedImage && (
+              <p className="break-words text-xs leading-5 text-neutral-400">
+                Embedded cover art found. Choose or paste an image to replace it.
+              </p>
+            )}
           </div>
           </div>
 
