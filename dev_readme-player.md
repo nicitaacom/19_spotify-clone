@@ -87,6 +87,22 @@ onpause: () => {
 
 ---
 
+### Bug: headphone pause leaves the pause icon
+
+**Symptom:** Pausing from headphones or Chrome's toolbar media controls left the pause icon showing. The next click on Play did nothing, and a second click was needed to resume.
+
+**Root cause:** No `mediaSession` `play` or `pause` handler was registered. The browser paused Howler's `<audio>` element directly. Howler's `onpause` did not run, so `isPlaying` stayed `true` and `sound.playing()` stayed `true`. `playSound` then returned early.
+
+**Fix:**
+
+- `play` and `pause` media actions call `requestPlaybackCommand`, the same path as the Play button.
+- `mediaSession.playbackState` is set to `"playing"` in `onplay` and `"paused"` in `onpause`.
+- A native `pause` listener covers pauses that send no media action, such as a Bluetooth disconnect or Android audio focus. If the element is paused while Howler still reports playing, and stall recovery is not running, the listener calls Howler's `pause` so `onpause` updates the icon.
+
+**Rule going forward:** Headphone and browser media buttons go through `requestPlaybackCommand`. A pause of the `<audio>` element also pauses the Howl, except while stall recovery is pausing on purpose.
+
+---
+
 ## Progress bar
 
 The progress bar is driven by a `setInterval` in `usePreloadNextTrack` polling the active sound ID through `seekCurrentSound() / sound.duration()` every 400ms. It is **not** event-driven. Only this interval updates ongoing progress; a second interval used to overwrite the position after a seek. This means:

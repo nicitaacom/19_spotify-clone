@@ -37,6 +37,11 @@ interface HowlWithHtml5Nodes {
 const STALL_RECOVERY_DELAY_MS = 5_000
 const MAX_STALL_RECOVERY_ATTEMPTS = 3
 
+const setMediaPlaybackState = (playbackState: "playing" | "paused") => {
+  if (!("mediaSession" in navigator)) return
+  navigator.mediaSession.playbackState = playbackState
+}
+
 const getHtml5AudioNode = (sound: unknown, soundId?: number | null) => {
   const sounds = (sound as HowlWithHtml5Nodes | null)?._sounds
   if (!sounds?.length) return null
@@ -134,6 +139,18 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     scheduleStallRecovery()
   }, [scheduleStallRecovery])
 
+  // A headphone disconnect or an audio-focus change pauses the <audio> element and sends no mediaSession action.
+  // Pause the Howl as well, so its onpause updates the icon.
+  // Stall recovery pauses the element on purpose, so skip that case.
+  const syncExternalAudioPause = useCallback((event: Event) => {
+    const audio = event.currentTarget
+    if (!(audio instanceof HTMLAudioElement) || !audio.paused) return
+    const currentSound = soundRef.current
+    if (!currentSound?.playing()) return
+    if (isRecoveringRef.current || isBufferingRef.current) return
+    currentSound.pause(activeSoundIdRef.current ?? undefined)
+  }, [])
+
   const detachNativeAudioListeners = useCallback(() => {
     const audio = nativeAudioRef.current
     if (!audio) return
@@ -141,8 +158,9 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     audio.removeEventListener("stalled", markPlaybackStalled)
     audio.removeEventListener("error", markPlaybackStalled)
     audio.removeEventListener("playing", markPlaybackHealthy)
+    audio.removeEventListener("pause", syncExternalAudioPause)
     nativeAudioRef.current = null
-  }, [markPlaybackHealthy, markPlaybackStalled])
+  }, [markPlaybackHealthy, markPlaybackStalled, syncExternalAudioPause])
 
   const bindNativeAudioListeners = useCallback(() => {
     const audio = getHtml5AudioNode(soundRef.current, activeSoundIdRef.current)
@@ -153,8 +171,9 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     audio.addEventListener("stalled", markPlaybackStalled)
     audio.addEventListener("error", markPlaybackStalled)
     audio.addEventListener("playing", markPlaybackHealthy)
+    audio.addEventListener("pause", syncExternalAudioPause)
     nativeAudioRef.current = audio
-  }, [detachNativeAudioListeners, markPlaybackHealthy, markPlaybackStalled])
+  }, [detachNativeAudioListeners, markPlaybackHealthy, markPlaybackStalled, syncExternalAudioPause])
 
   const recoverStalledPlayback = useCallback(() => {
     if (!isBufferingRef.current || !isPlayingRef.current) return
@@ -306,6 +325,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       setIsPlaying(true)
       isPlayingRef.current = true
       setIsPlayingInStore(true)
+      setMediaPlaybackState("playing")
       setIsLoading(false)
       window.setTimeout(bindNativeAudioListeners, 0)
     },
@@ -323,6 +343,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       setIsPlaying(false)
       isPlayingRef.current = false
       setIsPlayingInStore(false)
+      setMediaPlaybackState("paused")
     },
     onloaderror: (_id: number, err: unknown) => {
       const activeIdAtLoadError = usePlayer.getState().activeId
@@ -414,14 +435,18 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
   useEffect(() => { onPlayNextRef.current = onPlayNext }, [onPlayNext])
   useEffect(() => { onPlayPreviousRef.current = onPlayPrevious }, [onPlayPrevious])
 
-  // Register mediaSession handlers once — they read from refs so they always use current fns.
-  // play/pause/stop are intentionally NOT registered here: the browser fires those as commands
-  // (e.g. from a media key), which would double-trigger alongside our own keydown handlers in
-  // Player.tsx and cause the button to flicker. next/previous/seek are safe because they
-  // only come from explicit user gestures in the Chrome mini-player.
+  // Register mediaSession handlers once. Next and previous read from refs so they use the current functions.
+  // Play and pause call requestPlaybackCommand, the same path as the Play button.
+  // Player.tsx only handles Space, Escape and F8, so those keys do not run these actions as well.
   useEffect(() => {
     if (!("mediaSession" in navigator)) return
 
+    navigator.mediaSession.setActionHandler("play", () => {
+      usePlayer.getState().requestPlaybackCommand("play")
+    })
+    navigator.mediaSession.setActionHandler("pause", () => {
+      usePlayer.getState().requestPlaybackCommand("pause")
+    })
     navigator.mediaSession.setActionHandler("previoustrack", () => onPlayPreviousRef.current())
     navigator.mediaSession.setActionHandler("nexttrack", () => onPlayNextRef.current())
     navigator.mediaSession.setActionHandler("seekto", details => {
@@ -433,6 +458,8 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     })
 
     return () => {
+      navigator.mediaSession.setActionHandler("play", null)
+      navigator.mediaSession.setActionHandler("pause", null)
       navigator.mediaSession.setActionHandler("previoustrack", null)
       navigator.mediaSession.setActionHandler("nexttrack", null)
       navigator.mediaSession.setActionHandler("seekto", null)
