@@ -114,7 +114,7 @@ without reading the same files four times. **Each screenshot is its own commit**
   - **Docs:** `dev_readme-player.md` → new "Bug: headphone pause leaves the pause icon" section under
     "Bug fixes".
 
-- [ ] **2. Space plays the clicked row instead of pausing** — `28.09.2026 at 14-33.jpg` (also the phone
+- [x] **2. Space plays the clicked row instead of pausing** — `28.09.2026 at 14-33.jpg` (also the phone
   shots `Screenshot_20261018-174627.png` / `-181550.png`, white focus ring)
   `fix: space no longer plays clicked row`
   - **Cause:** a click focuses the `role="button"` row. Space then runs the row's own `onKeyDown`

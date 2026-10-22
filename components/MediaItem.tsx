@@ -45,10 +45,9 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleCl
   return (
     <div
       role="button"
-      tabIndex={0}
+      tabIndex={-1}
       aria-label={`${data.access_unavailable ? "Unavailable" : data.can_play === false ? "Unlock" : "Play"} ${lockedPaid ? "paid track" : data.title}`}
       onClick={handleClick}
-      onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); handleClick() } }}
       className="
         relative
         flex 
@@ -60,6 +59,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleCl
         p-2 
         rounded-md
         overflow-hidden
+        outline-none
       ">
       <div style={{ width: size, height: size }} className="relative shrink-0 overflow-hidden rounded-md">
         {lockedPaid ? (

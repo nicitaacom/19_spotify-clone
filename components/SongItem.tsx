@@ -1,6 +1,5 @@
 "use client"
 
-import { KeyboardEvent } from "react"
 import { AiOutlineLoading3Quarters } from "react-icons/ai"
 import { twMerge } from "tailwind-merge"
 
@@ -32,19 +31,11 @@ const SongItem: React.FC<SongItemProps> = ({ data, onPlay, onAddToPlaylist, onLi
   const lockedPaid = data.is_paid === true && data.can_play === false
   const handlePlay = () => onPlay?.(data.id)
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault()
-      handlePlay()
-    }
-  }
-
   return (
     <div
       role="button"
-      tabIndex={0}
+      tabIndex={-1}
       onClick={handlePlay}
-      onKeyDown={handleKeyDown}
       className={twMerge(
         `group relative flex flex-col overflow-hidden rounded-xl border border-white/5 bg-surface
         shadow-[0_4px_12px_rgba(0,0,0,0.5)]

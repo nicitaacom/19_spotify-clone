@@ -177,3 +177,4 @@ PUSHER_SECRET=''
 | `F8` | Stop (pause + seek to 0) |
 
 Shortcuts are ignored when focus is on an `INPUT`, `TEXTAREA`, or `contentEditable` element.
+Song rows (`MediaItem`, `SongItem`) are not focusable on purpose, so Space pauses the current song instead of starting the clicked row.
