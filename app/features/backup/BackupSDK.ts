@@ -57,6 +57,21 @@ function uploadToSignedUrlWithProgress(
 // public CDN, so there is no Vercel timeout to respect — this is purely a throughput/politeness knob.
 const DOWNLOAD_CONCURRENCY = 5
 
+const failedResponseMessage = async (response: Response, action: string) => {
+  const responseText = await response.text().catch(() => "")
+  let detail = responseText.slice(0, 300)
+  try {
+    const body = responseText ? JSON.parse(responseText) : {}
+    const parsed = [body?.error, body?.code ? `(code: ${body.code})` : null, body?.details, body?.hint ? `Hint: ${body.hint}` : null]
+      .filter(Boolean)
+      .join(" — ")
+    if (parsed) detail = parsed
+  } catch {
+    detail = responseText.slice(0, 300)
+  }
+  return `${action} (${response.status} ${response.statusText})${detail ? `: ${detail}` : ""}`
+}
+
 /**
  * Export the user's table rows only (no storage files) as one .tar.gz containing a .csv per
  * table. Kept separate from file export so a table-only backup never has to touch Storage or
@@ -64,10 +79,7 @@ const DOWNLOAD_CONCURRENCY = 5
  */
 export async function exportTables(onProgress: (done: number, total: number) => void): Promise<{ fileName: string; blob: Blob }> {
   const rowsRes = await fetch("/api/backup/rows")
-  if (!rowsRes.ok) {
-    const body = await rowsRes.json().catch(() => ({}))
-    throw new Error(body?.error ?? `Failed to fetch table rows (${rowsRes.status})`)
-  }
+  if (!rowsRes.ok) throw new Error(await failedResponseMessage(rowsRes, "Failed to fetch table rows"))
   const { tables }: { tables: Record<string, Record<string, unknown>[]> } = await rowsRes.json()
 
   const tarChunks: Buffer[] = []
@@ -244,10 +256,7 @@ export async function exportFiles(
   onProgress: (done: number, total: number) => void,
 ): Promise<{ fileName: string; blob: Blob }> {
   const filesRes = await fetch(`/api/backup/files`)
-  if (!filesRes.ok) {
-    const body = await filesRes.json().catch(() => ({}))
-    throw new Error(body?.error ?? `Failed to fetch file list (${filesRes.status})`)
-  }
+  if (!filesRes.ok) throw new Error(await failedResponseMessage(filesRes, "Failed to fetch file list"))
   const { files: allFiles }: { files: BackupFileRef[] } = await filesRes.json()
   const files = includeImages ? allFiles : allFiles.filter(file => file.bucket !== "images")
 

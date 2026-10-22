@@ -285,6 +285,8 @@ archived owner to the session user, skips primary-key/path collisions with other
 
 ```
 GET /api/backup/files → { files: [{ bucket, path, contentType }, ...] }
+
+A failure returns JSON `{ error, code, details, hint }` and names the file path when the failure is on one file. The browser shows that text, including the first 300 characters when the body is not JSON.
 ```
 
 The server's file list comes from `backupConfig.ts`'s `listFiles()` (in this project: every

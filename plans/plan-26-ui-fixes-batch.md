@@ -433,7 +433,7 @@ without reading the same files four times. **Each screenshot is its own commit**
   - **Docs:** new `dev_readme-song-suggestions.md` covering the table, the 3 routes, who can do what,
     and the limits.
 
-- [ ] **20. Backup: show the exact error instead of "(500)"** — `2026-10-18_at_22-35.jpg` (the first
+- [x] **20. Backup: show the exact error instead of "(500)"** — `2026-10-18_at_22-35.jpg` (the first
   chat named it 21-13)
   `fix: show the exact backup file error`
   - **Cause:** `app/api/backup/files/route.ts:36-41` calls `isOwnedFile` (which throws on a Supabase

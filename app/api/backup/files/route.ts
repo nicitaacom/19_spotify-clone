@@ -16,7 +16,24 @@ export const maxDuration = 60
 // per-user here: it derives paths from the caller's own 19_songs rows.
 //
 // Response: { files: BackupFileRef[] }
+const backupJsonError = (error: unknown, path?: string) => {
+  const named = error instanceof Error ? error : null
+  const pgError = error as Partial<PostgrestError>
+  const name = named?.name || "Error"
+  const message = named?.message || pgError.message || "Unknown error"
+  return NextResponse.json(
+    {
+      error: path ? `${name}: ${message} (${path})` : `${name}: ${message}`,
+      code: pgError.code,
+      details: pgError.details,
+      hint: pgError.hint,
+    },
+    { status: 500 },
+  )
+}
+
 export async function GET() {
+  try {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
   const { userId } = auth
@@ -25,23 +42,30 @@ export async function GET() {
     return NextResponse.json({ error: "Not allowed to back up this account" }, { status: 403 })
   }
 
-  let files: BackupFileRef[]
-  try {
-    files = await listFiles(supabaseAdmin, userId)
-  } catch (error: unknown) {
-    const pgError = error as PostgrestError
-    return NextResponse.json({ error: pgError.message, code: pgError.code, details: pgError.details, hint: pgError.hint }, { status: 500 })
-  }
+  const files = await listFiles(supabaseAdmin, userId)
 
   // URLs are issued only for paths whose exclusive ownership is verified.
   const authorizedFiles: BackupFileRef[] = []
   for (const file of files) {
-    if (!await isOwnedFile(supabaseAdmin, userId, file.bucket, file.path)) continue
+    const filePath = `${file.bucket}/${file.path}`
+    try {
+      if (!await isOwnedFile(supabaseAdmin, userId, file.bucket, file.path)) continue
+    } catch (error: unknown) {
+      return backupJsonError(error, filePath)
+    }
     const { data, error } = await supabaseAdmin.storage.from(file.bucket).createSignedUrl(file.path, 3600)
-    if (error) return NextResponse.json({ error: "Unable to authorize backup downloads." }, { status: 503 })
+    if (error) {
+      return NextResponse.json(
+        { error: `Signing a download URL for ${filePath} failed: ${error.message}` },
+        { status: 503 },
+      )
+    }
     authorizedFiles.push({ ...file, downloadUrl: data.signedUrl })
   }
   return NextResponse.json({ files: authorizedFiles }, { headers: { "Cache-Control": "private, no-store" } })
+  } catch (error: unknown) {
+    return backupJsonError(error)
+  }
 }
 
 type FileRequest = { bucket?: string; path?: string }
