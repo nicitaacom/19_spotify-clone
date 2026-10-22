@@ -108,7 +108,9 @@ const AddASongModal = () => {
   })
 
   const selectedPlaylistId = selectedPlaylist?.id ?? ""
-  const playlistRecentTags = usePlaylistRecentTags(selectedPlaylistId, uploadModal.isOpen && Boolean(user))
+  const [uploadCount, setUploadCount] = useState(0)
+  const [lastUploadedPlaylistSlug, setLastUploadedPlaylistSlug] = useState<string | null>(null)
+  const playlistRecentTags = usePlaylistRecentTags(selectedPlaylistId, uploadModal.isOpen && Boolean(user), uploadCount)
   const [tagsCustomized, setTagsCustomized] = useState(false)
   const [tagsPlaylistId, setTagsPlaylistId] = useState(selectedPlaylistId)
   const [appliedSuggestionKey, setAppliedSuggestionKey] = useState("")
@@ -201,7 +203,7 @@ const AddASongModal = () => {
     return () => {
       isCancelled = true
     }
-  }, [uploadModal.isOpen])
+  }, [uploadModal.isOpen, uploadCount])
 
   const fetchPlaylists = useCallback(async () => {
     if (!user) return
@@ -274,6 +276,8 @@ const AddASongModal = () => {
     setReadingMetadata(false)
     setConfirmDiscard(false)
     metadataRequest.current++
+    setLastUploadedPlaylistSlug(null)
+    setUploadCount(0)
     resetTurnstileFn()
     uploadModal.onClose()
   }
@@ -284,7 +288,8 @@ const AddASongModal = () => {
     const author = typeof values.author === "string" ? values.author.trim() : ""
     const draftTag = formRef.current?.querySelector<HTMLInputElement>("[data-song-tags-input]")?.value.trim() ?? ""
     const routePlaylistSlug = playlistSlug ? decodeURIComponent(playlistSlug) : ""
-    const playlistChanged = selectedPlaylist !== null && selectedPlaylist.slug !== routePlaylistSlug
+    const baselinePlaylistSlug = lastUploadedPlaylistSlug ?? routePlaylistSlug
+    const playlistChanged = selectedPlaylist !== null && selectedPlaylist.slug !== baselinePlaylistSlug
     return Boolean(
       title
       || author
@@ -625,14 +630,18 @@ const AddASongModal = () => {
       toast.success("Song created!")
       reset()
       setTags([])
+      setTagsCustomized(false)
+      setAppliedSuggestionKey("")
       setUploadProgress(0)
       setUploadSpeed("")
-      setSelectedPlaylist(null)
-      setPlaylistSearch("")
       setEmbeddedImage(null)
       setCoverPreviewFile(null)
+      setReadingMetadata(false)
+      setUploadError("")
+      setLastUploadedPlaylistSlug(selectedPlaylist?.slug ?? null)
+      setUploadCount(count => count + 1)
       resetTurnstileFn()
-      uploadModal.onClose()
+      window.setTimeout(() => document.getElementById("title")?.focus(), 0)
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Something went wrong. Please try again.")
     } finally {
@@ -736,7 +745,7 @@ const AddASongModal = () => {
             <p role="alert" className="text-xs text-red-300">{playlistRecentTags.error}</p>
           )}
           <SongTagsInput
-            key={uploadModal.isOpen ? "open" : "closed"}
+            key={uploadModal.isOpen ? `open-${uploadCount}` : "closed"}
             value={visibleTags}
             onChange={nextTags => { setTagsCustomized(true); setTags(nextTags) }}
             disabled={isLoading}

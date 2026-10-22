@@ -28,7 +28,7 @@ const tagsFromSong = (value: string[] | null): string[] => {
   return accepted
 }
 
-export const usePlaylistRecentTags = (playlistId: string, enabled: boolean): PlaylistRecentTags => {
+export const usePlaylistRecentTags = (playlistId: string, enabled: boolean, refetchKey = 0): PlaylistRecentTags => {
   const [snapshot, setSnapshot] = useState<PlaylistRecentTags>(() => emptyTags(playlistId))
   const [seenPlaylistId, setSeenPlaylistId] = useState(playlistId)
   if (playlistId !== seenPlaylistId) {
@@ -77,7 +77,7 @@ export const usePlaylistRecentTags = (playlistId: string, enabled: boolean): Pla
 
     readRecentTags()
     return () => { ignore = true }
-  }, [enabled, playlistId])
+  }, [enabled, playlistId, refetchKey])
 
   return current
 }

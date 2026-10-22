@@ -242,7 +242,7 @@ without reading the same files four times. **Each screenshot is its own commit**
     Keep `Embedded cover art found…` only when `embeddedImage` is set. Ctrl+V paste still works and
     is not mentioned anywhere.
 
-- [ ] **10. Keep the modal open after an upload** — `2026-10-18_at_10-57.jpg`
+- [x] **10. Keep the modal open after an upload** — `2026-10-18_at_10-57.jpg`
   `fix: keep add song modal open`
   - **Change:** the success branch (`:613-625`):
     - Keep `uploadModal.onClose()` from being called. Reset title, author, song, image, isPaid,
