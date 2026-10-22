@@ -227,7 +227,7 @@ without reading the same files four times. **Each screenshot is its own commit**
     `csgo` is on 5 of the last 8 autofills `csgo`, and the badge row shows at most 2 playlist tags.
   - **Docs:** `dev_readme-add-song.md` → "Tag autofill".
 
-- [ ] **8. 3 lines of tag hints → 1** — `2026-10-18_at_17-38.jpg`
+- [x] **8. 3 lines of tag hints → 1** — `2026-10-18_at_17-38.jpg`
   `style: tag hints fit on one line`
   - **Change:** `components/SongTagsInput.tsx:96-108`. Merge the help line, `playlistNote` and the
     `playlistLabel` row into **one** row: left side `{count}/32 · {note or label}` (truncate), right

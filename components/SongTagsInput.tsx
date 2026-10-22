@@ -88,7 +88,7 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
         ))}
         <input id={id} name="songTagDraft" data-song-tags-input value={draft} disabled={disabled || value.length >= MAX_SONG_TAGS}
           size={1}
-          placeholder={value.length ? "Add a tag" : "e.g. sad, happy, energy, slow, fast"} maxLength={MAX_SONG_TAG_LENGTH * MAX_SONG_TAGS}
+          placeholder="Add a tag (Enter or comma)" title="Add a tag (Enter or comma)" maxLength={MAX_SONG_TAG_LENGTH * MAX_SONG_TAGS}
           aria-describedby={`${id}-help${error ? ` ${id}-error` : ""}`} aria-invalid={Boolean(error)}
           onChange={event => { setDraft(event.target.value); setError("") }}
           onKeyDown={event => {
@@ -101,19 +101,17 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
         <button type="button" disabled={disabled || !draft.trim() || value.length >= MAX_SONG_TAGS}
           onClick={() => add()} aria-label="Add tag" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-neon hover:bg-neon/10 disabled:opacity-40"><FiPlus size={16} /></button>
       </div>
-      <p id={`${id}-help`} className="text-xs text-neutral-400">Press Enter or comma to add a tag. {value.length}/{MAX_SONG_TAGS}</p>
-      {playlistNote && <p className="text-xs text-neutral-400">{playlistNote}</p>}
+      <div id={`${id}-help`} className="flex min-w-0 items-center justify-between gap-2">
+        <p className="min-w-0 truncate text-xs text-neutral-400">
+          {value.length}/{MAX_SONG_TAGS}{(playlistNote || playlistLabel) ? ` · ${playlistNote || playlistLabel}` : ""}
+        </p>
+        {onUsePlaylistTags && (
+          <button type="button" disabled={disabled} onClick={onUsePlaylistTags} className="shrink-0 text-xs text-neon hover:underline disabled:opacity-40">
+            Use top tags
+          </button>
+        )}
+      </div>
       {error && <p id={`${id}-error`} role="alert" className="text-xs text-red-300">{error}</p>}
-      {(playlistLabel || onUsePlaylistTags) && (
-        <div className="flex min-w-0 items-center justify-between gap-2">
-          {playlistLabel ? <p className="min-w-0 truncate text-xs text-neutral-400">{playlistLabel}</p> : <span />}
-          {onUsePlaylistTags && (
-            <button type="button" disabled={disabled} onClick={onUsePlaylistTags} className="shrink-0 text-xs text-neon hover:underline disabled:opacity-40">
-              Use top tags
-            </button>
-          )}
-        </div>
-      )}
       <div role="group" aria-label={playlistLabel ? `Suggested tags, ${playlistLabel}` : "Suggested tags"} className="min-w-0">
         <div className="relative min-w-0">
           <div
