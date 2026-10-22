@@ -486,12 +486,20 @@ const AddASongModal = () => {
       }
       audio.onerror = () => {
         URL.revokeObjectURL(audio.src)
-        reject(new Error("Could not read audio metadata"))
+        reject(new Error(`Could not read audio metadata for "${file.name}".`))
       }
     })
   }
 
-  const uploadViaApi = (formData: FormData): Promise<{ id: number }> => {
+  const ensureFileIsReadable = async (file: File, kind: "song" | "image") => {
+    try {
+      await file.slice(0, 1).arrayBuffer()
+    } catch {
+      throw new Error(`File "${file.name}" has been moved or renamed. Please pick the ${kind} again.`)
+    }
+  }
+
+  const uploadViaApi = (formData: FormData, songName: string): Promise<{ id: number }> => {
     setUploadProgress(0)
     setUploadSpeed("")
     return new Promise((resolve, reject) => {
@@ -522,10 +530,10 @@ const AddASongModal = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           resolve(body as { id: number })
         } else {
-          reject(new Error(body?.error ?? `Upload failed (${xhr.status})`))
+          reject(new Error(`${xhr.status} ${xhr.statusText}: ${body.error ?? "no error text"}`))
         }
       }
-      xhr.onerror = () => reject(new Error("Upload failed"))
+      xhr.onerror = () => reject(new Error(`Upload of "${songName}" stopped: no response from the server (network error). Check the connection and send it again.`))
       xhr.open("POST", "/api/songs")
       xhr.send(formData)
     })
@@ -568,6 +576,8 @@ const AddASongModal = () => {
         setIsLoading(false)
         return
       }
+      await ensureFileIsReadable(songFile, "song")
+      await ensureFileIsReadable(imageFile, "image")
       if (!selectedPlaylist) {
         setUploadError("Select a playlist before uploading.")
         setIsLoading(false)
@@ -623,7 +633,9 @@ const AddASongModal = () => {
         formData.append("playlistSlug", selectedPlaylist.slug)
       }
 
-      await uploadViaApi(formData)
+      await ensureFileIsReadable(songFile, "song")
+      await ensureFileIsReadable(imageFile, "image")
+      await uploadViaApi(formData, songFile.name)
 
       router.refresh()
       setIsLoading(false)
@@ -643,7 +655,7 @@ const AddASongModal = () => {
       resetTurnstileFn()
       window.setTimeout(() => document.getElementById("title")?.focus(), 0)
     } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "Something went wrong. Please try again.")
+      setUploadError(error instanceof Error ? `${error.name}: ${error.message}` : `Error: ${String(error)}`)
     } finally {
       setIsPreparingAudio(false)
       setIsLoading(false)

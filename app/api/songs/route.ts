@@ -19,11 +19,12 @@ const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
 }
 
 export async function POST(request: Request) {
+  try {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
 
   if (!isOwnerId(auth.userId)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    return NextResponse.json({ error: "Only the site admin can upload songs." }, { status: 403 })
   }
 
   if (!auth.email) {
@@ -42,7 +43,13 @@ export async function POST(request: Request) {
   catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid tags." }, { status: 400 }) }
 
   if (!(songFile instanceof File) || !(imageFile instanceof File) || !title?.trim() || !author?.trim()) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    const missing = [
+      !(songFile instanceof File) ? "song file" : "",
+      !(imageFile instanceof File) ? "image" : "",
+      !title?.trim() ? "title" : "",
+      !author?.trim() ? "author" : "",
+    ].filter(Boolean)
+    return NextResponse.json({ error: `Missing: ${missing.join(", ")}` }, { status: 400 })
   }
   const extension = songFile.name.split(".").pop()?.toLowerCase()
   if (extension !== "mp3" || songFile.type.toLowerCase() !== "audio/mpeg") {
@@ -109,7 +116,7 @@ export async function POST(request: Request) {
   })
   if (imageError) {
     await supabaseAdmin.storage.from("songs").remove([songPath])
-    return NextResponse.json({ error: "Failed image upload" }, { status: 400 })
+    return NextResponse.json({ error: `Failed image upload: ${imageError.message}` }, { status: 400 })
   }
 
   const { data: songRecord, error: insertError } = await supabaseAdmin
@@ -179,4 +186,9 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ success: true, id: songRecord.id })
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "Error"
+    const message = error instanceof Error ? error.message : "Unknown error"
+    return NextResponse.json({ error: `${name}: ${message}` }, { status: 500 })
+  }
 }

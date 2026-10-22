@@ -259,7 +259,7 @@ without reading the same files four times. **Each screenshot is its own commit**
 
 ### Chat 3 — errors, small modal fixes, sidebar, modal animation
 
-- [ ] **11. Exact upload errors** — `2026-10-18_at_17-34.jpg`
+- [x] **11. Exact upload errors** — `2026-10-18_at_17-34.jpg`
   `fix: name the file when upload fails`
   - **Cause:** the file was moved or renamed after it was picked, so the browser could not read it.
     `xhr.onerror` (`:513`) has no details and rejects with `Upload failed`.
