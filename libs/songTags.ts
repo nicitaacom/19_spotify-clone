@@ -21,12 +21,12 @@ export function songTagsWithDraft(tags: string[], draft: string): string[] {
 }
 
 const RECENT_PLAYLIST_SONGS = 8
-const PLAYLIST_TAG_AUTOFILL_LIMIT = 12
+const TOP_PLAYLIST_TAGS = 2
 
 export type RecentPlaylistSong = { addedAt: string; tags: string[] }
 
-/** Tags shared by the songs most recently added to one playlist, plus every tag from that window. */
-export function recentPlaylistTags(entries: RecentPlaylistSong[]): { autofill: string[]; recent: string[] } {
+/** The two most used tags on the last 8 songs, and which of those appear on at least two songs. */
+export function recentPlaylistTags(entries: RecentPlaylistSong[]): { autofill: string[]; top: string[] } {
   const songs = entries
     .filter(entry => entry.addedAt)
     .sort((earlier, later) => later.addedAt.localeCompare(earlier.addedAt))
@@ -52,9 +52,9 @@ export function recentPlaylistTags(entries: RecentPlaylistSong[]): { autofill: s
     if (first[1].newestIndex !== second[1].newestIndex) return first[1].newestIndex - second[1].newestIndex
     return first[1].order - second[1].order
   })
-  const sharedCount = songs.length <= 1 ? 1 : Math.max(2, Math.ceil(songs.length / 2))
+  const topRanked = ranked.slice(0, TOP_PLAYLIST_TAGS)
   return {
-    autofill: ranked.filter(([, stat]) => stat.count >= sharedCount).map(([tag]) => tag).slice(0, PLAYLIST_TAG_AUTOFILL_LIMIT),
-    recent: ranked.map(([tag]) => tag),
+    top: topRanked.map(([tag]) => tag),
+    autofill: topRanked.filter(([, stat]) => stat.count >= 2).map(([tag]) => tag),
   }
 }

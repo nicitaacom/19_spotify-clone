@@ -210,7 +210,7 @@ without reading the same files four times. **Each screenshot is its own commit**
     ends in `.mp3`.
   - **Docs:** `dev_readme-add-song.md` → "Accepted audio and conversion".
 
-- [ ] **7. Autofill only the most used tags** — `2026-10-18_at_21-13.jpg` (the first chat named it
+- [x] **7. Autofill only the most used tags** — `2026-10-18_at_21-13.jpg` (the first chat named it
   22-35, but the two labels were swapped)
   `fix: autofill only the most used tags`
   - **Cause:** `libs/songTags.ts:57` sets the share threshold to `1` when the playlist has 0-1 recent

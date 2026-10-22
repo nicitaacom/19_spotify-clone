@@ -20,22 +20,24 @@ test("recent playlist tags fill the labels shared by the latest songs", () => {
     { addedAt: "2026-10-02T00:00:00.000Z", tags: ["motivation", "film", "epic"] },
     { addedAt: "2026-10-01T00:00:00.000Z", tags: ["motivation", "sad"] },
   ])
-  assert.deepEqual(result.autofill, ["motivation", "film", "epic"])
-  assert.deepEqual(result.recent, ["motivation", "film", "epic", "one-off", "sad"])
+  assert.deepEqual(result.autofill, ["motivation", "film"])
+  assert.deepEqual(result.top, ["motivation", "film"])
 })
 
-test("a playlist with one tagged song fills those tags", () => {
-  assert.deepEqual(recentPlaylistTags([{ addedAt: "2026-10-01T00:00:00.000Z", tags: ["film", "film", "epic"] }]).autofill, ["film", "epic"])
+test("a playlist with one tagged song does not autofill tags used once", () => {
+  const result = recentPlaylistTags([{ addedAt: "2026-10-01T00:00:00.000Z", tags: ["film", "film", "epic"] }])
+  assert.deepEqual(result.autofill, [])
+  assert.deepEqual(result.top, ["film", "epic"])
 })
 
-test("tags used once among several songs stay as suggestions", () => {
+test("tags used once among several songs stay out of autofill and the row shows two", () => {
   const result = recentPlaylistTags([
     { addedAt: "2026-10-03T00:00:00.000Z", tags: ["epic"] },
     { addedAt: "2026-10-02T00:00:00.000Z", tags: ["film"] },
     { addedAt: "2026-10-01T00:00:00.000Z", tags: ["sad"] },
   ])
   assert.deepEqual(result.autofill, [])
-  assert.deepEqual(result.recent, ["epic", "film", "sad"])
+  assert.deepEqual(result.top, ["epic", "film"])
 })
 
 test("the last typed tag is saved without requiring Enter, including when all badge slots are occupied", () => {

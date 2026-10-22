@@ -109,7 +109,7 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
           {playlistLabel ? <p className="min-w-0 truncate text-xs text-neutral-400">{playlistLabel}</p> : <span />}
           {onUsePlaylistTags && (
             <button type="button" disabled={disabled} onClick={onUsePlaylistTags} className="shrink-0 text-xs text-neon hover:underline disabled:opacity-40">
-              Use recent tags
+              Use top tags
             </button>
           )}
         </div>

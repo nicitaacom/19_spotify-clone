@@ -120,7 +120,7 @@ const AddASongModal = () => {
   }
   const genreTags = selectedPlaylist ? inferPlaylistGenreTags(selectedPlaylist.title, selectedPlaylist.slug) : []
   const playlistReady = playlistRecentTags.ready && playlistRecentTags.playlistId === selectedPlaylistId
-  const playlistSuggestionTags = playlistReady ? Array.from(new Set([...playlistRecentTags.recent, ...genreTags])) : []
+  const playlistSuggestionTags = playlistReady ? Array.from(new Set([...playlistRecentTags.top, ...genreTags])) : []
   const tagsToApply = !playlistReady ? [] : playlistRecentTags.autofill.length ? playlistRecentTags.autofill : genreTags
   const suggestionKey = playlistReady ? `${selectedPlaylistId}:${tagsToApply.join("\0")}` : ""
   const applyingSuggestion = !tagsCustomized && Boolean(suggestionKey) && suggestionKey !== appliedSuggestionKey
@@ -133,12 +133,12 @@ const AddASongModal = () => {
   const playlistNote = !tagsMatchApplied || !selectedPlaylist
     ? ""
     : playlistRecentTags.autofill.length
-      ? `Filled from recent tags on ${selectedPlaylist.title}.`
+      ? `Filled from your most used tags on ${selectedPlaylist.title}.`
       : `Filled from the ${selectedPlaylist.title} playlist name.`
   const playlistLabel = !playlistReady || !selectedPlaylist || playlistSuggestionTags.length === 0
     ? ""
-    : playlistRecentTags.recent.length
-      ? `Recent on ${selectedPlaylist.title}`
+    : playlistRecentTags.top.length
+      ? `Most used on ${selectedPlaylist.title}`
       : `From ${selectedPlaylist.title}`
 
   const songInput = register("song", { required: true })

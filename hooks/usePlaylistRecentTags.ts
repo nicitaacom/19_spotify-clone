@@ -6,7 +6,7 @@ export type PlaylistRecentTags = {
   playlistId: string
   ready: boolean
   autofill: string[]
-  recent: string[]
+  top: string[]
   error: string
 }
 
@@ -14,7 +14,7 @@ const emptyTags = (playlistId: string): PlaylistRecentTags => ({
   playlistId,
   ready: false,
   autofill: [],
-  recent: [],
+  top: [],
   error: "",
 })
 
@@ -51,7 +51,7 @@ export const usePlaylistRecentTags = (playlistId: string, enabled: boolean): Pla
 
       if (ignore) return
       if (playlistSongError) {
-        setSnapshot({ playlistId, ready: true, autofill: [], recent: [], error: playlistSongError.message })
+        setSnapshot({ playlistId, ready: true, autofill: [], top: [], error: playlistSongError.message })
         return
       }
 
@@ -61,7 +61,7 @@ export const usePlaylistRecentTags = (playlistId: string, enabled: boolean): Pla
         const { data, error: songError } = await supabaseClient.from("19_songs").select("id, tags").in("id", songIds)
         if (ignore) return
         if (songError) {
-          setSnapshot({ playlistId, ready: true, autofill: [], recent: [], error: songError.message })
+          setSnapshot({ playlistId, ready: true, autofill: [], top: [], error: songError.message })
           return
         }
         songs = data ?? []
@@ -72,7 +72,7 @@ export const usePlaylistRecentTags = (playlistId: string, enabled: boolean): Pla
         addedAt: playlistSong.created_at,
         tags: tagsBySongId.get(playlistSong.song_id) ?? [],
       })))
-      setSnapshot({ playlistId, ready: true, autofill: ranked.autofill, recent: ranked.recent, error: "" })
+      setSnapshot({ playlistId, ready: true, autofill: ranked.autofill, top: ranked.top, error: "" })
     }
 
     readRecentTags()
