@@ -1,5 +1,6 @@
 export const MAX_SONG_UPLOAD_BYTES = 50 * 1024 * 1024
 const UPLOAD_BITRATE_KBPS = 128
+const ACCEPTED_AUDIO_EXTENSIONS = ["mp3", "m4a", "wav", "flac", "ogg", "oga", "opus", "aac", "webm", "aif", "aiff"]
 const SIZE_ERROR = "This recording still exceeds 50 MB at 128 kbps. Choose a shorter recording (about 54 minutes or less)."
 
 /** Prepare the actual MP3 bytes before sending them to storage. */
@@ -9,15 +10,15 @@ export async function prepareSongUpload(
   onProgress?: (progress: number) => void,
 ): Promise<File> {
   const extension = file.name.split(".").pop()?.toLowerCase()
-  if (extension !== "mp3" && extension !== "m4a") {
-    throw new Error("Please select an MP3 or M4A file.")
+  if (!extension || !ACCEPTED_AUDIO_EXTENSIONS.includes(extension)) {
+    throw new Error("Please select an audio file.")
   }
   if (!Number.isFinite(duration) || duration <= 0) {
-    throw new Error("Could not determine song duration. Choose a valid MP3 or M4A file.")
+    throw new Error("Could not determine song duration. Choose a valid audio file.")
   }
 
   onProgress?.(0)
-  let needsEncoding = extension === "m4a" || file.size > MAX_SONG_UPLOAD_BYTES
+  let needsEncoding = extension !== "mp3" || file.size > MAX_SONG_UPLOAD_BYTES
   if (extension === "mp3") {
     const { parseBlob } = await import("music-metadata")
     const metadata = await parseBlob(file, { skipCovers: true })
@@ -39,14 +40,15 @@ export async function prepareSongUpload(
   try {
     const context = new OfflineAudioContext(2, 1, 44100)
     buffer = await context.decodeAudioData(await file.arrayBuffer())
-  } catch {
-    throw new Error("Could not convert this audio file. It may be corrupted or use a codec your browser cannot read. Choose another MP3 or M4A file.")
+  } catch (error) {
+    const reason = error instanceof Error ? `${error.name}: ${error.message}` : "Unknown error"
+    throw new Error(`Could not convert "${file.name}". ${reason}`)
   }
 
   const { encodeMp3 } = await import("@/app/(site)/slow-and-reverb/lib/encodeMp3")
   const audio = await encodeMp3(buffer, onProgress, undefined, UPLOAD_BITRATE_KBPS)
   if (audio.size > MAX_SONG_UPLOAD_BYTES) throw new Error(SIZE_ERROR)
 
-  const name = file.name.replace(/\.(mp3|m4a)$/i, ".mp3")
-  return new File([audio], name, { type: "audio/mpeg" })
+  const baseName = file.name.replace(/\.[^.]+$/, "") || "song"
+  return new File([audio], `${baseName}.mp3`, { type: "audio/mpeg" })
 }

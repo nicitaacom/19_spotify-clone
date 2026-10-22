@@ -108,11 +108,19 @@ test("rejects a recording that cannot fit at 128 kbps before allocating decoded 
 test("reports unreadable audio and invalid duration instead of uploading the original M4A", async t => {
   mockDecoder(t, async () => { throw new Error("EncodingError") })
   const source = new File([m4aBytes], "broken.m4a")
-  await assert.rejects(prepareSongUpload(source, 1), /Could not convert this audio file/)
+  await assert.rejects(prepareSongUpload(source, 1), /Could not convert "broken\.m4a"\. Error: EncodingError/)
   for (const duration of [0, -1, NaN, Infinity]) {
     await assert.rejects(prepareSongUpload(source, duration), /Could not determine song duration/)
   }
-  await assert.rejects(prepareSongUpload(new File([m4aBytes], "song.wav"), 1), /select an MP3 or M4A/)
+  await assert.rejects(prepareSongUpload(new File([m4aBytes], "cover.jpg", { type: "image/jpeg" }), 1), /select an audio file/)
+})
+
+test("converts a wav upload to an mp3", async t => {
+  mockDecoder(t)
+  const source = new File([m4aBytes], "song.wav", { type: "audio/wav" })
+  const result = await prepareSongUpload(source, 1)
+  assert.equal(result.name, "song.mp3")
+  assert.equal(result.type, "audio/mpeg")
 })
 
 test("keeps existing exports at 320 kbps and retains their metadata", async () => {

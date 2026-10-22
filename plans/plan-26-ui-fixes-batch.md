@@ -189,7 +189,7 @@ without reading the same files four times. **Each screenshot is its own commit**
   - **Docs:** new `dev_readme-add-song.md` covering the modal layout, the progress-in-button rule, and
     why the tags box has its own scroll.
 
-- [ ] **6. "Select a song file" accepts a .jpg** — `2026-10-18_at_21-18.jpg`
+- [x] **6. "Select a song file" accepts a .jpg** — `2026-10-18_at_21-18.jpg`
   `fix: song file accepts audio only`
   - **Cause:** nothing checks the file when it is picked. `accept` (`:695`) is only a hint, since the
     file dialog's "All files" option bypasses it.

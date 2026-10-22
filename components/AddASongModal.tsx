@@ -442,8 +442,19 @@ const AddASongModal = () => {
   }
 
   const handleSongChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    const extension = file?.name.split(".").pop()?.toLowerCase() ?? ""
+    const acceptedAudio = ["mp3", "m4a", "wav", "flac", "ogg", "oga", "opus", "aac", "webm", "aif", "aiff"]
+    if (file && !file.type.startsWith("audio/") && !acceptedAudio.includes(extension)) {
+      event.target.value = ""
+      songInput.onChange(event)
+      void readSongMetadata(undefined)
+      setUploadError(`"${file.name}" is not an audio file. Pick an audio file (MP3, WAV, M4A, FLAC, OGG…).`)
+      return
+    }
     songInput.onChange(event)
-    readSongMetadata(event.target.files?.[0])
+    readSongMetadata(file)
+    setUploadError("")
   }
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -533,7 +544,7 @@ const AddASongModal = () => {
         return
       }
       if (!songFile) {
-        setUploadError("Please select an MP3 or M4A file.")
+        setUploadError("Please select an audio file.")
         setIsLoading(false)
         return
       }
@@ -569,7 +580,7 @@ const AddASongModal = () => {
           return
         }
       } catch {
-        setUploadError("Could not determine song duration. Choose a valid MP3 or M4A file.")
+        setUploadError("Could not determine song duration. Choose a valid audio file.")
         setIsLoading(false)
         return
       }
@@ -633,7 +644,7 @@ const AddASongModal = () => {
   return (
     <Modal
       title="Add a song"
-      description="Upload an MP3 or M4A file"
+      description="Upload any audio file — it is stored as MP3"
       isOpen={uploadModal.isOpen}
       onChange={onChange}
       titleAside={(
@@ -658,7 +669,7 @@ const AddASongModal = () => {
         onSubmit={handleSubmit(onSubmit, errors => {
           if (errors.title) setUploadError("Song title is required.")
           else if (errors.author) setUploadError("Song author is required.")
-          else if (errors.song) setUploadError("Please select an MP3 or M4A file.")
+          else if (errors.song) setUploadError("Please select an audio file.")
           else if (errors.image) setUploadError("Please select a cover image.")
         })}
         className="grid min-h-0 max-h-[calc(100dvh-140px)] min-w-0 grid-cols-1 content-start gap-4 overflow-y-auto overscroll-contain md:max-h-none md:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] md:gap-6 md:overflow-visible">
@@ -691,7 +702,7 @@ const AddASongModal = () => {
               className="min-w-0 max-w-full"
               disabled={isLoading}
               type="file"
-              accept=".mp3,.m4a,audio/mpeg,audio/mp4,audio/x-m4a"
+              accept="audio/*"
               id="song"
               {...songInput}
               onChange={handleSongChange}
