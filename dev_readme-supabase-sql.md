@@ -276,6 +276,8 @@ CREATE TABLE public."19_playlists" (
     CONSTRAINT "19_playlists_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users (id) ON UPDATE CASCADE ON DELETE CASCADE
 ) TABLESPACE pg_default;
 
+ALTER TABLE public."19_playlists" ADD COLUMN IF NOT EXISTS cover_image_path TEXT NULL;
+
 -- 🔐 RLS POLICIES FOR 19_playlists
 ALTER TABLE public."19_playlists" ENABLE ROW LEVEL SECURITY;
 

@@ -36,6 +36,7 @@ export interface Playlist {
   title: string
   description: string | null
   visibility: PlaylistVisibility
+  cover_image_path?: string | null
   commerce?: PlaylistCommerce
 }
 

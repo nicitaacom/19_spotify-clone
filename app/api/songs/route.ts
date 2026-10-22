@@ -4,19 +4,12 @@ import uniqid from "uniqid"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { getSafeStoragePath } from "@/libs/helpers"
+import { imageFileError } from "@/libs/imageFiles"
 import { parseSongTags, normalizeSongTags, inferPlaylistGenreTags } from "@/libs/songTags"
 
 import { requireUser } from "../backup/requireUser"
 
 export const maxDuration = 60 // max on Hobby plan Vercel 60s
-
-const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-  avif: "image/avif",
-}
 
 export async function POST(request: Request) {
   try {
@@ -61,15 +54,9 @@ export async function POST(request: Request) {
   if (!playlistId) {
     return NextResponse.json({ error: "Select a playlist before uploading." }, { status: 400 })
   }
-  const imageExtension = imageFile.name.split(".").pop()?.toLowerCase() ?? ""
-  if (
-    IMAGE_MIME_BY_EXTENSION[imageExtension] !== imageFile.type.toLowerCase() ||
-    imageFile.size > 10 * 1024 * 1024
-  ) {
-    return NextResponse.json(
-      { error: "Choose a JPG, JPEG, PNG, WebP, or AVIF image smaller than 10 MB." },
-      { status: 400 },
-    )
+  const rejectedImage = imageFileError(imageFile)
+  if (rejectedImage) {
+    return NextResponse.json({ error: rejectedImage }, { status: 400 })
   }
   if (playlistId) {
     const { data: playlist, error } = await supabaseAdmin

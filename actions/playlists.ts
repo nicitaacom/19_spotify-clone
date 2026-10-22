@@ -52,6 +52,7 @@ const normalizePlaylist = (playlist: RawPlaylistRow): Playlist => ({
   title: playlist.title,
   description: playlist.description ?? null,
   visibility: playlist.visibility,
+  cover_image_path: playlist.cover_image_path ?? null,
 })
 
 const getAuthorsById = async (userIds: string[]) => {
@@ -210,7 +211,7 @@ const buildPlaylistSummary = (
   return {
     ...normalizedPlaylist,
     author: authorsById.get(normalizedPlaylist.user_id) ?? { ...FALLBACK_AUTHOR, id: normalizedPlaylist.user_id },
-    cover_image_path: playlistSongs.find(item => item.song?.image_path)?.song?.image_path ?? null,
+    cover_image_path: normalizedPlaylist.cover_image_path ?? playlistSongs.find(item => item.song?.image_path)?.song?.image_path ?? null,
     song_count: playlistSongs.length,
   }
 }
@@ -434,7 +435,7 @@ export const getPlaylistBySlug = async (slug: string): Promise<PlaylistDetail | 
   return {
     ...normalizedPlaylist,
     author: authorsById.get(normalizedPlaylist.user_id) ?? { ...FALLBACK_AUTHOR, id: normalizedPlaylist.user_id },
-    cover_image_path: playlistSongs.find(song => song.can_play === true && song.image_path)?.image_path ?? null,
+    cover_image_path: normalizedPlaylist.cover_image_path ?? playlistSongs.find(song => song.can_play === true && song.image_path)?.image_path ?? null,
     songs: memberships.map((item, index) => ({
       playlist_id: String(item.playlist_id),
       song_id: String(item.song_id),

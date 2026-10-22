@@ -215,6 +215,8 @@ images/
     └── cover-chill-mgk3x1.jpg
 ```
 
+`19_playlists.cover_image_path` exists now. Backing up that file is still this step.
+
 Playlist membership stays purely relational — `19_playlist_songs` rows point at these files, the
 files themselves don't move or duplicate when a song is added to a second playlist.
 

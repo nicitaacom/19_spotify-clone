@@ -90,6 +90,7 @@ export type Database = {
           updated_at: string
           user_id: string
           visibility: Database["public"]["Enums"]["playlist_visibility"]
+          cover_image_path: string | null
         }
         Insert: {
           created_at?: string
@@ -100,6 +101,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           visibility?: Database["public"]["Enums"]["playlist_visibility"]
+          cover_image_path?: string | null
         }
         Update: {
           created_at?: string
@@ -110,6 +112,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           visibility?: Database["public"]["Enums"]["playlist_visibility"]
+          cover_image_path?: string | null
         }
         Relationships: []
       }

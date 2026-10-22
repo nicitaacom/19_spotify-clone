@@ -360,7 +360,7 @@ without reading the same files four times. **Each screenshot is its own commit**
     "Confirmed by reading the code").
   - **Check:** as owner, the pill opens the YouTube playlist in a new tab. Signed out, there is no pill.
 
-- [ ] **18. Change a playlist's cover** — `2026-10-18_at_17-22.jpg`
+- [x] **18. Change a playlist's cover** — `2026-10-18_at_17-22.jpg`
   `feat: change a playlist cover`
   - **Change:**
     - SQL (also add it to `dev_readme-supabase-sql.md:265` and to `app/interfaces/types_db.ts:83`

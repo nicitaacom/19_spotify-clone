@@ -10,6 +10,7 @@ import { getSupabasePublicUrl } from "@/libs/helpers"
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { formatPlaylistPrice } from "@/libs/commerceRules"
 
+import PlaylistCoverPicker from "../components/PlaylistCoverPicker"
 import PlaylistDetailContent from "../components/PlaylistDetailContent"
 
 export const revalidate = 0
@@ -46,7 +47,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
       <Header className="from-[#183526] via-[#132019] to-surface">
         <div className="mb-1 mt-4">
           <div className="flex items-start gap-4 sm:items-end sm:gap-5">
-            <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg shadow-lg sm:h-32 sm:w-32 lg:h-40 lg:w-40">
+            <div className="group relative h-24 w-24 shrink-0 overflow-hidden rounded-lg shadow-lg sm:h-32 sm:w-32 lg:h-40 lg:w-40">
               {coverUrl ? (
                 <Image
                   className="object-cover"
@@ -60,6 +61,7 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
               ) : (
                 <LockedArtwork className="absolute inset-0 text-5xl" />
               )}
+              {canManage && <PlaylistCoverPicker playlistId={playlist.id} />}
             </div>
             <div className="min-w-0 flex flex-col gap-y-2">
               <div className="flex flex-wrap items-center gap-2">
