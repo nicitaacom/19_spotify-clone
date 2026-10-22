@@ -304,7 +304,7 @@ without reading the same files four times. **Each screenshot is its own commit**
     allows only the admin to change tags (`app/api/songs/[id]/route.ts:55`).
   - **Check:** as admin, open Edit song. The tags box shows the song's tags, and Save keeps them.
 
-- [ ] **14. Sidebar library: admin gets an edit icon** — `2026-10-18_at_17-49.jpg`
+- [x] **14. Sidebar library: admin gets an edit icon** — `2026-10-18_at_17-49.jpg`
   `upd: admin edits songs from library`
   - **Change:**
     - `components/Library.tsx:56-60`: when `isOwner`, render an edit button (`FiEdit2`, same size and

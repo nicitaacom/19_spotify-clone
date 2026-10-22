@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react"
 import { FieldValues, SubmitHandler, useForm } from "react-hook-form"
 import toast from "react-hot-toast"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 
+import { getSongPlaylistMemberships } from "@/actions/songPlaylistMemberships"
+import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
 import useEditSongModal from "@/hooks/useEditSongModal"
 import useOwnerStore from "@/hooks/useOwnerStore"
 import { songTagsWithDraft } from "@/libs/songTags"
@@ -21,7 +24,10 @@ const EditSongModal = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [tagDraft, setTagDraft] = useState<{ songId: string; tags: string[] } | null>(null)
   const { isOwner } = useOwnerStore()
+  const addToPlaylistModal = useAddToPlaylistModal()
   const canEditTags = isOwner
+  const [playlistMemberships, setPlaylistMemberships] = useState<{ songId: string; items: { id: string; slug: string; title: string }[] } | null>(null)
+  const songPlaylists = playlistMemberships && playlistMemberships.songId === song?.id ? playlistMemberships.items : []
   const tags = tagDraft && tagDraft.songId === song?.id ? tagDraft.tags : song?.tags ?? []
 
   const { register, handleSubmit, reset } = useForm<FieldValues>({
@@ -31,6 +37,16 @@ const EditSongModal = () => {
   useEffect(() => {
     if (song) reset({ title: song.title, author: song.author, image: null, isPaid: Boolean(song.is_paid) })
   }, [song, reset])
+
+  useEffect(() => {
+    if (!isOpen || !song || !isOwner) return
+    let ignore = false
+    const songId = song.id
+    void getSongPlaylistMemberships(songId).then(items => {
+      if (!ignore) setPlaylistMemberships({ songId, items })
+    })
+    return () => { ignore = true }
+  }, [isOpen, isOwner, song])
 
   const onChange = (open: boolean) => {
     if (!open) {
@@ -99,6 +115,25 @@ const EditSongModal = () => {
           placeholder="Song author"
         />
         {canEditTags && <SongTagsInput key={song?.id} id="edit-song-tags" value={tags} onChange={handleTagsChange} disabled={isLoading} />}
+        {isOwner && song && (
+          <div className="space-y-2 text-sm text-neutral-300">
+            <p>
+              In playlists:{" "}
+              {songPlaylists.map((playlist, index) => (
+                <span key={playlist.id}>
+                  {index > 0 && ", "}
+                  <Link href={`/playlists/${playlist.slug}`} className="text-neon hover:underline">{playlist.title}</Link>
+                </span>
+              ))}
+            </p>
+            <button
+              type="button"
+              className="text-neon hover:underline"
+              onClick={() => addToPlaylistModal.onOpen(song)}>
+              + Add to playlist
+            </button>
+          </div>
+        )}
         <label className="block space-y-2 text-sm">
           <span>Replace cover image (optional)</span>
           <Input id="image" type="file" accept="image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif" disabled={isLoading} {...register("image")} />

@@ -1,9 +1,12 @@
+import { useRouter } from "next/navigation"
 import { TbPlaylist } from "react-icons/tb"
 import { AiOutlinePlus } from "react-icons/ai"
+import { FiEdit2 } from "react-icons/fi"
 
 import { useUser } from "@/hooks/useUser"
 import useIsIframeAuth from "@/hooks/useIsIframeAuth"
 import useUploadModal from "@/hooks/useUploadModal"
+import useEditSongModal from "@/hooks/useEditSongModal"
 import useOwnerStore from "@/hooks/useOwnerStore"
 import { Song } from "@/types"
 import AddToPlaylistButton from "./AddToPlaylistButton"
@@ -16,7 +19,9 @@ interface LibraryProps {
 }
 
 const Library = ({ songs }: LibraryProps) => {
+  const router = useRouter()
   const uploadModal = useUploadModal()
+  const editSongModal = useEditSongModal()
   const { user } = useUser()
   const isIframe = useIsIframeAuth()
   const { isOwner } = useOwnerStore()
@@ -55,7 +60,20 @@ const Library = ({ songs }: LibraryProps) => {
             <div className="flex-1 min-w-0">
               <MediaItem onClick={(id: string) => onPlay(id)} data={song} />
             </div>
-            <AddToPlaylistButton song={song} />
+            {isOwner ? (
+              <button
+                type="button"
+                aria-label={`Edit ${song.title}`}
+                className="cursor-pointer text-neutral-300 transition hover:text-white hover:opacity-75"
+                onClick={event => {
+                  event.stopPropagation()
+                  editSongModal.onOpen(song, () => router.refresh())
+                }}>
+                <FiEdit2 size={22} />
+              </button>
+            ) : (
+              <AddToPlaylistButton song={song} />
+            )}
           </div>
         ))}
       </div>
