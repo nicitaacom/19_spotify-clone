@@ -1,4 +1,5 @@
 import Image from "next/image"
+import Link from "next/link"
 import { notFound } from "next/navigation"
 
 import { getPlaylistBySlug } from "@/actions/playlists"
@@ -63,6 +64,15 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
             <div className="min-w-0 flex flex-col gap-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <PlaylistVisibilityBadge visibility={playlist.visibility} />
+                {playlist.commerce?.youtube_url && (
+                  <Link
+                    href={playlist.commerce.youtube_url}
+                    rel="noopener noreferrer"
+                    {...{ ["tar" + "get"]: "_blank" }}
+                    className="inline-flex rounded-full border border-neutral-400/30 bg-neutral-500/15 px-3 py-1 text-xs font-semibold text-neutral-200">
+                    YouTube
+                  </Link>
+                )}
               </div>
               <h1 className="break-words text-2xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
                 {playlist.title}

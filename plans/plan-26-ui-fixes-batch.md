@@ -351,7 +351,7 @@ without reading the same files four times. **Each screenshot is its own commit**
 
 ### Chat 4 — playlists, the new feature, backup
 
-- [ ] **17. Link to the YouTube playlist** — `2026-10-18_at_13-58.jpg`
+- [x] **17. Link to the YouTube playlist** — `2026-10-18_at_13-58.jpg`
   `upd: link to the youtube playlist`
   - **Change:** `app/(site)/playlists/[slug]/page.tsx:64-66`, right after `<PlaylistVisibilityBadge>`:
     `{playlist.commerce?.youtube_url && <Link href={…} target="_blank" rel="noopener noreferrer">YouTube</Link>}`
