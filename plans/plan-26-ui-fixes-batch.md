@@ -318,7 +318,7 @@ without reading the same files four times. **Each screenshot is its own commit**
   - **Check:** as admin, the sidebar shows pencils, and a pencil opens Edit song with the playlists
     listed. As a normal user, the sidebar still shows the add-to-playlist icon.
 
-- [ ] **15. The library header scrolls away** — `2026-10-18_at_14-32.jpg`
+- [x] **15. The library header scrolls away** — `2026-10-18_at_14-32.jpg`
   `style: keep library header visible`
   - **Cause:** `components/Sidebar.tsx:86` scrolls the whole `Library` (header, note and list) as one
     block, so the list slides over where the header was.

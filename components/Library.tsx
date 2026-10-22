@@ -38,10 +38,10 @@ const Library = ({ songs }: LibraryProps) => {
 
   return (
     <div className="flex flex-col ">
-      <div className="flex items-center justify-between px-5 py-4">
+      <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-lg bg-surface px-5 py-4">
         <div className="inline-flex items-center gap-2">
           <TbPlaylist className="text-neutral-400" size={26} />
-          <p className="text-neutral-400 font-medium text-md">Your libray</p>
+          <p className="text-neutral-400 font-medium text-md">Your library</p>
         </div>
         {isOwner && (
           <AiOutlinePlus
