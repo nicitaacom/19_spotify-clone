@@ -296,7 +296,7 @@ without reading the same files four times. **Each screenshot is its own commit**
   - **Check:** type `kizaru 2` in the playlist search, then click Create new playlist. The title shows
     `kizaru 2`. Create it, and it is selected in the Add a song modal.
 
-- [ ] **13. Tags are missing in Edit song** — `2026-10-18_at_14-14.jpg`
+- [x] **13. Tags are missing in Edit song** — `2026-10-18_at_14-14.jpg`
   `fix: show tags in edit song modal`
   - **Cause:** `components/EditSongModal.tsx:25` calls `isOwnerId()` in the browser, and that always
     returns `false` there (see "Confirmed by reading the code").

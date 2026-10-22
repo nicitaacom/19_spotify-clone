@@ -6,8 +6,7 @@ import toast from "react-hot-toast"
 import { useRouter } from "next/navigation"
 
 import useEditSongModal from "@/hooks/useEditSongModal"
-import { useUser } from "@/hooks/useUser"
-import { isOwnerId } from "@/libs/getOwnerIds"
+import useOwnerStore from "@/hooks/useOwnerStore"
 import { songTagsWithDraft } from "@/libs/songTags"
 
 import Modal from "./Modal"
@@ -21,8 +20,8 @@ const EditSongModal = () => {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [tagDraft, setTagDraft] = useState<{ songId: string; tags: string[] } | null>(null)
-  const { user } = useUser()
-  const canEditTags = isOwnerId(user?.id)
+  const { isOwner } = useOwnerStore()
+  const canEditTags = isOwner
   const tags = tagDraft && tagDraft.songId === song?.id ? tagDraft.tags : song?.tags ?? []
 
   const { register, handleSubmit, reset } = useForm<FieldValues>({
