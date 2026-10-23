@@ -6,6 +6,7 @@ import toast from "react-hot-toast"
 import { FiEdit2, FiLock, FiMenu, FiPlay, FiSearch, FiShuffle, FiTrash2, FiUnlock } from "react-icons/fi"
 import { PlaylistDetail, PlaylistSongWithSong, Song } from "@/types"
 import useOnPlay from "@/hooks/useOnPlay"
+import usePlayer from "@/hooks/usePlayer"
 import useEditSongModal from "@/hooks/useEditSongModal"
 import useSuggestSongModal from "@/hooks/useSuggestSongModal"
 import MediaItem from "@/components/MediaItem"
@@ -111,10 +112,10 @@ function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, 
           onPointerCancel={onPointerCancel}
           onLostPointerCapture={onPointerCancel}
           onKeyDown={event => {
-            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-              event.preventDefault()
-              onMove(item.song_id, event.key === "ArrowUp" ? -1 : 1)
-            }
+            const reorderArrow = !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && (event.key === "ArrowUp" || event.key === "ArrowDown")
+            if (!reorderArrow) return
+            event.preventDefault()
+            onMove(item.song_id, event.key === "ArrowUp" ? -1 : 1)
           }}
           className={`${iconButtonClass} touch-none cursor-grab text-neutral-500 hover:text-white active:cursor-grabbing disabled:cursor-not-allowed disabled:opacity-30`}>
           <FiMenu size={16} />
@@ -181,6 +182,23 @@ export default function PlaylistDetailContent({
   const listRef = useRef<HTMLDivElement>(null)
   const activeDrag = useRef<ActiveDrag | null>(null)
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null)
+  const playlistOrderKey = orderedSongs.map(item => item.song_id).join("\0")
+  const seenPlaylistOrderKey = useRef(playlistOrderKey)
+  useEffect(() => {
+    if (seenPlaylistOrderKey.current === playlistOrderKey) return
+    seenPlaylistOrderKey.current = playlistOrderKey
+    const player = usePlayer.getState()
+    if (player.sourcePlaylistId !== playlist.id) return
+    const songsById = new Map(player.songs.map(song => [String(song.id), song]))
+    const nextSongs: Song[] = []
+    for (const item of orderedSongs) {
+      const song = songsById.get(String(item.song_id))
+      if (song) nextSongs.push(song)
+    }
+    const nextIds = nextSongs.map(song => String(song.id))
+    const sameOrder = nextIds.length === player.ids.length && nextIds.every((id, index) => id === player.ids[index])
+    if (!sameOrder) usePlayer.setState({ songs: nextSongs, ids: nextIds })
+  }, [orderedSongs, playlist.id, playlistOrderKey])
   if (playlist.songs !== sourceSongs) {
     setSourceSongs(playlist.songs)
     setOrderedSongs(playlist.songs)

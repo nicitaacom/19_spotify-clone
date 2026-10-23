@@ -180,5 +180,7 @@ PUSHER_SECRET=''
 | `Shift` + `ArrowRight` | Next song |
 | `Shift` + `ArrowLeft` | Previous song |
 
+Shift+Arrow follows the on-screen playlist order. Reordering or removing a row in the playlist that is playing updates that order, so the next press plays the next row.
+
 Shortcuts are ignored when focus is on an `INPUT`, `TEXTAREA`, or `contentEditable` element.
 Song rows (`MediaItem`, `SongItem`) are not focusable on purpose, so Space pauses the current song instead of starting the clicked row.
