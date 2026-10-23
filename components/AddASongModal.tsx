@@ -695,7 +695,8 @@ const AddASongModal = () => {
           )}
         </div>
       )}
-      contentClassName="h-auto w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] max-w-[960px] overflow-hidden p-3 sm:p-5 md:w-[94vw] md:max-h-[90dvh] md:max-w-[960px] md:p-7"
+      contentClassName="flex h-auto max-h-[calc(100dvh-1rem)] w-[min(960px,calc(100%-1.5rem))] max-w-[960px] flex-col overflow-x-hidden overflow-y-auto p-3 sm:p-5 md:max-h-[calc(100dvh-1rem)] md:w-[min(960px,calc(100%-2rem))] md:max-w-[960px] md:p-7"
+      bodyClassName="min-h-0"
       titleClassName="mb-0 text-left text-2xl"
       descriptionClassName="mb-6 text-left text-neutral-300"
       isShowCloseButton={!confirmDiscard}
@@ -711,7 +712,7 @@ const AddASongModal = () => {
           else if (errors.song) setUploadError("Please select an audio file.")
           else if (errors.image) setUploadError("Please select a cover image.")
         })}
-        className="grid min-h-0 max-h-[calc(100dvh-140px)] min-w-0 grid-cols-1 content-start gap-4 overflow-y-auto overscroll-contain md:max-h-none md:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)] md:gap-6 md:overflow-visible">
+        className="grid min-w-0 grid-cols-1 content-start gap-4 md:grid-cols-[minmax(0,1.15fr)_minmax(240px,0.85fr)] md:gap-6">
         <section className="flex min-w-0 flex-col gap-4">
           <div className="space-y-4">
           <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
@@ -829,7 +830,7 @@ const AddASongModal = () => {
                 className="py-2"
               />
 
-              <div role="group" aria-label="Your playlists" className="h-48 min-h-0 max-h-48 min-w-0 flex-none overflow-y-auto overscroll-contain rounded-md border border-white/10 bg-surface md:h-[min(42dvh,24rem)] md:min-h-0 md:max-h-[min(42dvh,24rem)] md:flex-none">
+              <div role="group" aria-label="Your playlists" className="h-40 min-h-0 max-h-40 min-w-0 flex-none overflow-y-auto overscroll-contain rounded-md border border-white/10 bg-surface md:h-[min(32dvh,20rem)] md:max-h-[min(32dvh,20rem)]">
                 {filteredPlaylists.map(playlist => (
                   <div key={playlist.id} className={`transition hover:bg-elevated ${selectedPlaylist?.id === playlist.id ? "bg-elevated" : ""}`}>
                     <div className="flex items-center">
@@ -924,7 +925,7 @@ const AddASongModal = () => {
           </section>
         </aside>
 
-        <div className="sticky bottom-0 z-10 min-w-0 space-y-3 border-t border-white/10 bg-surface/95 pt-3 pb-1 backdrop-blur md:static md:col-span-2 md:bg-transparent md:pt-4 md:pb-0 md:backdrop-blur-none">
+        <div className="sticky bottom-0 z-10 min-w-0 border-t border-white/10 bg-surface pt-3 md:col-span-2">
           <Button disabled={isCreateDisabled} type="submit" className="relative w-full overflow-hidden rounded-md">
             {isLoading && (
               <span style={{ width: `${uploadProgress}%` }} className="absolute inset-y-0 left-0 bg-black/15" aria-hidden="true" />

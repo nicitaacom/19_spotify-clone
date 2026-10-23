@@ -2,7 +2,7 @@
 
 ## Layout
 
-`components/AddASongModal.tsx` is a two-column grid on desktop: song fields on the left, playlist on the right. The left column stays in normal flow. It is not an absolute scroll area. Desktop height follows the playlist column, so the song fields do not add a second scrollbar.
+`components/AddASongModal.tsx` is a two-column grid on desktop: song fields on the left, playlist on the right. The left column stays in normal flow. The dialog width stays inside the window. On a short window the dialog scrolls, and Create stays pinned to the bottom of that scroll.
 
 ## Progress in the Create button
 
