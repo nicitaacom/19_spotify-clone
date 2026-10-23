@@ -7,9 +7,10 @@ import { twMerge } from "tailwind-merge"
 
 interface FileDropZoneProps {
   onFile: (file: File) => void
+  hint?: string
 }
 
-const FileDropZone = ({ onFile }: FileDropZoneProps) => {
+const FileDropZone = ({ onFile, hint = "MP3 recommended • pitch + reverb + bass in browser" }: FileDropZoneProps) => {
   const [isDragOver, setIsDragOver] = useState(false)
   const dragCounter = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -23,7 +24,7 @@ const FileDropZone = ({ onFile }: FileDropZoneProps) => {
     if (file.type.startsWith("audio/")) {
       onFile(file)
     } else {
-      toast.error("Please select an audio file")
+      toast.error(`"${file.name}" is ${file.type || "no MIME type"}, not an audio file.`)
     }
   }
 
@@ -74,7 +75,7 @@ const FileDropZone = ({ onFile }: FileDropZoneProps) => {
       <div className="flex flex-col items-center gap-4">
         <FiUploadCloud size={48} className="text-neutral-400" />
         <p className="text-neutral-300">🎵 Drop an MP3 here or click to browse</p>
-        <p className="text-neutral-500 text-xs">MP3 recommended • pitch + reverb + bass in browser</p>
+        <p className="text-neutral-500 text-xs">{hint}</p>
       </div>
     </div>
   )

@@ -6,10 +6,12 @@ import { Price, Product } from "@/types"
 
 import { stripe } from "./stripe"
 import { toDateTime } from "./helpers"
+import { supabaseClientOptions } from "./supabaseFetch"
 
 export const supabaseAdmin = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL || "",
   process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  supabaseClientOptions,
 )
 
 const upsertProductRecord = async (product: Stripe.Product) => {

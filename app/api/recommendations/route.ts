@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { recommendationQuery, type MusicRecommendation } from "@/libs/musicRecommendations"
+import { supabaseFetch } from "@/libs/supabaseFetch"
 import type { Database } from "@/app/interfaces/types_db"
 
 export async function GET(request: Request) {
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) throw new Error("Catalog unavailable")
     // Never inherit request cookies, a service key, or a signed-in listener's purchases.
     const client = createClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      { auth: { persistSession: false, autoRefreshToken: false } })
+      { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: supabaseFetch } })
     const { data, error } = query.query
       ? await client.rpc("search_public_music", { p_query: query.query, p_limit: query.limit })
       : await client.rpc("recommend_public_music", { p_tags: query.tags, p_limit: query.limit })

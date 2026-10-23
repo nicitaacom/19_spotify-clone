@@ -19,7 +19,7 @@ export default function FullScreenDropOverlay({ isDragging, onFile }: FullScreen
     if (file.type.startsWith("audio/")) {
       onFile(file)
     } else {
-      toast.error("Please select an audio file")
+      toast.error(`"${file.name}" is ${file.type || "no MIME type"}, not an audio file.`)
     }
   }
 

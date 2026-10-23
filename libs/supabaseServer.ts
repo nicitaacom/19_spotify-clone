@@ -4,6 +4,8 @@ import {
 } from "@supabase/auth-helpers-nextjs"
 import { cookies } from "next/headers"
 
+import { supabaseClientOptions } from "@/libs/supabaseFetch"
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseServerClient = ReturnType<typeof createSupabaseServerComponentClient<any>>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,12 +23,12 @@ const createCookieContext = async () => {
 // SupabaseServerClient / SupabaseRouteClient types, so a <Database> argument never changed anything.
 export const createServerComponentClient = async (): Promise<SupabaseServerClient> => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return createSupabaseServerComponentClient<any>(await createCookieContext()) as SupabaseServerClient
+  return createSupabaseServerComponentClient<any>(await createCookieContext(), { options: supabaseClientOptions }) as SupabaseServerClient
 }
 
 export const createRouteHandlerClient = async (): Promise<SupabaseRouteClient> => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return createSupabaseRouteHandlerClient<any>(await createCookieContext()) as SupabaseRouteClient
+  return createSupabaseRouteHandlerClient<any>(await createCookieContext(), { options: supabaseClientOptions }) as SupabaseRouteClient
 }
 
 const supabaseServer = async () => {

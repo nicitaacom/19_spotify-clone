@@ -86,7 +86,7 @@ const AddASongModal = () => {
   const playlistSlug = pathname?.match(/^\/playlists\/([^/]+)\/?$/)?.[1]
   const turnstileRef = useRef<HTMLDivElement>(null)
   const isHumanGateEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
-  const { isVerified, token, resetTurnstileFn } = useVerifyHuman(turnstileRef, {
+  const { isVerified, token, resetTurnstileFn, shouldRenderChallenge } = useVerifyHuman(turnstileRef, {
     isEnabled: uploadModal.isOpen && requiresChallenge,
   })
   const isCreateBlocked = isLoading || (requiresChallenge && isHumanGateEnabled && !isVerified)
@@ -801,7 +801,7 @@ const AddASongModal = () => {
                 <p className="mt-1 break-words text-sm text-neutral-400">{previewAuthor}</p>
               </div>
             </div>
-            {requiresChallenge && isHumanGateEnabled && <TurnstileChallenge turnstileRef={turnstileRef} />}
+            {shouldRenderChallenge && <TurnstileChallenge turnstileRef={turnstileRef} />}
           </section>
         </section>
 
