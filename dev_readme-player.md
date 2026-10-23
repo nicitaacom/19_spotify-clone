@@ -174,6 +174,7 @@ PUSHER_SECRET=''
 |-----|--------|
 | `Space` | Toggle play/pause |
 | `Escape` | Seek to 0 (restart) |
+| `0` | Seek to 0:00 |
 | `F8` | Stop (pause + seek to 0) |
 | `ArrowRight` | Seek forward 5 seconds |
 | `ArrowLeft` | Seek back 5 seconds |

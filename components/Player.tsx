@@ -77,6 +77,11 @@ const Player = () => {
         requestSeek(0)
         return
       }
+
+      if ((e.code === "Digit0" || e.code === "Numpad0") && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault()
+        requestSeek(0)
+      }
     }
 
     window.addEventListener("keydown", handleKeyDown)
