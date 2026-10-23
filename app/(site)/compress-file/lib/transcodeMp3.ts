@@ -1,5 +1,5 @@
 import { Mp3Encoder } from "@breezystack/lamejs"
-import { MPEGDecoder, MPEGDecodedAudio } from "mpg123-decoder"
+import { MPEGDecoder, type MPEGDecodedAudio } from "mpg123-decoder"
 
 import type { Id3Metadata } from "../../slow-and-reverb/lib/id3AlbumArt"
 import { buildId3Tag } from "../../slow-and-reverb/lib/id3Writer"

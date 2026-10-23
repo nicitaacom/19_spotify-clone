@@ -5,17 +5,24 @@ import test from "node:test"
 import { Mp3Encoder } from "@breezystack/lamejs"
 import { parseBlob } from "music-metadata"
 
-import { MAX_SONG_UPLOAD_BYTES, prepareSongUpload } from "./songUpload.ts"
+import { MAX_SONG_UPLOAD_BYTES, prepareSongUpload, uploadBitrateKbps } from "./songUpload.ts"
 
 // Resolve the Next.js alias and extensionless import when running directly in Node.
 const encoderUrl = new URL("../app/(site)/slow-and-reverb/lib/encodeMp3.ts", import.meta.url)
+const transcodeUrl = new URL("../app/(site)/compress-file/lib/transcodeMp3.ts", import.meta.url)
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "@/app/(site)/slow-and-reverb/lib/encodeMp3") {
       return nextResolve(encoderUrl.href, context)
     }
-    if (specifier === "./id3Writer" && context.parentURL === encoderUrl.href) {
+    if (specifier === "@/app/(site)/compress-file/lib/transcodeMp3") {
+      return nextResolve(transcodeUrl.href, context)
+    }
+    if (specifier.endsWith("id3Writer") && (context.parentURL === encoderUrl.href || context.parentURL === transcodeUrl.href)) {
       return nextResolve(new URL("./id3Writer.ts", encoderUrl).href, context)
+    }
+    if (context.parentURL === transcodeUrl.href && specifier.startsWith("./")) {
+      return nextResolve(new URL(`${specifier}.ts`, transcodeUrl).href, context)
     }
     return nextResolve(specifier, context)
   },
@@ -98,11 +105,21 @@ test("allows an original larger than 50 MB when its compressed result fits", asy
   assert.equal((await parseBlob(result)).format.bitrate, 128000)
 })
 
-test("rejects a recording that cannot fit at 128 kbps before allocating decoded audio", async t => {
+test("a two hour recording is stored below 128 kbps so it fits in 50 MB", () => {
+  assert.equal(uploadBitrateKbps(60), 128)
+  assert.equal(uploadBitrateKbps(3600), 112)
+  assert.equal(uploadBitrateKbps(8112), 48)
+  assert.equal(uploadBitrateKbps(3 * 3600), 32)
+})
+
+test("encodes a long mp3 at the fitting bitrate instead of refusing it", async t => {
   const decode = mockDecoder(t)
-  const source = new File([m4aBytes], "long.m4a")
-  await assert.rejects(prepareSongUpload(source, 3600), /still exceeds 50 MB at 128 kbps/)
+  const source = mp3File(128)
+  const result = await prepareSongUpload(source, 8112)
   assert.equal(decode.mock.callCount(), 0)
+  assert.equal(result.type, "audio/mpeg")
+  assert.ok(result.size <= MAX_SONG_UPLOAD_BYTES)
+  assert.equal((await parseBlob(result)).format.bitrate, 48000)
 })
 
 test("reports unreadable audio and invalid duration instead of uploading the original M4A", async t => {
@@ -110,9 +127,9 @@ test("reports unreadable audio and invalid duration instead of uploading the ori
   const source = new File([m4aBytes], "broken.m4a")
   await assert.rejects(prepareSongUpload(source, 1), /Could not convert "broken\.m4a"\. Error: EncodingError/)
   for (const duration of [0, -1, NaN, Infinity]) {
-    await assert.rejects(prepareSongUpload(source, duration), /Could not determine song duration/)
+    await assert.rejects(prepareSongUpload(source, duration), /Could not determine the duration of "broken\.m4a"/)
   }
-  await assert.rejects(prepareSongUpload(new File([m4aBytes], "cover.jpg", { type: "image/jpeg" }), 1), /select an audio file/)
+  await assert.rejects(prepareSongUpload(new File([m4aBytes], "cover.jpg", { type: "image/jpeg" }), 1), /cover\.jpg" is not an audio file/)
 })
 
 test("converts a wav upload to an mp3", async t => {

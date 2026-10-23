@@ -2,7 +2,7 @@
 
 ## Layout
 
-`components/AddASongModal.tsx` is a two-column grid on desktop: song fields on the left, playlist on the right. The left column stays in normal flow. The dialog width stays inside the window. On a short window the dialog scrolls, and Create stays pinned to the bottom of that scroll.
+`components/AddASongModal.tsx` is a two-column grid on desktop: song fields on the left, playlist on the right. The left column stays in normal flow. The dialog width stays inside the window. On a short window the dialog scrolls, and Create stays pinned to the bottom of that scroll. The human check is mounted only when it will actually render. Its box does not scroll.
 
 ## Progress in the Create button
 
@@ -12,7 +12,7 @@ Upload progress is drawn inside the Create button. The button is `relative overf
 
 The song picker uses `accept="audio/*"`. That hint is not a check. The change handler refuses a file when its type does not start with `audio/` and its extension is not one of mp3, m4a, wav, flac, ogg, oga, opus, aac, webm, aif, or aiff. The input is cleared and the message names the file.
 
-`libs/songUpload.ts` accepts that same list. Every file that is not an mp3, and every mp3 above 128 kbps or above 50 MB, is decoded and stored as a 128 kbps mp3. The stored name always ends in `.mp3`. When the browser fails to decode the file, the error names the file and the browser error (`Error: …`). The upload route accepts only `.mp3` with `audio/mpeg`, because the browser converts before sending.
+`libs/songUpload.ts` accepts that same list. A short file is stored at 128 kbps. A longer file is stored at the highest bitrate that fits in 50 MB (down to 8 kbps). The stored name always ends in `.mp3`. When the browser fails to decode the file, the error names the file and the browser error (`Error: …`). The upload route accepts only `.mp3` with `audio/mpeg`, because the browser converts before sending.
 
 ## After an upload
 
