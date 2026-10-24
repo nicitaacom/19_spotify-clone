@@ -11,6 +11,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   try {
     const { id } = await params
     if (!/^\d+$/.test(id)) return NextResponse.json({ error: "Song not found." }, { status: 404 })
+    const { data: song, error } = await admin
+      .from("19_songs")
+      .select("id, user_id, title, author, image_path, tags")
+      .eq("id", Number(id))
+      .maybeSingle()
+    if (error) throw error
+    if (!song) return NextResponse.json({ error: "Song not found." }, { status: 404 })
+
     const client = await createRouteHandlerClient()
     const {
       data: { user },
@@ -22,16 +30,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         { status: 403, headers: { "Cache-Control": "private, no-store" } },
       )
     }
-
-    const { data: song, error } = await admin
-      .from("19_songs")
-      .select("id, user_id, title, author, image_path, tags")
-      .eq("id", Number(id))
-      .maybeSingle()
-    if (error) throw error
-    if (!song) return NextResponse.json({ error: "Song not found." }, { status: 404 })
+    const { data: songRows, error: songRowError } = await admin
+      .from("19_playlist_songs")
+      .select("playlist_id")
+      .eq("song_id", Number(id))
+    if (songRowError) throw songRowError
+    const playlistIds = (songRows ?? []).map(row => row.playlist_id)
+    let href = ""
+    if (playlistIds.length) {
+      const { data: playlists, error: playlistError } = await admin
+        .from("19_playlists")
+        .select("slug, visibility")
+        .in("id", playlistIds)
+      if (playlistError) throw playlistError
+      const openPlaylist = (playlists ?? []).find(playlist => playlist.visibility === "public" || playlist.visibility === "unlisted")
+      if (openPlaylist?.slug) href = `/playlists/${encodeURIComponent(openPlaylist.slug)}?songId=${encodeURIComponent(id)}`
+    }
     return NextResponse.json(
-      { song: { ...song, id: String(song.id), song_path: "", ...access } },
+      { song: { ...song, id: String(song.id), song_path: "", href, ...access } },
       { headers: { "Cache-Control": "private, no-store" } },
     )
   } catch (error) {

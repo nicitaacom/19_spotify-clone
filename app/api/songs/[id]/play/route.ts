@@ -11,6 +11,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const { id } = await params
     if (!/^\d+$/.test(id)) return NextResponse.json({ error: "Song not found." }, { status: 404 })
+    const { data: song, error } = await admin.from("19_songs").select("song_path,size_bytes").eq("id", Number(id)).maybeSingle()
+    if (error) throw error
+    if (!song) return NextResponse.json({ error: "Song not found." }, { status: 404 })
     const client = await createRouteHandlerClient()
     const {
       data: { user },
@@ -21,9 +24,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         { error: "Purchase a playlist containing this song to listen.", unlock_slug: access?.unlock_slug },
         { status: 403 }
       )
-    const { data: song, error } = await admin.from("19_songs").select("song_path,size_bytes").eq("id", Number(id)).maybeSingle()
-    if (error) throw error
-    if (!song?.song_path) return NextResponse.json({ error: "Song not found." }, { status: 404 })
+    if (!song.song_path) return NextResponse.json({ error: "Song not found." }, { status: 404 })
     if (!new URL(request.url).searchParams.has("stream")) {
       return NextResponse.json(
         { url: `/api/songs/${id}/play?stream=${crypto.randomUUID()}` },
