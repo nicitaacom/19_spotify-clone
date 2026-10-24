@@ -68,7 +68,13 @@ function SongRow({ song, playlists, onDelete, onUpdate }: {
         />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-white">{song.title}</p>
+        {playlists[0] ? (
+          <a href={`/playlists/${encodeURIComponent(playlists[0].slug)}?songId=${encodeURIComponent(song.id)}`} target="_blank" rel="noopener noreferrer" className="block truncate text-sm font-semibold text-white hover:underline">
+            {song.title}
+          </a>
+        ) : (
+          <p className="truncate text-sm font-semibold text-white">{song.title}</p>
+        )}
         <p className="truncate text-xs text-neutral-400">By {song.author}</p>
         <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
           <span className="text-neutral-500">{playlists.length ? "In your playlists:" : "Not in your playlists"}</span>

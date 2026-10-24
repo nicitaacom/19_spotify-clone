@@ -75,10 +75,11 @@ function AccessBadge({ song, canManage }: { song: Song; canManage: boolean }) {
   )
 }
 
-function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, canReorder, removing, dropEdge, isDragging, onPlay, onEdit, onSuggest, onRemove, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onMove }: {
+function PlaylistTrackRow({ item, index, playlistTitle, playlistSlug, canManage, canEditSong, canReorder, removing, dropEdge, isDragging, onPlay, onEdit, onSuggest, onRemove, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onMove }: {
   item: PlaylistSongWithSong
   index: number
   playlistTitle: string
+  playlistSlug: string
   canManage: boolean
   canEditSong: boolean
   canReorder: boolean
@@ -125,7 +126,7 @@ function PlaylistTrackRow({ item, index, playlistTitle, canManage, canEditSong, 
       )}
       <span className="hidden w-6 shrink-0 text-center text-xs text-neutral-500 sm:block">{index + 1}</span>
       <div className="min-w-0 flex-1">
-        <MediaItem data={item.song} onClick={onPlay} size={36} titleClassName={adminUnlock ? "text-sky-100" : undefined} />
+        <MediaItem data={item.song} onClick={onPlay} size={36} songHref={`/playlists/${encodeURIComponent(playlistSlug)}?songId=${encodeURIComponent(item.song.id)}`} titleClassName={adminUnlock ? "text-sky-100" : undefined} />
       </div>
       <AccessBadge song={item.song} canManage={canManage} />
       <div className={actionColumnClass(canManage)}>
@@ -489,7 +490,7 @@ export default function PlaylistDetailContent({
           )}
           <div ref={listRef}>
             {filtered.map(item => (
-              <PlaylistTrackRow key={item.song_id} item={item} index={orderedSongs.indexOf(item)} playlistTitle={playlist.title}
+              <PlaylistTrackRow key={item.song_id} item={item} index={orderedSongs.indexOf(item)} playlistTitle={playlist.title} playlistSlug={playlist.slug}
                 canManage={canManage} canEditSong={canManage && (item.song.user_id === viewerId || Boolean(commerce?.can_manage))}
                 canReorder={canManage && !savingOrder && !query.trim()}
                 removing={savingOrder || removingSongId !== null}
