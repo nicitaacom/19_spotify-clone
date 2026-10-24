@@ -34,6 +34,11 @@ function hideRecommendation() {
   hiddenListeners.forEach(listener => listener())
 }
 
+function dismissRecommendation() {
+  hiddenInMemory = true
+  hiddenListeners.forEach(listener => listener())
+}
+
 export default function EmbedClient() {
   const searchParams = useSearchParams()
   const requestedSongId = searchParams.get("songId")?.trim() ?? ""
@@ -41,25 +46,43 @@ export default function EmbedClient() {
   const hidden = useSyncExternalStore(subscribeHidden, readHidden, () => false)
   const [songId, setSongId] = useState(requestedSongId)
   const [track, setTrack] = useState(requestedSongId ? "Song" : "Music recommendation")
+  const [trackHref, setTrackHref] = useState("")
   const [isPlaying, setIsPlaying] = useState(false)
   const [leaving, setLeaving] = useState(false)
   const [playError, setPlayError] = useState("")
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const streamUrlRef = useRef("")
+  const missingRef = useRef(false)
+  const persistCloseRef = useRef(false)
 
   useEffect(() => {
     const controller = new AbortController()
-    const applySong = (id: string, title: string) => {
+    missingRef.current = false
+    const applySong = (id: string, title: string, href = "") => {
       setSongId(id)
       setTrack(title)
+      setTrackHref(href)
     }
-    const fail = (error: unknown) => setPlayError(errorText(error))
+    const markMissing = () => {
+      missingRef.current = true
+      setTrack("Song not found")
+      setTrackHref("")
+      setPlayError("")
+    }
+    const fail = (error: unknown) => {
+      if (missingRef.current) return
+      setPlayError(errorText(error))
+    }
     const rememberStream = (id: string) => {
       streamUrlRef.current = ""
       fetch(`/api/songs/${id}/play`, { signal: controller.signal, cache: "no-store" })
         .then(async response => {
           const bodyText = await response.text()
           if (!response.ok) {
+            if (response.status === 404 || response.status === 403) {
+              markMissing()
+              return
+            }
             throw new Error(httpErrorMessage({
               action: `Play song ${id}`,
               status: response.status,
@@ -85,6 +108,10 @@ export default function EmbedClient() {
         .then(async response => {
           const bodyText = await response.text()
           if (!response.ok) {
+            if (response.status === 404 || response.status === 403) {
+              markMissing()
+              return
+            }
             throw new Error(httpErrorMessage({
               action: `Song ${requestedSongId}`,
               status: response.status,
@@ -94,10 +121,10 @@ export default function EmbedClient() {
               contentType: response.headers.get("content-type") ?? "",
             }))
           }
-          const body = JSON.parse(bodyText) as { song?: { title?: string; author?: string } }
+          const body = JSON.parse(bodyText) as { song?: { title?: string; author?: string; href?: string } }
           const title = body.song?.title?.trim() || "Song"
           const author = body.song?.author?.trim()
-          applySong(requestedSongId, author ? `${title} — ${author}` : title)
+          applySong(requestedSongId, author ? `${title} — ${author}` : title, body.song?.href ?? "")
         })
         .catch(error => {
           if (error instanceof Error && error.name === "AbortError") return
@@ -121,13 +148,20 @@ export default function EmbedClient() {
             contentType: response.headers.get("content-type") ?? "",
           }))
         }
-        const body = JSON.parse(bodyText) as { items?: { id: string; title: string; author: string }[] }
+        const body = JSON.parse(bodyText) as { items?: { id: string; title: string; author: string; href?: string }[] }
         const item = body.items?.[0]
         if (!item) {
           setTrack("Add songId to the iframe address")
+          setTrackHref("")
           return
         }
-        applySong(String(item.id), item.author ? `${item.title} — ${item.author}` : item.title)
+        let href = ""
+        if (item.href) {
+          const url = new URL(item.href, window.location.origin)
+          url.searchParams.set("songId", String(item.id))
+          href = `${url.pathname}${url.search}`
+        }
+        applySong(String(item.id), item.author ? `${item.title} — ${item.author}` : item.title, href)
         rememberStream(String(item.id))
       })
       .catch(error => {
@@ -138,6 +172,7 @@ export default function EmbedClient() {
   }, [requestedSongId, tags])
 
   const togglePlay = () => {
+    if (missingRef.current) return
     if (!/^\d+$/.test(songId)) return
     const audio = audioRef.current ?? new Audio()
     audioRef.current = audio
@@ -161,6 +196,14 @@ export default function EmbedClient() {
     })
   }
 
+  const handleClose = () => {
+    if (audioRef.current) audioRef.current.pause()
+    setIsPlaying(false)
+    persistCloseRef.current = false
+    setLeaving(true)
+    window.setTimeout(() => dismissRecommendation(), 500)
+  }
+
   if (hidden) return null
 
   return (
@@ -168,14 +211,19 @@ export default function EmbedClient() {
       <div
         className={leaving ? "animate-slide-out-right" : "animate-slide-in-right"}
         onAnimationEnd={() => {
-          if (leaving) hideRecommendation()
+          if (!leaving) return
+          if (persistCloseRef.current) hideRecommendation()
+          else dismissRecommendation()
         }}>
         <MusicRecommendation
           track={track}
+          trackHref={trackHref}
           isPlaying={isPlaying}
           onTogglePlay={() => void togglePlay()}
+          onClose={handleClose}
           onNeverShowAgainChange={isChecked => {
             if (!isChecked) return
+            persistCloseRef.current = true
             setLeaving(true)
             window.setTimeout(() => hideRecommendation(), 500)
           }}
