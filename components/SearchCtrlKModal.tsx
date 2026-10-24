@@ -10,20 +10,21 @@ import useOnPlay from "@/hooks/useOnPlay"
 import useOwnerStore from "@/hooks/useOwnerStore"
 import searchSongsAndPlaylistsAction from "@/actions/searchSongsAndPlaylistsAction"
 import { errorText } from "@/libs/errorText"
-import { Playlist, Song } from "@/types"
+import { Playlist, PlaylistOption, Song } from "@/types"
 
 import Input from "./Input"
 import Modal from "./Modal"
 import MediaItem from "./MediaItem"
 import DeleteSongButton from "./DeleteSongButton"
 
-const SearchModal = () => {
+const SearchCtrlKModal = () => {
   const { isOpen, onClose } = useSearchModal()
 
   const [searchValue, setSearchValue] = useState("")
   const debouncedSearchValue = useDebounce(searchValue, 500)
   const [songs, setSongs] = useState<Song[]>([])
   const [playlists, setPlaylists] = useState<Playlist[]>([])
+  const [songPlaylists, setSongPlaylists] = useState<Record<string, Pick<PlaylistOption, "id" | "slug" | "title">[]>>({})
   const [errorMessage, setErrorMessage] = useState("")
   const onPlay = useOnPlay(songs)
   const { isOwner } = useOwnerStore()
@@ -35,6 +36,7 @@ const SearchModal = () => {
     if (!isOpen || !debouncedSearchValue) {
       setSongs([])
       setPlaylists([])
+      setSongPlaylists({})
     }
   }
 
@@ -52,16 +54,19 @@ const SearchModal = () => {
         if (typeof result === "string") {
           setSongs([])
           setPlaylists([])
+          setSongPlaylists({})
           setErrorMessage(result)
           return
         }
 
         setSongs(result.songs)
         setPlaylists(result.playlists)
+        setSongPlaylists(result.songPlaylists)
       } catch (error) {
         if (isCancelled) return
         setSongs([])
         setPlaylists([])
+        setSongPlaylists({})
         setErrorMessage(errorText(error))
       }
     }
@@ -107,7 +112,12 @@ const SearchModal = () => {
             {songs.map(song => (
               <div key={song.id} className="flex items-center gap-x-3">
                 <div className="flex-1 min-w-0">
-                  <MediaItem onClick={id => onPlay(id)} data={song} />
+                  <MediaItem
+                    onClick={id => onPlay(id)}
+                    data={song}
+                    playlists={songPlaylists[String(song.id)] ?? []}
+                    onPlaylistClick={() => onChange(false)}
+                  />
                 </div>
                 {isOwner && (
                   <DeleteSongButton song={song} onDeleted={() => setSongs(prev => prev.filter(item => item.id !== song.id))} />
@@ -140,4 +150,4 @@ const SearchModal = () => {
   )
 }
 
-export default SearchModal
+export default SearchCtrlKModal

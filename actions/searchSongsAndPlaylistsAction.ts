@@ -1,14 +1,19 @@
 "use server"
 
 import { createServerComponentClient } from "@/libs/supabaseServer"
-import { Playlist, Song } from "@/types"
+import { Playlist, PlaylistOption, Song } from "@/types"
 import { withSongAccess } from "@/libs/playlistAccess"
+import { getUserSongPlaylists } from "@/actions/playlists"
 
-const searchSongsAndPlaylistsAction = async (query: string): Promise<{ songs: Song[]; playlists: Playlist[] } | string> => {
+type SongPlaylistRef = Pick<PlaylistOption, "id" | "slug" | "title">
+
+const searchSongsAndPlaylistsAction = async (
+  query: string,
+): Promise<{ songs: Song[]; playlists: Playlist[]; songPlaylists: Record<string, SongPlaylistRef[]> } | string> => {
   const supabase = await createServerComponentClient()
   const normalizedQuery = query.trim().slice(0, 200)
 
-  if (!normalizedQuery) return { songs: [], playlists: [] }
+  if (!normalizedQuery) return { songs: [], playlists: [], songPlaylists: {} }
 
   const [{ data: rpcSongs, error: songsError }, { data: playlists, error: playlistsError }] = await Promise.all([
     supabase
@@ -54,9 +59,15 @@ const searchSongsAndPlaylistsAction = async (query: string): Promise<{ songs: So
 
   if (playlistsError) console.log("searchSongsAndPlaylistsAction playlists error - ", playlistsError.message)
 
+  const [songsWithAccess, songPlaylists] = await Promise.all([
+    withSongAccess(songs),
+    getUserSongPlaylists(songs.map(song => String(song.id))),
+  ])
+
   return {
-    songs: await withSongAccess(songs),
+    songs: songsWithAccess,
     playlists: (playlists as Playlist[]) ?? [],
+    songPlaylists,
   }
 }
 

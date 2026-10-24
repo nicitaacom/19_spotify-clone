@@ -1,9 +1,10 @@
 "use client"
 
+import Link from "next/link"
 import { twMerge } from "tailwind-merge"
 
 import useLoadImage from "@/hooks/useLoadImage"
-import { Song } from "@/types"
+import { PlaylistOption, Song } from "@/types"
 import usePlayer from "@/hooks/usePlayer"
 import CoverImage from "@/components/CoverImage"
 import LockedArtwork from "@/components/LockedArtwork"
@@ -14,9 +15,11 @@ interface MediaItemProps {
   onClick?: (id: string) => void
   size?: number
   titleClassName?: string
+  playlists?: Pick<PlaylistOption, "id" | "slug" | "title">[]
+  onPlaylistClick?: () => void
 }
 
-const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleClassName }) => {
+const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleClassName, playlists = [], onPlaylistClick }) => {
   const player = usePlayer()
   const imageUrl = useLoadImage(data)
   const lockedPaid = data.is_paid === true && data.can_play === false
@@ -75,11 +78,26 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleCl
           />
         )}
       </div>
-      <div className="flex flex-col gap-y-1 overflow-hidden">
+      <div className="flex min-w-0 flex-col gap-y-1 overflow-hidden">
         <p className={twMerge("truncate text-white", player.activeId === data.id && "text-neon", lockedPaid && "blur-sm", titleClassName)}>{data.title}</p>
-        <p className="text-neutral-400 text-sm truncate">
-          {lockedPaid ? "Paid track" : `${data.author}${data.access_unavailable ? " · Unavailable" : data.can_play === false ? " · Locked" : ""}`}
-        </p>
+        <div className="flex w-full min-w-0 items-center gap-x-2 text-sm">
+          <p className="min-w-0 shrink truncate text-neutral-400">
+            {lockedPaid ? "Paid track" : `${data.author}${data.access_unavailable ? " · Unavailable" : data.can_play === false ? " · Locked" : ""}`}
+          </p>
+          {playlists.map(playlist => (
+            <Link
+              key={playlist.id}
+              href={`/playlists/${playlist.slug}`}
+              title={playlist.title}
+              onClick={event => {
+                event.stopPropagation()
+                onPlaylistClick?.()
+              }}
+              className="max-w-64 shrink-0 truncate text-neon hover:underline">
+              {playlist.title}
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   )
