@@ -32,6 +32,7 @@ html[data-embed] body {
   height: 100%;
   background: transparent;
   background-color: transparent;
+  color-scheme: dark;
 }
 
 html[data-embed] nextjs-portal {
