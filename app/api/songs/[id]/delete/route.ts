@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
+import { errorText } from "@/libs/errorText"
 import { isOwnerId } from "@/libs/getOwnerIds"
 
 import { requireUser } from "../../../backup/requireUser"
@@ -22,13 +23,12 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     .eq("id", songId)
     .single()
 
-  if (fetchError || !song) {
-    return NextResponse.json({ error: fetchError?.message ?? "Song not found" }, { status: 404 })
-  }
+  if (fetchError) return NextResponse.json({ error: errorText(fetchError) }, { status: 500 })
+  if (!song) return NextResponse.json({ error: "Song not found" }, { status: 404 })
 
   const { error: deleteError } = await supabaseAdmin.from("19_songs").delete().eq("id", songId)
   if (deleteError) {
-    return NextResponse.json({ error: deleteError.message }, { status: 400 })
+    return NextResponse.json({ error: errorText(deleteError) }, { status: 400 })
   }
 
   if (song.song_path) await supabaseAdmin.storage.from("songs").remove([song.song_path])

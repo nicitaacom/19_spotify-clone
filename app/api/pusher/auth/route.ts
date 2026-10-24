@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireUser } from "@/app/api/backup/requireUser"
+import { errorText } from "@/libs/errorText"
 import { getPlaybackChannelName, getPusherServer } from "@/libs/pusherServer"
 
 export const dynamic = "force-dynamic"
@@ -27,6 +28,6 @@ export async function POST(request: Request) {
     return NextResponse.json(response)
   } catch (error) {
     console.error("[pusher] channel authorization failed", error)
-    return NextResponse.json({ error: "Playback synchronization is unavailable" }, { status: 503 })
+    return NextResponse.json({ error: errorText(error) }, { status: 503 })
   }
 }

@@ -4,6 +4,7 @@ import uniqid from "uniqid"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { getSafeStoragePath } from "@/libs/helpers"
+import { errorText } from "@/libs/errorText"
 import { imageFileError } from "@/libs/imageFiles"
 import { parseSongTags, normalizeSongTags, inferPlaylistGenreTags } from "@/libs/songTags"
 
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
   const isPaid = formData.get("isPaid") === "true"
   let tags: string[]
   try { tags = parseSongTags(formData.get("tags")) }
-  catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Invalid tags." }, { status: 400 }) }
+  catch (error) { return NextResponse.json({ error: errorText(error) }, { status: 400 }) }
 
   if (!(songFile instanceof File) || !(imageFile instanceof File) || !title?.trim() || !author?.trim()) {
     const missing = [
@@ -64,11 +65,12 @@ export async function POST(request: Request) {
       .select("user_id,title,slug")
       .eq("id", playlistId)
       .maybeSingle()
-    if (error || !playlist || playlist.user_id !== auth.userId) {
+    if (error) return NextResponse.json({ error: errorText(error) }, { status: 500 })
+    if (!playlist || playlist.user_id !== auth.userId) {
       return NextResponse.json({ error: "Playlist not found." }, { status: 404 })
     }
     try { tags = normalizeSongTags([...tags, ...inferPlaylistGenreTags(playlist.title, playlist.slug)]) }
-    catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Too many song tags." }, { status: 400 }) }
+    catch (error) { return NextResponse.json({ error: errorText(error) }, { status: 400 }) }
   }
 
   const uniqueID = uniqid()
@@ -93,7 +95,7 @@ export async function POST(request: Request) {
     contentType: "audio/mpeg",
   })
   if (songError) {
-    return NextResponse.json({ error: `Failed song upload: ${songError.message}` }, { status: 400 })
+    return NextResponse.json({ error: `Song storage upload failed. ${errorText(songError)}` }, { status: 400 })
   }
 
   const { error: imageError } = await supabaseAdmin.storage.from("images").upload(imagePath, imageFile, {
@@ -103,7 +105,7 @@ export async function POST(request: Request) {
   })
   if (imageError) {
     await supabaseAdmin.storage.from("songs").remove([songPath])
-    return NextResponse.json({ error: `Failed image upload: ${imageError.message}` }, { status: 400 })
+    return NextResponse.json({ error: `Image storage upload failed. ${errorText(imageError)}` }, { status: 400 })
   }
 
   const { data: songRecord, error: insertError } = await supabaseAdmin
@@ -125,7 +127,8 @@ export async function POST(request: Request) {
       supabaseAdmin.storage.from("songs").remove([songPath]),
       supabaseAdmin.storage.from("images").remove([imagePath]),
     ])
-    return NextResponse.json({ error: insertError?.message ?? "Failed to create song" }, { status: 400 })
+    const reason = insertError ? errorText(insertError) : "Song insert returned no row."
+    return NextResponse.json({ error: reason }, { status: 400 })
   }
 
   const discardSong = async () => {
@@ -148,18 +151,18 @@ export async function POST(request: Request) {
 
     if (positionError) {
       await discardSong()
-      return NextResponse.json({ error: positionError.message }, { status: 400 })
+      return NextResponse.json({ error: errorText(positionError) }, { status: 400 })
     }
 
     const nextPosition = (existingPositions?.[0]?.position ?? -1) + 1
-    const { error: membershipError } = await supabaseAdmin.from("19_playlist_songs").insert({
+    const { error: linkError } = await supabaseAdmin.from("19_playlist_songs").insert({
       playlist_id: playlistId,
       song_id: songRecord.id,
       position: nextPosition,
     })
-    if (membershipError) {
+    if (linkError) {
       await discardSong()
-      return NextResponse.json({ error: membershipError.message }, { status: 400 })
+      return NextResponse.json({ error: errorText(linkError) }, { status: 400 })
     }
     const { error: accessError } = await supabaseAdmin.from("19_song_access").upsert({
       playlist_id: playlistId,
@@ -168,14 +171,12 @@ export async function POST(request: Request) {
     }, { onConflict: "playlist_id,song_id" })
     if (accessError) {
       await discardSong()
-      return NextResponse.json({ error: accessError.message }, { status: 400 })
+      return NextResponse.json({ error: errorText(accessError) }, { status: 400 })
     }
   }
 
   return NextResponse.json({ success: true, id: songRecord.id })
   } catch (error) {
-    const name = error instanceof Error ? error.name : "Error"
-    const message = error instanceof Error ? error.message : "Unknown error"
-    return NextResponse.json({ error: `${name}: ${message}` }, { status: 500 })
+    return NextResponse.json({ error: errorText(error) }, { status: 500 })
   }
 }

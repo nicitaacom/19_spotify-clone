@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { errorText } from "@/libs/errorText"
 import supabaseClient from "@/libs/supabaseClient"
 import { normalizeSongTags, recentPlaylistTags } from "@/libs/songTags"
 
@@ -51,7 +52,7 @@ export const usePlaylistRecentTags = (playlistId: string, enabled: boolean, refe
 
       if (ignore) return
       if (playlistSongError) {
-        setSnapshot({ playlistId, ready: true, autofill: [], top: [], error: playlistSongError.message })
+        setSnapshot({ playlistId, ready: true, autofill: [], top: [], error: errorText(playlistSongError) })
         return
       }
 
@@ -61,7 +62,7 @@ export const usePlaylistRecentTags = (playlistId: string, enabled: boolean, refe
         const { data, error: songError } = await supabaseClient.from("19_songs").select("id, tags").in("id", songIds)
         if (ignore) return
         if (songError) {
-          setSnapshot({ playlistId, ready: true, autofill: [], top: [], error: songError.message })
+          setSnapshot({ playlistId, ready: true, autofill: [], top: [], error: errorText(songError) })
           return
         }
         songs = data ?? []

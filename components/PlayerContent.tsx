@@ -13,6 +13,7 @@ import { useHotkey } from "@/hooks/useHotkey"
 import usePlayer from "@/hooks/usePlayer"
 import usePreloadNextTrack from "@/hooks/usePreloadNextTrack"
 import useVolumeStore from "@/hooks/useVolumeStore"
+import { errorText } from "@/libs/errorText"
 import toast from "react-hot-toast"
 
 import AddToPlaylistButton from "./AddToPlaylistButton"
@@ -383,7 +384,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       }
       markPlaybackHealthy()
       console.error("[player] load error for", songUrl, err)
-      toast.error("Failed to load audio. The file may be missing or unsupported.")
+      toast.error(`Audio failed for "${song.title}". ${errorText(err)}`)
       setIsPlaying(false)
       isPlayingRef.current = false
       setIsPlayingInStore(false)
@@ -399,7 +400,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       }
       markPlaybackHealthy()
       console.error("[player] play error for", songUrl, err)
-      toast.error("Playback error. Try again.")
+      toast.error(`Playback failed for "${song.title}". ${errorText(err)}`)
       setIsPlaying(false)
       isPlayingRef.current = false
       setIsPlayingInStore(false)

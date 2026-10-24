@@ -17,6 +17,7 @@ import {
   setRedisDeviceIdByUserId,
   setRedisDeviceIdOwner,
 } from "@/libs/deviceIdRedis"
+import { errorText } from "@/libs/errorText"
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { isSupabaseGatewayUnauthorized, logSupabaseServiceRoleRejected } from "@/libs/supabaseGatewayError"
@@ -165,9 +166,9 @@ async function insertDBUTMVisitAction(
       logSupabaseServiceRoleRejected()
       return "Error tracking UTM visit: SUPABASE_SERVICE_ROLE_KEY was rejected"
     }
-    if (error) throw Error(error.message)
+    if (error) throw error
   } catch (error) {
-    return `Error tracking UTM visit: ${error instanceof Error ? error.message : "Unknown error"}`
+    return `UTM visit insert failed. ${errorText(error)}`
   }
 }
 

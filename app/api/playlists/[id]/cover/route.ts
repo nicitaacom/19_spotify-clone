@@ -3,6 +3,7 @@ import uniqid from "uniqid"
 
 import { commerceAdmin as admin } from "@/libs/commerceAdmin"
 import { isId, requireCommerceUser } from "@/libs/commerceHttp"
+import { errorText } from "@/libs/errorText"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { getSafeStoragePath } from "@/libs/helpers"
 import { imageFileError } from "@/libs/imageFiles"
@@ -20,7 +21,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .select("user_id, title, cover_image_path")
       .eq("id", id)
       .maybeSingle()
-    if (playlistError) return NextResponse.json({ error: playlistError.message }, { status: 400 })
+    if (playlistError) return NextResponse.json({ error: errorText(playlistError) }, { status: 400 })
     if (!playlist || (playlist.user_id !== user.id && !(isOwnerId(user.id) && isOwnerId(playlist.user_id)))) {
       return NextResponse.json({ error: "Playlist not found." }, { status: 404 })
     }
@@ -43,19 +44,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       upsert: false,
       contentType: image.type.toLowerCase(),
     })
-    if (uploadError) return NextResponse.json({ error: `Failed cover upload: ${uploadError.message}` }, { status: 400 })
+    if (uploadError) return NextResponse.json({ error: `Cover storage upload failed. ${errorText(uploadError)}` }, { status: 400 })
 
     const previousCover = playlist.cover_image_path
     const { error: updateError } = await admin.from("19_playlists").update({ cover_image_path: imagePath }).eq("id", id)
     if (updateError) {
       await admin.storage.from("images").remove([imagePath])
-      return NextResponse.json({ error: updateError.message }, { status: 400 })
+      return NextResponse.json({ error: errorText(updateError) }, { status: 400 })
     }
     if (previousCover && previousCover !== imagePath) await admin.storage.from("images").remove([previousCover])
     return NextResponse.json({ cover_image_path: imagePath })
   } catch (error) {
-    const name = error instanceof Error ? error.name : "Error"
-    const message = error instanceof Error ? error.message : "Unknown error"
-    return NextResponse.json({ error: `${name}: ${message}` }, { status: 500 })
+    return NextResponse.json({ error: errorText(error) }, { status: 500 })
   }
 }

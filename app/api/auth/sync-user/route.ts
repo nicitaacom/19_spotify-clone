@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { upsertSpotifyUserFn } from "@/app/auth/callback/functions/upsertSpotifyUserFn"
 import { createRouteHandlerClient } from "@/libs/supabaseServer"
 import { checkAuthRateLimit } from "@/libs/authRateLimit"
+import { errorText } from "@/libs/errorText"
 
 export async function POST(request: Request) {
   const rateLimit = checkAuthRateLimit(request, { maxAttempts: 10, windowMs: 60 * 60 * 1000 })
@@ -22,9 +23,8 @@ export async function POST(request: Request) {
       error,
     } = await supabase.auth.getUser()
 
-    if (error || !user) {
-      return NextResponse.json({ error: error?.message ?? "Unauthorized" }, { status: 401 })
-    }
+    if (error) return NextResponse.json({ error: errorText(error) }, { status: 401 })
+    if (!user) return NextResponse.json({ error: "No signed-in user." }, { status: 401 })
 
     const upsertUserResp = await upsertSpotifyUserFn(user, provider)
 
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to sync the current user." },
+      { error: errorText(error) },
       { status: 500 },
     )
   }

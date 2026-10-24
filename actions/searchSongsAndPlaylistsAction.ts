@@ -39,7 +39,7 @@ const searchSongsAndPlaylistsAction = async (query: string): Promise<{ songs: So
 
     if (titleResult.error || authorResult.error) {
       console.log("searchSongsAndPlaylistsAction fallback error - ", titleResult.error?.message ?? authorResult.error?.message)
-      return "Song search is temporarily unavailable. Please try again."
+      return `Song search failed. Title query: ${titleResult.error?.message ?? "no message"}. Author query: ${authorResult.error?.message ?? "no message"}.`
     }
 
     const uniqueSongs = new Map<string, Song>()

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { toast } from "react-hot-toast"
 
 import { Song } from "@/types"
+import { errorText, httpErrorMessage } from "@/libs/errorText"
 
 const useSongById = (id?: string) => {
   const [isLoading, setIsLoading] = useState(false)
@@ -24,17 +25,27 @@ const useSongById = (id?: string) => {
     const fetchSong = async () => {
       try {
         const response = await fetch(`/api/songs/${id}`, { cache: "no-store" })
-        const body = await response.json()
+        const bodyText = await response.text()
         if (response.status === 403) {
           setSong(undefined)
           setIsLoading(false)
           return
         }
-        if (!response.ok) throw new Error(body.error ?? "Unable to load song.")
-        setSong(body.song as Song)
+        if (!response.ok) {
+          throw new Error(httpErrorMessage({
+            action: `Song ${id}`,
+            status: response.status,
+            statusText: response.statusText,
+            url: response.url,
+            bodyText,
+            contentType: response.headers.get("content-type") ?? "",
+          }))
+        }
+        const body = JSON.parse(bodyText) as { song: Song }
+        setSong(body.song)
       } catch (error) {
         setIsLoading(false)
-        return toast.error(error instanceof Error ? error.message : "Unable to load song.")
+        return toast.error(errorText(error))
       }
       setIsLoading(false)
     }

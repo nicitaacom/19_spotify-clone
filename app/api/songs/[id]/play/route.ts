@@ -4,6 +4,7 @@ import { commerceAdmin as admin } from "@/libs/commerceAdmin"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { getSongAccess } from "@/libs/playlistAccess"
 import { commerceError } from "@/libs/commerceHttp"
+import { httpErrorMessage } from "@/libs/errorText"
 import { parseAudioByteRange, sliceAudioStream } from "@/libs/audioRange"
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -31,7 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     const size = Number(song.size_bytes)
-    if (!Number.isSafeInteger(size) || size <= 0) throw new Error("Audio file size is unavailable.")
+    if (!Number.isSafeInteger(size) || size <= 0) throw new Error(`Audio file size_bytes is ${String(song.size_bytes)}, which is not a positive safe integer.`)
     const rangeHeader = request.headers.get("range")
     const range = rangeHeader ? parseAudioByteRange(rangeHeader, size) : null
     if (rangeHeader && !range) {
@@ -47,7 +48,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       headers: range ? { Range: `bytes=${range.start}-${range.end}` } : undefined,
       cache: "no-store",
     })
-    if (!upstream.ok || !upstream.body) throw new Error("Unable to stream audio.")
+    if (!upstream.ok || !upstream.body) {
+      const bodyText = upstream.body ? await upstream.text() : ""
+      throw new Error(httpErrorMessage({
+        action: `Audio stream for song ${id}`,
+        status: upstream.status,
+        statusText: upstream.statusText,
+        url: upstream.url,
+        bodyText,
+        contentType: upstream.headers.get("content-type") ?? "",
+      }))
+    }
     if (upstream.status === 206) {
       const contentRange = /^bytes (\d+)-(\d+)\/(\d+|\*)$/.exec(upstream.headers.get("content-range") ?? "")
       if (!range || !contentRange || Number(contentRange[1]) !== range.start || Number(contentRange[2]) < range.end) {

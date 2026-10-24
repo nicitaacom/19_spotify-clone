@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "react-hot-toast"
+import { errorText } from "@/libs/errorText"
 import { exportTables, exportFiles, importTables, importFiles, downloadBlob, TablesImportResult, FilesImportResult } from "./BackupSDK"
 
 type TablesExportPhase = "idle" | "exporting" | "done" | "error"
@@ -103,7 +104,7 @@ export function useDbBackup() {
       setTablesExportPhase("done")
     } catch (err: unknown) {
       setTablesExportPhase("error")
-      const message = err instanceof Error ? err.message : "Tables export failed"
+      const message = errorText(err)
       setTablesExportError(message)
       toast.error(message)
     }
@@ -127,7 +128,7 @@ export function useDbBackup() {
       setFilesExportPhase("done")
     } catch (err: unknown) {
       setFilesExportPhase("error")
-      const message = err instanceof Error ? err.message : "Files export failed"
+      const message = errorText(err)
       setFilesExportError(message)
       toast.error(message)
     }
@@ -158,7 +159,7 @@ export function useDbBackup() {
       toast.success(`Restored ${totalFiles} files.`)
     } catch (err: unknown) {
       setFilesImportPhase("error")
-      const message = err instanceof Error ? err.message : "Files import failed"
+      const message = errorText(err)
       setFilesImportError(message)
       toast.error(message)
     }
@@ -189,7 +190,7 @@ export function useDbBackup() {
       toast.success(`Restored ${totalRows} rows across ${result.tables.length} tables.`)
     } catch (err: unknown) {
       setTablesImportPhase("error")
-      const message = err instanceof Error ? err.message : "Tables import failed"
+      const message = errorText(err)
       setTablesImportError(message)
       toast.error(message)
     }

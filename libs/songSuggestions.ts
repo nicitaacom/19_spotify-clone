@@ -28,13 +28,13 @@ export const listPendingSuggestions = async () => {
     .select("id, created_at, song_id, title, author, tags")
     .eq("status", "pending")
     .order("created_at", { ascending: true })
-  if (error) throw new Error(error.message)
+  if (error) throw error
   const rows = data ?? []
   const songIds = Array.from(new Set(rows.map(row => row.song_id)))
   const songsById = new Map<number, { title: string | null; author: string | null; tags: string[] | null }>()
   if (songIds.length) {
     const { data: songs, error: songError } = await supabaseAdmin.from("19_songs").select("id, title, author, tags").in("id", songIds)
-    if (songError) throw new Error(songError.message)
+    if (songError) throw songError
     for (const song of songs ?? []) songsById.set(song.id, song)
   }
   return rows.map(row => ({

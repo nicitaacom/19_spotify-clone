@@ -16,6 +16,7 @@ import usePlayer from "@/hooks/usePlayer"
 import { getProductionAuthUrl, handleAuthAction, shouldUseExternalAuth } from "@/app/utils/handleAuthAction"
 import useIsIframeAuth from "@/hooks/useIsIframeAuth"
 import useSearchModal from "@/hooks/useSearchModal"
+import { errorText } from "@/libs/errorText"
 import supabaseClient from "@/libs/supabaseClient"
 
 interface HeaderProps {
@@ -51,7 +52,7 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
     router.refresh()
 
     if (error) {
-      toast.error(error.message)
+      toast.error(errorText(error))
     } else {
       toast.success("Logged out!")
     }

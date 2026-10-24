@@ -3,6 +3,7 @@
 import { useRef, useState } from "react"
 import toast from "react-hot-toast"
 import type { Song } from "@/types"
+import { errorText } from "@/libs/errorText"
 
 export default function useSongDownload(song: Song, playlistTitle: string) {
   const [isDownloading, setIsDownloading] = useState(false)
@@ -19,11 +20,7 @@ export default function useSongDownload(song: Song, playlistTitle: string) {
       const { downloadSong } = await import("@/libs/songDownload")
       await downloadSong(song, playlistTitle, setProgress)
     } catch (error) {
-      const message = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
-      const cause = error instanceof Error && error.cause
-        ? ` (${error.cause instanceof Error ? `${error.cause.name}: ${error.cause.message}` : String(error.cause)})`
-        : ""
-      toast.error(`Download failed for ${song.title}: ${message}${cause}`)
+      toast.error(`Download failed for ${song.title}: ${errorText(error)}`)
     } finally {
       downloadingRef.current = false
       setIsDownloading(false)

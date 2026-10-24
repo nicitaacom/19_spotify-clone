@@ -3,6 +3,8 @@
 import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 
+import { errorText, httpErrorMessage } from "@/libs/errorText"
+
 const PlaylistCoverPicker = ({ playlistId }: { playlistId: string }) => {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -19,14 +21,20 @@ const PlaylistCoverPicker = ({ playlistId }: { playlistId: string }) => {
       const body = new FormData()
       body.append("image", file)
       const response = await fetch(`/api/playlists/${playlistId}/cover`, { method: "POST", body })
-      const payload = await response.json().catch(() => ({}))
+      const bodyText = await response.text()
       if (!response.ok) {
-        const reason = typeof payload.error === "string" ? payload.error : `${response.status} ${response.statusText}`
-        throw new Error(reason)
+        throw new Error(httpErrorMessage({
+          action: `Playlist cover ${playlistId}`,
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          bodyText,
+          contentType: response.headers.get("content-type") ?? "",
+        }))
       }
       router.refresh()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? `${error.name}: ${error.message}` : "Error: Unknown error")
+      setErrorMessage(errorText(error))
     } finally {
       setBusy(false)
     }

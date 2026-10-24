@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { errorText } from "@/libs/errorText"
 
 import { createRouteHandlerClient } from "@/libs/supabaseServer"
 import { upsertSpotifyUserFn } from "../functions/upsertSpotifyUserFn"
@@ -35,11 +36,11 @@ export async function GET(request: Request) {
     } = await supabase.auth.exchangeCodeForSession(code)
 
     if (error) {
-      return NextResponse.redirect(createRedirectUrl(url.origin, error.message))
+      return NextResponse.redirect(createRedirectUrl(url.origin, errorText(error)))
     }
 
     if (!user) {
-      return NextResponse.redirect(createRedirectUrl(url.origin, "Unable to load your account."))
+      return NextResponse.redirect(createRedirectUrl(url.origin, "OAuth code exchange returned no user."))
     }
 
     const upsertUserResp = await upsertSpotifyUserFn(user, provider)
@@ -51,7 +52,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(createRedirectUrl(url.origin))
   } catch (error) {
     return NextResponse.redirect(
-      createRedirectUrl(url.origin, error instanceof Error ? error.message : "OAuth callback failed."),
+      createRedirectUrl(url.origin, errorText(error)),
     )
   }
 }

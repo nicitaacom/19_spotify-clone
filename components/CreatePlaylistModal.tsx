@@ -7,6 +7,7 @@ import { toast } from "react-hot-toast"
 import useCreatePlaylistModal from "@/hooks/useCreatePlaylistModal"
 import { useUser } from "@/hooks/useUser"
 import { PlaylistVisibility } from "@/types"
+import { errorText } from "@/libs/errorText"
 import { getPlaylistSlug } from "@/libs/helpers"
 import supabaseClient from "@/libs/supabaseClient"
 
@@ -118,7 +119,7 @@ const CreatePlaylistModal = () => {
 
       toast.error("Could not create a unique playlist link. Please try another title.")
     } catch (error) {
-      toast.error((error as Error).message || "Failed to create playlist.")
+      toast.error(errorText(error))
     } finally {
       setIsLoading(false)
     }

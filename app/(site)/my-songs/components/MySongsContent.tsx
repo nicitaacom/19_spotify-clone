@@ -9,6 +9,7 @@ import { MdMusicNote } from "react-icons/md"
 import { FiTrash2, FiPlus, FiEdit2, FiUpload, FiChevronDown } from "react-icons/fi"
 
 import { PlaylistOption, Song } from "@/types"
+import { errorText, readHttpError } from "@/libs/errorText"
 import { useUser } from "@/hooks/useUser"
 import useLoadImage from "@/hooks/useLoadImage"
 import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
@@ -45,12 +46,12 @@ function SongRow({ song, playlists, onDelete, onUpdate }: {
     setDeleting(true)
     try {
       const response = await fetch(`/api/songs/${song.id}/delete`, { method: "DELETE" })
-      if (!response.ok) { const body = await response.json(); throw new Error(body.error) }
+      if (!response.ok) throw new Error(await readHttpError(response, `Delete song ${song.id}`))
 
       toast.success(`"${song.title}" deleted.`)
       onDelete(song.id)
-    } catch {
-      toast.error("Something went wrong.")
+    } catch (error) {
+      toast.error(errorText(error))
       setDeleting(false)
     }
   }

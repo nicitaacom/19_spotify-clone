@@ -6,6 +6,7 @@ import { FiDownload, FiUpload } from "react-icons/fi"
 
 import { useUser } from "@/hooks/useUser"
 import Button from "@/components/Button"
+import { errorText } from "@/libs/errorText"
 import { postData } from "@/libs/helpers"
 import useDbBackupModal from "@/app/features/backup/useDbBackupModal"
 import useExclusivePlaybackPreference from "@/hooks/useExclusivePlaybackPreference"
@@ -43,7 +44,7 @@ const AccountContent = ({ isOwner }: AccountContentProps) => {
       })
       window.location.assign(url)
     } catch (error) {
-      if (error) return alert((error as Error).message)
+      if (error) return alert(errorText(error))
     }
     setLoading(false)
   }

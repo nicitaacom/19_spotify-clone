@@ -1,6 +1,7 @@
 import type { Song } from "@/types"
 import type { Id3Metadata } from "@/app/(site)/slow-and-reverb/lib/id3AlbumArt"
 import { buildId3Tag } from "@/app/(site)/slow-and-reverb/lib/id3Writer"
+import { readHttpError } from "@/libs/errorText"
 import { getSupabasePublicUrl } from "@/libs/helpers"
 import { getMp3AudioBytes, getSongDownloadFilename } from "@/libs/mp3Tags"
 
@@ -35,8 +36,7 @@ async function getCoverMetadata(image: Blob): Promise<Pick<Id3Metadata, "artData
 export async function downloadSong(song: Song, playlistTitle: string, onProgress: (progress: number) => void): Promise<void> {
   const response = await fetch(`/api/songs/${encodeURIComponent(song.id)}/play?stream=download`, { cache: "no-store" })
   if (!response.ok) {
-    const body = await response.json().catch(() => null)
-    throw new Error(body?.error ?? `Audio download failed: HTTP ${response.status} ${response.statusText}`)
+    throw new Error(await readHttpError(response, `Audio download for song ${song.id}`))
   }
   const audioFile = await response.blob()
   if (!audioFile.size) throw new Error("The audio download returned an empty file.")
@@ -61,7 +61,7 @@ export async function downloadSong(song: Song, playlistTitle: string, onProgress
   try {
     if (coverUrl) {
       const coverResponse = await fetch(coverUrl)
-      if (!coverResponse.ok) throw new Error(`Cover image download failed: HTTP ${coverResponse.status} ${coverResponse.statusText}`)
+      if (!coverResponse.ok) throw new Error(await readHttpError(coverResponse, `Cover image for song ${song.id}`))
       Object.assign(metadata, await getCoverMetadata(await coverResponse.blob()))
     } else if (sourceCover) {
       Object.assign(metadata, await getCoverMetadata(new Blob([sourceCover.data], { type: sourceCover.format })))

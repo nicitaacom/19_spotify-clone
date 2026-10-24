@@ -1,5 +1,7 @@
 "use client"
 
+import { readHttpError } from "@/libs/errorText"
+
 export const verifyTurnstileTokenFn = async (token: string) => {
   const response = await fetch("/api/turnstile", {
     method: "POST",
@@ -9,11 +11,7 @@ export const verifyTurnstileTokenFn = async (token: string) => {
     body: JSON.stringify({ token }),
   })
 
-  const responseBody = (await response.json().catch(() => ({}))) as { error?: string }
-
-  if (!response.ok) {
-    return responseBody.error ?? "Please complete the Cloudflare challenge again."
-  }
+  if (!response.ok) return readHttpError(response, "Cloudflare verification")
 
   return true
 }

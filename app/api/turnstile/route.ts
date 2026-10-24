@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 
+import { errorText } from "@/libs/errorText"
+
 interface TurnstileVerifyResponse {
   success: boolean
   "error-codes"?: string[]
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
     if (!cloudflareBody.success) {
       return NextResponse.json(
         {
-          error: "Cloudflare verification failed. Please try the challenge again.",
+          error: `Cloudflare verification failed. Codes: ${(cloudflareBody["error-codes"] ?? []).join(", ") || "none"}.`,
           codes: cloudflareBody["error-codes"] ?? [],
         },
         { status: 400 },
@@ -46,7 +48,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to verify the Cloudflare challenge." },
+      { error: errorText(error) },
       { status: 500 },
     )
   }

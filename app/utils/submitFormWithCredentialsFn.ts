@@ -2,6 +2,7 @@ import { SupabaseClient } from "@supabase/supabase-js"
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime"
 import toast from "react-hot-toast"
 import { validateAuthEmail, validateAuthPassword } from "./authValidation"
+import { errorText } from "@/libs/errorText"
 import { getURL } from "./getURL"
 
 type AuthMode = "login" | "register" | "recover"
@@ -99,7 +100,7 @@ export async function submitFormWithCredentialsFn(
 
       if (error) {
         setAuthStatus("error")
-        setAuthMessage(error.message)
+        setAuthMessage(errorText(error))
         return
       }
 
@@ -118,7 +119,7 @@ export async function submitFormWithCredentialsFn(
 
       if (error) {
         setAuthStatus("error")
-        setAuthMessage(error.message)
+        setAuthMessage(errorText(error))
         return
       }
 
@@ -150,7 +151,7 @@ export async function submitFormWithCredentialsFn(
 
     if (error) {
       setAuthStatus("error")
-      setAuthMessage(error.message)
+      setAuthMessage(errorText(error))
       return
     }
 
@@ -184,7 +185,7 @@ export async function submitFormWithCredentialsFn(
     resetTurnstileFn()
   } catch (error) {
     setAuthStatus("error")
-    const msg = error instanceof Error ? error.message : "Unable to continue with credentials."
+    const msg = errorText(error)
     setAuthMessage(msg)
     toast.error(msg)
   } finally {

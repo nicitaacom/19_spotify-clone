@@ -8,6 +8,7 @@ import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
 import useCreatePlaylistModal from "@/hooks/useCreatePlaylistModal"
 import { PlaylistOption } from "@/types"
 import { useUser } from "@/hooks/useUser"
+import { errorText } from "@/libs/errorText"
 import supabaseClient from "@/libs/supabaseClient"
 
 import Button from "./Button"
@@ -44,7 +45,7 @@ const AddToPlaylistModal = () => {
         .order("updated_at", { ascending: false })
 
       if (error) {
-        toast.error(error.message)
+        toast.error(errorText(error))
       } else {
         setPlaylists(
           (data ?? []).map(playlist => ({
@@ -123,7 +124,7 @@ const AddToPlaylistModal = () => {
       addToPlaylistModal.onClose()
       router.refresh()
     } catch (error) {
-      toast.error((error as Error).message || "Failed to add song to playlist.")
+      toast.error(errorText(error))
     } finally {
       setLoadingPlaylistId(undefined)
     }

@@ -16,6 +16,7 @@ import { useVerifyHuman } from "@/hooks/useVerifyHuman"
 import { verifyTurnstileTokenFn } from "@/app/utils/verifyTurnstileToken"
 import { PlaylistOption } from "@/types"
 import supabaseClient from "@/libs/supabaseClient"
+import { errorText, httpErrorMessage } from "@/libs/errorText"
 import { getPlaylistSlug, getPlaylistSlugPreservingCase } from "@/libs/helpers"
 
 import Modal from "./Modal"
@@ -214,7 +215,7 @@ const AddASongModal = () => {
       .order("updated_at", { ascending: false })
 
     if (error) {
-      setUploadError(error.message)
+      setUploadError(errorText(error))
       return []
     } else {
       const mapped: PlaylistOption[] = (data ?? []).map(p => ({
@@ -371,7 +372,7 @@ const AddASongModal = () => {
         if (error.code === "23505") throw new Error("That playlist URL is already in use.")
         throw error
       }
-      if (!data) throw new Error("Unable to update this playlist URL.")
+      if (!data) throw new Error(`Playlist URL update matched no row for id ${playlist.id}.`)
 
       setPlaylists(current => current.map(item => item.id === playlist.id ? { ...item, slug } : item))
       setSelectedPlaylist(current => current?.id === playlist.id ? { ...current, slug } : current)
@@ -381,7 +382,7 @@ const AddASongModal = () => {
       router.refresh()
       toast.success("Playlist URL updated.")
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to update this playlist URL."
+      const message = errorText(error)
       setPlaylistSlugError(message)
       toast.error(message)
     } finally {
@@ -536,17 +537,23 @@ const AddASongModal = () => {
       }
 
       xhr.onload = () => {
-        let body: { id?: number; error?: string } = {}
-        try {
-          body = JSON.parse(xhr.responseText)
-        } catch {
-          // ignore parse failure, handled by status check below
-        }
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(body as { id: number })
-        } else {
-          reject(new Error(`${xhr.status} ${xhr.statusText}: ${body.error ?? "no error text"}`))
+          try {
+            resolve(JSON.parse(xhr.responseText) as { id: number })
+          } catch (error) {
+            const body = xhr.responseText.replace(/\s+/g, " ").trim().slice(0, 300)
+            reject(new Error(`Upload of "${songName}" returned HTTP ${xhr.status} with a body that is not JSON. ${errorText(error)} Body: ${body || "empty"}.`))
+          }
+          return
         }
+        reject(new Error(httpErrorMessage({
+          action: `Upload of "${songName}"`,
+          status: xhr.status,
+          statusText: xhr.statusText,
+          url: xhr.responseURL,
+          bodyText: xhr.responseText,
+          contentType: xhr.getResponseHeader("content-type") ?? "",
+        })))
       }
       xhr.onerror = () => reject(new Error(`Upload of "${songName}" stopped: no response from the server (network error). Check the connection and send it again.`))
       xhr.open("POST", "/api/songs")
@@ -670,7 +677,7 @@ const AddASongModal = () => {
       resetTurnstileFn()
       window.setTimeout(() => document.getElementById("title")?.focus(), 0)
     } catch (error) {
-      setUploadError(error instanceof Error ? `${error.name}: ${error.message}` : `Error: ${String(error)}`)
+      setUploadError(errorText(error))
     } finally {
       setIsPreparingAudio(false)
       setIsLoading(false)

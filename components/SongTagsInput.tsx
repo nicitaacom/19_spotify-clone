@@ -1,6 +1,7 @@
 "use client"
 import { useRef, useState } from "react"
 import { FiChevronRight, FiPlus, FiX } from "react-icons/fi"
+import { errorText } from "@/libs/errorText"
 import { normalizeSongTags, MAX_SONG_TAGS, MAX_SONG_TAG_LENGTH, SONG_TAG_SUGGESTIONS } from "@/libs/songTags"
 
 export function SongTagsInput({ value, onChange, disabled = false, id = "song-tags", playlistTags = [], playlistLabel = "", onUsePlaylistTags, playlistNote = "" }: {
@@ -37,7 +38,7 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
       onChange(normalizeSongTags([...value, ...candidate.split(",")]))
       if (candidate === draft) setDraft("")
       setError("")
-    } catch (issue) { setError(issue instanceof Error ? issue.message : "Unable to add tag.") }
+    } catch (issue) { setError(errorText(issue)) }
   }
   const remove = (tag: string) => { onChange(value.filter(item => item !== tag)); setError("") }
 

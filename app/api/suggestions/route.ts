@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { requireCommerceUser } from "@/libs/commerceHttp"
+import { errorText } from "@/libs/errorText"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { listPendingSuggestions } from "@/libs/songSuggestions"
 
@@ -11,8 +12,6 @@ export async function GET() {
   try {
     return NextResponse.json({ suggestions: await listPendingSuggestions() })
   } catch (error) {
-    const name = error instanceof Error ? error.name : "Error"
-    const message = error instanceof Error ? error.message : "Unknown error"
-    return NextResponse.json({ error: `${name}: ${message}` }, { status: 500 })
+    return NextResponse.json({ error: errorText(error) }, { status: 500 })
   }
 }

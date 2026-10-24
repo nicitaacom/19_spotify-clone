@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises"
 import ts from "typescript"
 import * as vocabulary from "../config/music-tags.mjs"
 
-async function load(path, dependencies = {}, environment = {}) {
+async function compile(path, dependencies = {}, environment = {}) {
   const compiled = ts.transpileModule(await readFile(new URL(path, import.meta.url), "utf8"), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
@@ -15,8 +15,10 @@ async function load(path, dependencies = {}, environment = {}) {
   }, compiledModule, compiledModule.exports, { env: environment })
   return compiledModule.exports
 }
-const tags = await load("../libs/songTags.ts", { "../config/music-tags.mjs": vocabulary })
-const query = await load("../libs/musicRecommendations.ts", { "./songTags": tags })
+const tags = await compile("../libs/songTags.ts", { "../config/music-tags.mjs": vocabulary })
+const query = await compile("../libs/musicRecommendations.ts", { "./songTags": tags })
+const errors = await compile("../libs/errorText.ts")
+const gateway = await compile("../libs/supabaseFetch.ts")
 test("recommendation queries normalize tags and reject invalid bounds", () => {
   assert.deepEqual(query.recommendationQuery(new URLSearchParams("tags=HAPPY,slow,happy&limit=3")), { tags: ["happy","slow"], limit: 3 })
   for (const raw of ["limit=0", "limit=13", "limit=1.5", "tags=%3Cscript%3E", `tags=${"a".repeat(401)}`])
@@ -24,9 +26,11 @@ test("recommendation queries normalize tags and reject invalid bounds", () => {
 })
 test("the public API uses an anonymous client and returns only recommendation metadata", async () => {
   const calls = []
-  const route = await load("../app/api/recommendations/route.ts", {
+  const route = await compile("../app/api/recommendations/route.ts", {
     "next/server": { NextResponse: { json: (data, options) => Response.json(data, options) } },
     "@/libs/musicRecommendations": query,
+    "@/libs/errorText": errors,
+    "@/libs/supabaseFetch": gateway,
     "@supabase/supabase-js": { createClient: (...arguments_) => {
       calls.push(arguments_)
       return { rpc: async (name, parameters) => {
@@ -42,7 +46,8 @@ test("the public API uses an anonymous client and returns only recommendation me
   assert.equal(response.status, 200)
   const data = await response.json()
   assert.equal(calls[0][1], "fixture-anon")
-  assert.deepEqual(calls[0][2], { auth: { persistSession: false, autoRefreshToken: false } })
+  assert.deepEqual(calls[0][2].auth, { persistSession: false, autoRefreshToken: false })
+  assert.equal(typeof calls[0][2].global.fetch, "function")
   assert.deepEqual(calls[1], { name: "recommend_public_music", parameters: { p_tags: ["rainy"], p_limit: 6 } })
   await route.GET(new Request("https://music.jokik.fi/api/recommendations?q=lo-fi"))
   assert.deepEqual(calls[3],{name:"search_public_music",parameters:{p_query:"lo-fi",p_limit:6}})
@@ -55,14 +60,16 @@ test("the public API uses an anonymous client and returns only recommendation me
 })
 test("empty/invalid queries do not contact the catalog; missing setup is a safe error", async () => {
   let calls = 0
-  const route = await load("../app/api/recommendations/route.ts", {
+  const route = await compile("../app/api/recommendations/route.ts", {
     "next/server": { NextResponse: { json: (data, options) => Response.json(data, options) } },
-    "@/libs/musicRecommendations": query, "@supabase/supabase-js": { createClient: () => { calls++; throw Error("private details") } },
+    "@/libs/musicRecommendations": query,
+    "@/libs/errorText": errors,
+    "@/libs/supabaseFetch": gateway, "@supabase/supabase-js": { createClient: () => { calls++; throw Error("private details") } },
   })
   assert.equal((await route.GET(new Request("https://music.jokik.fi/api/recommendations"))).status, 200)
   assert.equal((await route.GET(new Request("https://music.jokik.fi/api/recommendations?limit=100"))).status, 400)
   const response = await route.GET(new Request("https://music.jokik.fi/api/recommendations?tags=happy"))
   assert.equal(response.status, 503)
-  assert.deepEqual(await response.json(), { error: "Music recommendations are temporarily unavailable." })
+  assert.deepEqual(await response.json(), { error: "Error: Public music query is missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY." })
   assert.equal(calls, 0)
 })

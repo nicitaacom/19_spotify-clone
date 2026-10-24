@@ -12,6 +12,7 @@ import useAuthModal from "@/hooks/useAuthModal"
 import { useAuthStore } from "@/hooks/useAuthStore"
 import { useUser } from "@/hooks/useUser"
 import { getURL } from "@/app/utils/getURL"
+import { errorText, readHttpError } from "@/libs/errorText"
 import supabaseClient from "@/libs/supabaseClient"
 
 import Modal from "./Modal"
@@ -82,10 +83,7 @@ const AuthModal = () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ provider }),
     })
-    if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as { error?: string }
-      return body.error ?? "Unable to sync your account."
-    }
+    if (!response.ok) return readHttpError(response, `Sync account after ${provider}`)
     return true
   }
 
@@ -100,13 +98,14 @@ const AuthModal = () => {
       })
       if (error) {
         setAuthStatus("error")
-        setAuthMessage(error.message)
-        toast.error(error.message)
+        const msg = errorText(error)
+        setAuthMessage(msg)
+        toast.error(msg)
         setIsLoading(false)
       }
     } catch (error) {
       setIsLoading(false)
-      const msg = error instanceof Error ? error.message : `Unable to start ${provider} login.`
+      const msg = errorText(error)
       setAuthMessage(msg)
       toast.error(msg)
     }

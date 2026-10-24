@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react"
 import { toast } from "react-hot-toast"
+import { errorText } from "@/libs/errorText"
 
 import { buildEffectsGraph, EffectsParams, semitonesToRatio } from "../lib/buildEffectsGraph"
 import { renderOffline } from "../lib/renderOffline"
@@ -200,13 +201,13 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       setIsPlaying(true)
     } catch (err) {
       console.error("Playback start failed", err)
-      toast.error("Playback error")
+      toast.error(`Playback failed. ${errorText(err)}`)
     }
   }, [stopCurrent])
 
   const loadFile = useCallback(async (file: File) => {
     if (!file.type.startsWith("audio/")) {
-      toast.error("Unsupported or corrupted audio file")
+      toast.error(`"${file.name}" is ${file.type || "no MIME type"}, not an audio file.`)
       return
     }
 
@@ -264,7 +265,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       setAlbumArtUrl(newArtUrl)
     } catch (err) {
       console.error("Decode failed", err)
-      toast.error("Unsupported or corrupted audio file")
+      toast.error(`Could not decode "${file.name}". ${errorText(err)}`)
       // cleanup art on error
       if (albumArtUrlRef.current) {
         URL.revokeObjectURL(albumArtUrlRef.current)
@@ -450,7 +451,7 @@ export function useSlowReverbEngine(): SlowReverbEngine {
       toast.success("Downloaded", { id: "export" })
     } catch (err) {
       console.error("Export failed", err)
-      toast.error("Export failed", { id: "export" })
+      toast.error(`Export failed. ${errorText(err)}`, { id: "export" })
     } finally {
       setIsRendering(false)
     }

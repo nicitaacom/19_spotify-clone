@@ -9,6 +9,7 @@ import useDebounce from "@/hooks/useDebounce"
 import useOnPlay from "@/hooks/useOnPlay"
 import useOwnerStore from "@/hooks/useOwnerStore"
 import searchSongsAndPlaylistsAction from "@/actions/searchSongsAndPlaylistsAction"
+import { errorText } from "@/libs/errorText"
 import { Playlist, Song } from "@/types"
 
 import Input from "./Input"
@@ -57,11 +58,11 @@ const SearchModal = () => {
 
         setSongs(result.songs)
         setPlaylists(result.playlists)
-      } catch {
+      } catch (error) {
         if (isCancelled) return
         setSongs([])
         setPlaylists([])
-        setErrorMessage("Search is temporarily unavailable. Please try again.")
+        setErrorMessage(errorText(error))
       }
     }
 

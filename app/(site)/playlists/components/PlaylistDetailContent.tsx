@@ -18,6 +18,7 @@ import Input from "@/components/Input"
 import Modal from "@/components/Modal"
 import SupportLink from "@/components/SupportLink"
 import { formatPlaylistPrice } from "@/libs/commerceRules"
+import { errorText, httpErrorMessage } from "@/libs/errorText"
 import PlaylistEditor from "./PlaylistEditor"
 import PlaylistPurchasePanel from "./PlaylistPurchasePanel"
 
@@ -245,13 +246,22 @@ export default function PlaylistDetailContent({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ songIds: current.map(item => item.song_id) }),
       })
-      const body = await response.json()
-      if (!response.ok) throw new Error(body.error)
+      const bodyText = await response.text()
+      if (!response.ok) {
+        throw new Error(httpErrorMessage({
+          action: "Save playlist order",
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          bodyText,
+          contentType: response.headers.get("content-type") ?? "",
+        }))
+      }
       router.refresh()
     } catch (error) {
       orderRef.current = previous
       setOrderedSongs(previous)
-      toast.error(error instanceof Error ? error.message : "Unable to save song order.")
+      toast.error(errorText(error))
       router.refresh()
     } finally {
       savingOrderRef.current = false
@@ -338,15 +348,24 @@ export default function PlaylistDetailContent({
     setRemovingSongId(song.id)
     try {
       const response = await fetch(`/api/playlists/${playlist.id}/songs/${song.id}`, { method: "DELETE" })
-      const body = await response.json()
-      if (!response.ok) throw new Error(body.error)
+      const bodyText = await response.text()
+      if (!response.ok) {
+        throw new Error(httpErrorMessage({
+          action: "Remove song from playlist",
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          bodyText,
+          contentType: response.headers.get("content-type") ?? "",
+        }))
+      }
       const next = orderRef.current.filter(item => item.song_id !== song.id)
       orderRef.current = next
       setOrderedSongs(next)
       toast.success("Song removed from playlist.")
       router.refresh()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to remove song.")
+      toast.error(errorText(error))
     } finally {
       setRemovingSongId(null)
     }

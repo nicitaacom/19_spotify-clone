@@ -15,6 +15,6 @@ export async function reservePlaylistOrder(userId: string, playlist: { id: strin
   if (error.code !== "23505") throw error
   const concurrent = await active()
   if (concurrent.error) throw concurrent.error
-  if (!concurrent.data) throw new Error("Purchase state changed. Please try again.")
+  if (!concurrent.data) throw new Error("Purchase state changed after a duplicate order insert. The follow-up read returned no pending, paid, or suspended row.")
   return concurrent.data
 }

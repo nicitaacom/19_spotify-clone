@@ -10,6 +10,7 @@ import useIsIframeAuth from "@/hooks/useIsIframeAuth"
 import { handleAuthAction } from "@/app/utils/handleAuthAction"
 import { getStripe } from "@/libs/stripeClient"
 import { formatPlaylistPrice } from "@/libs/commerceRules"
+import { errorText, httpErrorMessage } from "@/libs/errorText"
 import Button from "@/components/Button"
 
 export default function PlaylistPurchasePanel({
@@ -52,9 +53,19 @@ export default function PlaylistPurchasePanel({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ session_id: sessionId, playlist_id: playlist.id }),
         })
-        const body = await response.json()
+        const bodyText = await response.text()
         if (stopped) return
-        if (!response.ok) throw new Error(body.error)
+        if (!response.ok) {
+          throw new Error(httpErrorMessage({
+            action: "Confirm playlist payment",
+            status: response.status,
+            statusText: response.statusText,
+            url: response.url,
+            bodyText,
+            contentType: response.headers.get("content-type") ?? "",
+          }))
+        }
+        const body = JSON.parse(bodyText) as { status?: string }
         if (body.status === "paid") {
           setMessage("Payment confirmed. Your playlist is unlocked.")
           window.history.replaceState(null, "", window.location.pathname)
@@ -68,7 +79,7 @@ export default function PlaylistPurchasePanel({
           )
       } catch (error) {
         if (!stopped)
-          setMessage(error instanceof Error ? error.message : "Unable to confirm payment. Please try again.")
+          setMessage(errorText(error))
       }
     }
     void confirm()
@@ -91,8 +102,18 @@ export default function PlaylistPurchasePanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playlist_id: playlist.id }),
       })
-      const body = await response.json()
-      if (!response.ok) throw new Error(body.error)
+      const bodyText = await response.text()
+      if (!response.ok) {
+        throw new Error(httpErrorMessage({
+          action: "Playlist checkout",
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          bodyText,
+          contentType: response.headers.get("content-type") ?? "",
+        }))
+      }
+      const body = JSON.parse(bodyText) as { purchased?: boolean; sessionId?: string }
       if (body.purchased) {
         router.refresh()
         return
@@ -102,11 +123,11 @@ export default function PlaylistPurchasePanel({
         return
       }
       const stripe = await getStripe()
-      if (!stripe) throw new Error("Checkout is unavailable. Please try again later.")
+      if (!stripe) throw new Error("Stripe.js returned no checkout client.")
       const result = await stripe.redirectToCheckout({ sessionId: body.sessionId })
-      if (result.error) throw new Error(result.error.message)
+      if (result.error) throw result.error
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Checkout failed. Please try again.")
+      setMessage(errorText(error))
     } finally {
       setBusy(false)
     }

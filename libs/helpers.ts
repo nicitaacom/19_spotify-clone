@@ -1,4 +1,5 @@
 import { Price } from "@/types"
+import { readHttpError } from "@/libs/errorText"
 import { buildSupabasePublicUrl } from "./supabasePublicUrl"
 
 export const postData = async ({ url, data }: { url: string; data?: { price: Price } }) => {
@@ -12,9 +13,8 @@ export const postData = async ({ url, data }: { url: string; data?: { price: Pri
   })
 
   if (!res.ok) {
-    console.log("Error in POST", { url, data, res })
-
-    throw new Error(res.statusText)
+    console.log("Error in POST", { url, data, status: res.status, statusText: res.statusText })
+    throw new Error(await readHttpError(res, `POST ${url}`))
   }
 
   return res.json()

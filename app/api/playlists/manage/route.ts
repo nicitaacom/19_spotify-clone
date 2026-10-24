@@ -55,7 +55,7 @@ export async function POST(request: Request) {
         slug = attempt ? `${getPlaylistSlug(body.title)}-${attempt + 1}` : getPlaylistSlug(body.title)
         const { data, error } = await admin.from("19_playlists").insert({ user_id: ownerId, title: body.title.trim(), slug, description: body.description?.trim() || null, visibility: body.visibility }).select("id").single()
         if (!error) { playlistId = data.id; break }
-        if (error.code !== "23505" || error.message.includes("title")) throw new Error(error.message)
+        if (error.code !== "23505" || error.message.includes("title")) throw error
       }
       if (!playlistId) throw new Error("Choose another playlist name.")
     }

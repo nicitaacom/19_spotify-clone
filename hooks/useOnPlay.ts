@@ -1,6 +1,7 @@
 import { useRouter } from "next/navigation"
 import toast from "react-hot-toast"
 import { Song } from "@/types"
+import { errorText, httpErrorMessage } from "@/libs/errorText"
 import usePlayer from "./usePlayer"
 
 let playbackRequest = 0
@@ -27,8 +28,18 @@ const useOnPlay = (songs: Song[], onLocked?: (id: string) => boolean | void, pla
             ...(playlistId ? { playlist_id: playlistId } : {}),
           }),
         })
-        const body = await response.json()
-        if (!response.ok) throw new Error(body.error)
+        const bodyText = await response.text()
+        if (!response.ok) {
+          throw new Error(httpErrorMessage({
+            action: "Song access",
+            status: response.status,
+            statusText: response.statusText,
+            url: response.url,
+            bodyText,
+            contentType: response.headers.get("content-type") ?? "",
+          }))
+        }
+        const body = bodyText ? JSON.parse(bodyText) as { access?: typeof access } : {}
         Object.assign(access, body.access)
       }
       if (request !== playbackRequest) return
@@ -41,7 +52,7 @@ const useOnPlay = (songs: Song[], onLocked?: (id: string) => boolean | void, pla
       const queue = songs.map(s => ({ ...s, id: String(s.id), ...access[String(s.id)] })).filter(s => s.can_play)
       player.startPlayback(id, queue, playlistId)
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to check song access. Please try again.")
+      toast.error(errorText(error))
     }
   }
 }

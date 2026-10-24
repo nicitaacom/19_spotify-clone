@@ -7,6 +7,7 @@ import {
   gunzipBufferClient,
 } from "./tarClient"
 import { toCsv, parseCsv } from "./csvClient"
+import { errorText, httpErrorMessage, readHttpError } from "@/libs/errorText"
 
 /**
  * Upload a file/chunk to a Supabase signed upload URL with real progress events, using the same
@@ -34,17 +35,17 @@ function uploadToSignedUrlWithProgress(
       } else {
         // Supabase's error body is JSON (e.g. {"statusCode":"413","error":"...","message":"..."}) —
         // parse it for a human-readable message instead of dumping the raw JSON string to the user.
-        let message = xhr.responseText || xhr.statusText
-        try {
-          const parsed = JSON.parse(xhr.responseText)
-          if (parsed?.message) message = parsed.message
-        } catch {
-          // Not JSON — fall back to the raw text as-is.
-        }
-        reject(new Error(`Upload failed: ${message}`))
+        reject(new Error(httpErrorMessage({
+          action: "Signed storage upload",
+          status: xhr.status,
+          statusText: xhr.statusText,
+          url: xhr.responseURL,
+          bodyText: xhr.responseText,
+          contentType: xhr.getResponseHeader("content-type") ?? "",
+        })))
       }
     }
-    xhr.onerror = () => reject(new Error("Upload failed: network error"))
+    xhr.onerror = () => reject(new Error("Signed storage upload failed before a response arrived."))
     const formData = new FormData()
     formData.append("cacheControl", "3600")
     formData.append("", body)
@@ -57,20 +58,7 @@ function uploadToSignedUrlWithProgress(
 // public CDN, so there is no Vercel timeout to respect — this is purely a throughput/politeness knob.
 const DOWNLOAD_CONCURRENCY = 5
 
-const failedResponseMessage = async (response: Response, action: string) => {
-  const responseText = await response.text().catch(() => "")
-  let detail = responseText.slice(0, 300)
-  try {
-    const body = responseText ? JSON.parse(responseText) : {}
-    const parsed = [body?.error, body?.code ? `(code: ${body.code})` : null, body?.details, body?.hint ? `Hint: ${body.hint}` : null]
-      .filter(Boolean)
-      .join(" — ")
-    if (parsed) detail = parsed
-  } catch {
-    detail = responseText.slice(0, 300)
-  }
-  return `${action} (${response.status} ${response.statusText})${detail ? `: ${detail}` : ""}`
-}
+const failedResponseMessage = (response: Response, action: string) => readHttpError(response, action)
 
 /**
  * Export the user's table rows only (no storage files) as one .tar.gz containing a .csv per
@@ -128,7 +116,7 @@ async function readCsvEntries(file: File): Promise<Record<string, string>> {
   try {
     tarBytes = await gunzipBufferClient(new Uint8Array(await file.arrayBuffer()))
   } catch (error: unknown) {
-    throw new Error(`${file.name} is not a valid .tar.gz archive: ${error instanceof Error ? error.message : String(error)}`)
+    throw new Error(`${file.name} is not a valid .tar.gz archive: ${errorText(error)}`)
   }
 
   const entries = parseTar(Buffer.from(tarBytes))
@@ -161,7 +149,7 @@ function coerceRowsForImport(config: BackupTableConfig, rows: Record<string, str
         try {
           coerced[column] = JSON.parse(value)
         } catch (error: unknown) {
-          throw new Error(`${config.name}.csv row ${rowIndex + 1}, column "${column}": not valid JSON — ${error instanceof Error ? error.message : String(error)}`)
+          throw new Error(`${config.name}.csv row ${rowIndex + 1}, column "${column}": not valid JSON — ${errorText(error)}`)
         }
       }
     }
@@ -203,7 +191,7 @@ export async function importTables(
     try {
       rows = coerceRowsForImport(table, parseCsv(csvByTable[table.name]))
     } catch (error: unknown) {
-      throw new Error(`Failed to parse ${table.name}.csv: ${error instanceof Error ? error.message : String(error)}`)
+      throw new Error(`Failed to parse ${table.name}.csv: ${errorText(error)}`)
     }
 
     let importedRows = 0
@@ -273,14 +261,10 @@ export async function exportFiles(
       const index = nextIndex++
       const file = files[index]
       const url = file.downloadUrl
-      if (!url) throw new Error("Missing authorized backup download URL. Refresh and try again.")
-      let buf: Buffer | null = null
-      try {
-        const res = await fetch(url)
-        if (res.ok) buf = Buffer.from(await res.arrayBuffer())
-      } catch {
-        // Missing/failed file — skip it (buf stays null) rather than aborting the whole export.
-      }
+      if (!url) throw new Error(`Backup file ${file.bucket}/${file.path} has no download URL.`)
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(await readHttpError(res, `Backup file ${file.bucket}/${file.path}`))
+      const buf = Buffer.from(await res.arrayBuffer())
       packed[index] = { file, buf }
       done++
       onProgress(done, files.length)
@@ -338,7 +322,7 @@ export async function importFiles(
   try {
     tarBytes = await gunzipBufferClient(new Uint8Array(await file.arrayBuffer()))
   } catch (error: unknown) {
-    throw new Error(`${file.name} is not a valid .tar.gz archive: ${error instanceof Error ? error.message : String(error)}`)
+    throw new Error(`${file.name} is not a valid .tar.gz archive: ${errorText(error)}`)
   }
 
   const entries = parseTar(Buffer.from(tarBytes))
@@ -418,7 +402,7 @@ export async function importFiles(
         bumpStat(target.bucket, "files")
       } catch (error: unknown) {
         bumpStat(target.bucket, "failed")
-        if (!firstErrorByBucket[target.bucket]) firstErrorByBucket[target.bucket] = error instanceof Error ? error.message : String(error)
+        if (!firstErrorByBucket[target.bucket]) firstErrorByBucket[target.bucket] = errorText(error)
       }
     }
   }

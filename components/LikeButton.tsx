@@ -9,6 +9,7 @@ import { twMerge } from "tailwind-merge"
 import { useUser } from "@/hooks/useUser"
 import useIsIframeAuth from "@/hooks/useIsIframeAuth"
 import { handleAuthAction } from "@/app/utils/handleAuthAction"
+import { errorText } from "@/libs/errorText"
 import supabaseClient from "@/libs/supabaseClient"
 
 interface LikeButtonProps {
@@ -68,7 +69,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassNam
       const { error } = await supabaseClient.from("19_liked_songs").delete().eq("user_id", user.id).eq("song_id", Number(songId))
 
       if (error) {
-        toast.error(error.message)
+        toast.error(errorText(error))
       } else {
         setIsLiked(false)
         onToggle?.(false)
@@ -80,7 +81,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassNam
       })
 
       if (error) {
-        toast.error(error.message)
+        toast.error(errorText(error))
       } else {
         setIsLiked(true)
         onToggle?.(true)

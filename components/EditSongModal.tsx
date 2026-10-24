@@ -10,6 +10,7 @@ import { getSongPlaylistMemberships } from "@/actions/songPlaylistMemberships"
 import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
 import useEditSongModal from "@/hooks/useEditSongModal"
 import useOwnerStore from "@/hooks/useOwnerStore"
+import { errorText, httpErrorMessage } from "@/libs/errorText"
 import { songTagsWithDraft } from "@/libs/songTags"
 
 import Modal from "./Modal"
@@ -79,11 +80,21 @@ const EditSongModal = () => {
         formData.append("isPaid", values.isPaid ? "true" : "false")
       }
       const response = await fetch(`/api/songs/${song.id}`, { method: "PATCH", body: formData })
-      const body = await response.json()
-      if (!response.ok) throw new Error(body.error)
+      const bodyText = await response.text()
+      if (!response.ok) {
+        throw new Error(httpErrorMessage({
+          action: `Update song ${song.id}`,
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          bodyText,
+          contentType: response.headers.get("content-type") ?? "",
+        }))
+      }
+      const body = JSON.parse(bodyText) as { image_path?: string }
       imagePath = body.image_path ?? imagePath
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to update song.")
+      toast.error(errorText(error))
       return
     } finally { setIsLoading(false) }
 

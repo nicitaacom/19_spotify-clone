@@ -5,6 +5,7 @@ import { toast } from "react-hot-toast"
 
 import useSubscribeModal from "@/hooks/useSubscribeModal"
 import { useUser } from "@/hooks/useUser"
+import { errorText } from "@/libs/errorText"
 import { postData } from "@/libs/helpers"
 import { getStripe } from "@/libs/stripeClient"
 import { Price, ProductWithPrice } from "@/types"
@@ -57,9 +58,11 @@ const SubscribeModal: React.FC<SubscribeModalProps> = ({ products }) => {
       })
 
       const stripe = await getStripe()
-      stripe?.redirectToCheckout({ sessionId })
+      if (!stripe) throw new Error("Stripe.js returned no checkout client.")
+      const result = await stripe.redirectToCheckout({ sessionId })
+      if (result.error) throw result.error
     } catch (error) {
-      return toast.error((error as Error)?.message)
+      return toast.error(errorText(error))
     } finally {
       setPriceIdLoading(undefined)
     }

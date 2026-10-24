@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { requireCommerceUser } from "@/libs/commerceHttp"
+import { errorText } from "@/libs/errorText"
 import { isOwnerId } from "@/libs/getOwnerIds"
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -19,7 +20,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .select("id, song_id, title, author, tags, status")
       .eq("id", Number(id))
       .maybeSingle()
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) return NextResponse.json({ error: errorText(error) }, { status: 400 })
     if (!suggestion || suggestion.status !== "pending") return NextResponse.json({ error: "Suggestion not found." }, { status: 404 })
 
     if (action === "approve") {
@@ -29,18 +30,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (suggestion.tags) songPatch.tags = suggestion.tags
       if (Object.keys(songPatch).length) {
         const { error: songError } = await supabaseAdmin.from("19_songs").update(songPatch).eq("id", suggestion.song_id)
-        if (songError) return NextResponse.json({ error: songError.message }, { status: 400 })
+        if (songError) return NextResponse.json({ error: errorText(songError) }, { status: 400 })
       }
     }
     const { error: reviewError } = await supabaseAdmin
       .from("19_song_suggestions")
       .update({ status: action === "approve" ? "approved" : "rejected", reviewed_at: new Date().toISOString() })
       .eq("id", suggestion.id)
-    if (reviewError) return NextResponse.json({ error: reviewError.message }, { status: 400 })
+    if (reviewError) return NextResponse.json({ error: errorText(reviewError) }, { status: 400 })
     return NextResponse.json({ ok: true })
   } catch (error) {
-    const name = error instanceof Error ? error.name : "Error"
-    const message = error instanceof Error ? error.message : "Unknown error"
-    return NextResponse.json({ error: `${name}: ${message}` }, { status: 500 })
+    return NextResponse.json({ error: errorText(error) }, { status: 500 })
   }
 }

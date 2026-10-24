@@ -1,6 +1,7 @@
 import "server-only"
 import { NextResponse } from "next/server"
 import { createRouteHandlerClient } from "@/libs/supabaseServer"
+import { errorText } from "@/libs/errorText"
 import { isOwnerId } from "@/libs/getOwnerIds"
 
 export async function requireCommerceUser(ownerOnly = false) {
@@ -16,7 +17,7 @@ export async function requireCommerceUser(ownerOnly = false) {
 
 export const commerceError = (error: unknown, status = 400) =>
   NextResponse.json(
-    { error: error instanceof Error ? error.message : "Unable to complete the request. Please try again." },
+    { error: errorText(error) },
     { status }
   )
 

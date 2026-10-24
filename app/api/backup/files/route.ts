@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { PostgrestError } from "@supabase/supabase-js"
+import { errorText } from "@/libs/errorText"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { requireUser } from "../requireUser"
@@ -20,7 +21,7 @@ const backupJsonError = (error: unknown, path?: string) => {
   const named = error instanceof Error ? error : null
   const pgError = error as Partial<PostgrestError>
   const name = named?.name || "Error"
-  const message = named?.message || pgError.message || "Unknown error"
+  const message = named?.message || pgError.message || errorText(error)
   return NextResponse.json(
     {
       error: path ? `${name}: ${message} (${path})` : `${name}: ${message}`,
@@ -56,7 +57,7 @@ export async function GET() {
     const { data, error } = await supabaseAdmin.storage.from(file.bucket).createSignedUrl(file.path, 3600)
     if (error) {
       return NextResponse.json(
-        { error: `Signing a download URL for ${filePath} failed: ${error.message}` },
+        { error: `Signing a download URL for ${filePath} failed. ${errorText(error)}` },
         { status: 503 },
       )
     }

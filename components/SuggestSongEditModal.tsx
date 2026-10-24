@@ -4,6 +4,7 @@ import { useState } from "react"
 import toast from "react-hot-toast"
 
 import useSuggestSongModal from "@/hooks/useSuggestSongModal"
+import { errorText, httpErrorMessage } from "@/libs/errorText"
 import { SongTagsInput } from "./SongTagsInput"
 import Button from "./Button"
 import Input from "./Input"
@@ -39,12 +40,21 @@ const SuggestSongEditModal = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, author, tags }),
       })
-      const payload = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(typeof payload.error === "string" ? payload.error : `${response.status} ${response.statusText}`)
+      const bodyText = await response.text()
+      if (!response.ok) {
+        throw new Error(httpErrorMessage({
+          action: `Suggest edit for song ${song.id}`,
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          bodyText,
+          contentType: response.headers.get("content-type") ?? "",
+        }))
+      }
       toast.success("Suggestion sent.")
       onClose()
     } catch (error) {
-      setErrorMessage(error instanceof Error ? `${error.name}: ${error.message}` : "Error: Unknown error")
+      setErrorMessage(errorText(error))
     } finally {
       setBusy(false)
     }

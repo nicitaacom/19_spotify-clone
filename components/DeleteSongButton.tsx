@@ -7,6 +7,7 @@ import { FiTrash2 } from "react-icons/fi"
 import { twMerge } from "tailwind-merge"
 
 import { Song } from "@/types"
+import { readHttpError } from "@/libs/errorText"
 import { useAreYouSureModals } from "@/store/modals/useAreYouSureModals"
 
 interface DeleteSongButtonProps {
@@ -30,8 +31,7 @@ const DeleteSongButton: React.FC<DeleteSongButtonProps> = ({ song, className, ic
     const response = await fetch(`/api/songs/${song.id}/delete`, { method: "DELETE" })
 
     if (!response.ok) {
-      const body = (await response.json().catch(() => ({}))) as { error?: string }
-      toast.error(body.error ?? "Failed to delete song.")
+      toast.error(await readHttpError(response, `Delete song ${song.id}`))
       return
     }
 
