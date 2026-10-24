@@ -3,8 +3,6 @@
 import useSound from "use-sound"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { BsPauseFill, BsPlayFill, BsSkipStartFill } from "react-icons/bs"
-import { MdMusicNote } from "react-icons/md"
-import { TbPlaylist } from "react-icons/tb"
 import { HiSpeakerWave, HiSpeakerXMark } from "react-icons/hi2"
 import { AiFillStepBackward, AiFillStepForward, AiOutlineLoading3Quarters } from "react-icons/ai"
 
@@ -16,6 +14,7 @@ import useVolumeStore from "@/hooks/useVolumeStore"
 import { errorText } from "@/libs/errorText"
 import toast from "react-hot-toast"
 
+import { NextSongIcon, RepeatSongIcon } from "./PlayerAdvanceIcons"
 import AddToPlaylistButton from "./AddToPlaylistButton"
 import LikeButton from "./LikeButton"
 import MediaItem from "./MediaItem"
@@ -78,9 +77,8 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
 
   const Icon = isLoading || isBuffering ? AiOutlineLoading3Quarters : isPlaying ? BsPauseFill : BsPlayFill
   const VolumeIcon = volume === 0 ? HiSpeakerXMark : HiSpeakerWave
-  const RepeatIcon = repeatMode === "one" ? MdMusicNote : TbPlaylist
-  const repeatLabel =
-    repeatMode === "one" ? "Repeating this song" : repeatMode === "all" ? "Repeating playlist" : "Repeat is off"
+  const repeatsThisSong = repeatMode === "one"
+  const repeatLabel = repeatsThisSong ? "This song repeats" : "Next song will play"
 
   // Ref so mediaSession seekto handler always has the latest Howl instance
   const soundRef = useRef<ReturnType<typeof useSound>[1]["sound"]>(null)
@@ -95,6 +93,9 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
   const recoveryTimerRef = useRef<number | null>(null)
   const nativeAudioRef = useRef<HTMLAudioElement | null>(null)
   const recoverStalledPlaybackRef = useRef<() => void>(() => {})
+  const handleEndRef = useRef<() => void>(() => {})
+  const endHandledRef = useRef(false)
+  const lastNativePositionRef = useRef(-1)
 
   const seekCurrentSound = useCallback((position?: number) => {
     const currentSound = soundRef.current
@@ -155,6 +156,23 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     currentSound.pause(activeSoundIdRef.current ?? undefined)
   }, [])
 
+  const noteNativePlayback = useCallback((event: Event) => {
+    const audio = event.currentTarget
+    if (!(audio instanceof HTMLAudioElement)) return
+    if (audio.ended) {
+      handleEndRef.current()
+      return
+    }
+    if (audio.paused) return
+    const duration = audio.duration
+    const position = audio.currentTime
+    if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(position)) return
+    const previous = lastNativePositionRef.current
+    lastNativePositionRef.current = position
+    if (duration - position > 0.45 || previous < 0) return
+    if (position <= previous + 0.02) handleEndRef.current()
+  }, [])
+
   const detachNativeAudioListeners = useCallback(() => {
     const audio = nativeAudioRef.current
     if (!audio) return
@@ -163,8 +181,10 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     audio.removeEventListener("error", markPlaybackStalled)
     audio.removeEventListener("playing", markPlaybackHealthy)
     audio.removeEventListener("pause", syncExternalAudioPause)
+    audio.removeEventListener("ended", noteNativePlayback)
+    audio.removeEventListener("timeupdate", noteNativePlayback)
     nativeAudioRef.current = null
-  }, [markPlaybackHealthy, markPlaybackStalled, syncExternalAudioPause])
+  }, [markPlaybackHealthy, markPlaybackStalled, noteNativePlayback, syncExternalAudioPause])
 
   const bindNativeAudioListeners = useCallback(() => {
     const audio = getHtml5AudioNode(soundRef.current, activeSoundIdRef.current)
@@ -176,8 +196,10 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     audio.addEventListener("error", markPlaybackStalled)
     audio.addEventListener("playing", markPlaybackHealthy)
     audio.addEventListener("pause", syncExternalAudioPause)
+    audio.addEventListener("ended", noteNativePlayback)
+    audio.addEventListener("timeupdate", noteNativePlayback)
     nativeAudioRef.current = audio
-  }, [detachNativeAudioListeners, markPlaybackHealthy, markPlaybackStalled, syncExternalAudioPause])
+  }, [detachNativeAudioListeners, markPlaybackHealthy, markPlaybackStalled, noteNativePlayback, syncExternalAudioPause])
 
   const recoverStalledPlayback = useCallback(() => {
     if (!isBufferingRef.current || !isPlayingRef.current) return
@@ -260,7 +282,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
 
   const playTrack = useCallback((id: string) => {
     const currentSound = soundRef.current
-    if (id === activeId && currentSound) {
+    if (String(id) === String(activeId) && currentSound) {
       seekCurrentSound(0)
       setSavedPosition(0)
       setProgress(0)
@@ -272,16 +294,13 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
   }, [activeId, playSound, seekCurrentSound, setProgress, setSavedPosition, startPlayback])
 
   const onPlayNext = useCallback(() => {
-    const currentIndex = ids.indexOf(activeId ?? "")
+    const state = usePlayer.getState()
+    const queueIds = state.ids.map(id => String(id))
+    const currentIndex = queueIds.indexOf(String(state.activeId ?? ""))
     if (currentIndex < 0) return
-
-    const nextId = ids[currentIndex + 1]
-    if (nextId) {
-      playTrack(nextId)
-    } else if (repeatMode === "all" && ids[0]) {
-      playTrack(ids[0])
-    }
-  }, [activeId, ids, playTrack, repeatMode])
+    const nextId = queueIds[currentIndex + 1]
+    if (nextId) playTrack(nextId)
+  }, [playTrack])
 
   const onPlayPrevious = useCallback(() => {
     const currentIndex = ids.indexOf(activeId ?? "")
@@ -309,29 +328,35 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
   useHotkey({ hotkey: "ArrowRight", modifiers: SHIFT_MODIFIER, ignoreInputs: true, onKeyPressFn: onPlayNext })
   useHotkey({ hotkey: "ArrowLeft", modifiers: SHIFT_MODIFIER, ignoreInputs: true, onKeyPressFn: onPlayPrevious })
 
-  const cycleRepeatMode = () => {
-    if (repeatMode === "off") setRepeatMode("all")
-    else if (repeatMode === "all") setRepeatMode("one")
-    else setRepeatMode("off")
-  }
+  const toggleAdvanceMode = () => setRepeatMode(repeatsThisSong ? "next" : "one")
 
   // useSound keeps the onend callback from Howl creation, so read current state through a ref.
-  const handleEndRef = useRef<() => void>(() => {})
+  useEffect(() => {
+    endHandledRef.current = false
+    lastNativePositionRef.current = -1
+  }, [song.id])
+
   useEffect(() => {
     handleEndRef.current = () => {
-      const activeIdAtEnd = usePlayer.getState().activeId
-      if (activeIdAtEnd !== song.id) return
+      if (endHandledRef.current) return
+      const playerState = usePlayer.getState()
+      if (String(playerState.activeId) !== String(song.id)) return
+      endHandledRef.current = true
       playRequestPendingRef.current = false
       setIsPlaying(false)
       isPlayingRef.current = false
       setIsPlayingInStore(false)
-      if (repeatMode === "one") {
+      if (playerState.repeatMode === "one") {
         playTrack(song.id)
-      } else {
-        onPlayNext()
+        window.setTimeout(() => {
+          endHandledRef.current = false
+          lastNativePositionRef.current = -1
+        }, 400)
+        return
       }
+      onPlayNext()
     }
-  }, [onPlayNext, playTrack, repeatMode, setIsPlayingInStore, song.id])
+  }, [onPlayNext, playTrack, setIsPlayingInStore, song.id])
 
   const [, { pause, sound }] = useSound(songUrl, {
     volume,
@@ -344,6 +369,8 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       if (activeIdAtPlay !== song.id) return
       activeSoundIdRef.current = id
       playRequestPendingRef.current = false
+      const position = seekCurrentSound()
+      if (typeof position === "number" && position < 1) endHandledRef.current = false
       setIsPlaying(true)
       isPlayingRef.current = true
       setIsPlayingInStore(true)
@@ -611,13 +638,14 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
           size={30}
           className="text-neutral-400 cursor-pointer hover:text-neon transition"
         />
-        <RepeatIcon
-          onClick={cycleRepeatMode}
-          size={22}
+        <button
+          type="button"
+          onClick={toggleAdvanceMode}
           title={repeatLabel}
           aria-label={repeatLabel}
-          className={`cursor-pointer transition ${repeatMode === "off" ? "text-neutral-400 hover:text-neon" : "text-neon drop-shadow-[0_0_4px_rgba(74,222,128,0.3)]"}`}
-        />
+          className={`grid h-8 w-12 cursor-pointer place-items-center border-0 bg-transparent p-0 transition ${repeatsThisSong ? "text-neon drop-shadow-[0_0_4px_rgba(74,222,128,0.3)]" : "text-neutral-400 hover:text-neon"}`}>
+          {repeatsThisSong ? <RepeatSongIcon /> : <NextSongIcon />}
+        </button>
       </div>
 
       {/* Right: Volume */}

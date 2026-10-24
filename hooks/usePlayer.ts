@@ -2,7 +2,7 @@ import { create } from "zustand"
 
 import { Song } from "@/types"
 
-type RepeatMode = "off" | "all" | "one"
+type RepeatMode = "next" | "one"
 
 interface PlayerStore {
   songs: Song[]
@@ -48,7 +48,7 @@ const usePlayer = create<PlayerStore>(set => ({
   playbackCommandId: 0,
   seek: undefined,
   seekId: 0,
-  repeatMode: "off",
+  repeatMode: "next",
   savedPosition: 0,
   sourcePlaylistId: undefined,
   startPlayback: (id: string, songs?: Song[], playlistId?: string) =>
@@ -112,7 +112,7 @@ const usePlayer = create<PlayerStore>(set => ({
       playbackCommandId: 0,
       seek: undefined,
       seekId: 0,
-      repeatMode: "off",
+      repeatMode: "next",
       savedPosition: 0,
       sourcePlaylistId: undefined,
     }),
