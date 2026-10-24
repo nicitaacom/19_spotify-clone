@@ -161,10 +161,12 @@ export default function PlaylistDetailContent({
   canManage,
   viewerId,
   playlist,
+  songId = "",
 }: {
   canManage: boolean
   viewerId: string | null
   playlist: PlaylistDetail
+  songId?: string
 }) {
   const router = useRouter()
   const editSongModal = useEditSongModal()
@@ -218,6 +220,34 @@ export default function PlaylistDetailContent({
     return true
   }
   const onPlay = useOnPlay(queue, handleLockedSong, playlist.id)
+  const activeId = usePlayer(state => state.activeId)
+  const sourcePlaylistId = usePlayer(state => state.sourcePlaylistId)
+  const playedQueryId = useRef("")
+  useEffect(() => {
+    if (sourcePlaylistId !== playlist.id) return
+    const id = String(activeId ?? "")
+    if (!id || !queue.some(song => String(song.id) === id)) return
+    playedQueryId.current = id
+    const url = new URL(window.location.href)
+    if (url.searchParams.get("songId") === id) return
+    url.searchParams.set("songId", id)
+    const next = `${url.pathname}${url.search}${url.hash}`
+    // Next wraps history.replaceState and fetches the page again. The prototype call only updates the address bar.
+    History.prototype.replaceState.call(window.history, window.history.state, "", next)
+  }, [activeId, playlist.id, queue, sourcePlaylistId])
+  useEffect(() => {
+    const id = songId.trim()
+    if (!id || playedQueryId.current === id) return
+    playedQueryId.current = id
+    const inPlaylist = queue.some(song => String(song.id) === id)
+    if (!inPlaylist) {
+      toast.error(`Song ${id} is not in this playlist.`)
+      return
+    }
+    const player = usePlayer.getState()
+    if (String(player.activeId ?? "") === id && player.sourcePlaylistId === playlist.id) return
+    void onPlay(id)
+  }, [onPlay, playlist.id, queue, songId])
   const playable = queue.filter(song => song.can_play)
   const hasAccess = Boolean(commerce?.purchased || commerce?.can_manage)
   const showPurchase =

@@ -22,10 +22,18 @@ interface PlaylistDetailPageProps {
   params: Promise<{
     slug: string
   }>
+  searchParams: Promise<{
+    songId?: string | string[]
+  }>
 }
 
-export default async function PlaylistDetailPage({ params }: PlaylistDetailPageProps) {
-  const resolvedParams = await params
+function firstSongId(value: string | string[] | undefined) {
+  const raw = Array.isArray(value) ? value[0] : value
+  return raw?.trim() ?? ""
+}
+
+export default async function PlaylistDetailPage({ params, searchParams }: PlaylistDetailPageProps) {
+  const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams])
   const playlist = await getPlaylistBySlug(resolvedParams.slug)
   const supabase = await createServerComponentClient()
 
@@ -94,7 +102,12 @@ export default async function PlaylistDetailPage({ params }: PlaylistDetailPageP
           </div>
         </div>
       </Header>
-      <PlaylistDetailContent canManage={canManage} viewerId={user?.id ?? null} playlist={playlist} />
+      <PlaylistDetailContent
+        canManage={canManage}
+        viewerId={user?.id ?? null}
+        playlist={playlist}
+        songId={firstSongId(resolvedSearchParams.songId)}
+      />
     </div>
   )
 }

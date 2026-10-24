@@ -426,6 +426,15 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
         return
       }
       markPlaybackHealthy()
+      const errText = typeof err === "string" ? err : err instanceof Error ? err.message : ""
+      const errName = err instanceof DOMException ? err.name : ""
+      if (errName === "NotAllowedError" || errText.includes("user interaction")) {
+        setIsPlaying(false)
+        isPlayingRef.current = false
+        setIsPlayingInStore(false)
+        setIsLoading(false)
+        return
+      }
       console.error("[player] play error for", songUrl, err)
       toast.error(`Playback failed for "${song.title}". ${errorText(err)}`)
       setIsPlaying(false)
