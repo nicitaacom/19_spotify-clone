@@ -508,14 +508,19 @@ const AddASongModal = () => {
   }
 
   const ensureFileIsReadable = async (file: File, kind: "song" | "image") => {
+    // Chromium reports size 0 after the file is deleted or renamed, and a one-byte read still succeeds.
+    if (file.size < 1) {
+      throw new Error(`File "${file.name}" is not on disk. It was moved or renamed. Pick the ${kind} again.`)
+    }
     try {
-      await file.slice(0, 1).arrayBuffer()
+      const end = file.size - 1
+      await file.slice(end, end + 1).arrayBuffer()
     } catch {
-      throw new Error(`File "${file.name}" has been moved or renamed. Please pick the ${kind} again.`)
+      throw new Error(`File "${file.name}" is not on disk. It was moved or renamed. Pick the ${kind} again.`)
     }
   }
 
-  const uploadViaApi = (formData: FormData, songName: string): Promise<{ id: number }> => {
+  const uploadViaApi = (formData: FormData, songName: string, files: File[]): Promise<{ id: number }> => {
     setUploadProgress(0)
     setUploadSpeed("")
     return new Promise((resolve, reject) => {
@@ -555,7 +560,17 @@ const AddASongModal = () => {
           contentType: xhr.getResponseHeader("content-type") ?? "",
         })))
       }
-      xhr.onerror = () => reject(new Error(`Upload of "${songName}" stopped: no response from the server (network error). Check the connection and send it again.`))
+      xhr.onerror = () => {
+        void (async () => {
+          try {
+            await ensureFileIsReadable(files[0], "song")
+            if (files[1]) await ensureFileIsReadable(files[1], "image")
+            reject(new Error(`Upload of "${songName}" stopped: no response from the server. Check the connection and send it again.`))
+          } catch (error) {
+            reject(error instanceof Error ? error : new Error(`File "${songName}" is not on disk. It was moved or renamed. Pick the song again.`))
+          }
+        })()
+      }
       xhr.open("POST", "/api/songs")
       xhr.send(formData)
     })
@@ -657,7 +672,7 @@ const AddASongModal = () => {
 
       await ensureFileIsReadable(songFile, "song")
       await ensureFileIsReadable(imageFile, "image")
-      await uploadViaApi(formData, songFile.name)
+      await uploadViaApi(formData, songFile.name, [songFile, imageFile])
 
       router.refresh()
       setIsLoading(false)
