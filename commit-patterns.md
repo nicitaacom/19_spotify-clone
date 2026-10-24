@@ -2,7 +2,7 @@
 
 Format: `type: message`
 
-Subject: one line, lowercase message, no period at the end, no scope.
+Subject: one line, lowercase message, no period at the end, no scope, no comma, 45 characters max.
 Description: **required** — see the 🚨 TODO block below.
 
 ### Types (from most to least used)
@@ -142,7 +142,7 @@ Layer 1 comes back with `~/.claude/` — the hooks are also copied to
 
 ### Rules
 
-1. Keep the subject short - one line, plain words, no jargon (see code-patterns Naming conventions).
+1. Subject is one line, 45 characters max, no comma, no jargon (see code-patterns Naming conventions).
 2. Renames go `old -> new` (e.g. `chore: fetch -> refetch/select/get`).
 3. Don't prefix the message with a leading `-` (e.g. `-upd:`, `-chore:`) - this has slipped into history but is a typo, not a convention. Just use `type: message`.
 4. Don't invent new types - if none of the 6 fit, ask before adding one.
