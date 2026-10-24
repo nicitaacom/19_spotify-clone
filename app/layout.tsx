@@ -1,5 +1,6 @@
 import "./globals.css"
 
+import { headers } from "next/headers"
 import Script from "next/script"
 
 import Sidebar from "../components/Sidebar"
@@ -29,6 +30,15 @@ export const metadata = {
 export const revalidate = 0
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const pathname = (await headers()).get("x-pathname") ?? ""
+  if (pathname === "/embed") {
+    return (
+      <html lang="en" data-embed="" suppressHydrationWarning>
+        <body suppressHydrationWarning>{children}</body>
+      </html>
+    )
+  }
+
   const userSongs = await getSongsByUserId()
   const isOwner = await getIsOwner()
 

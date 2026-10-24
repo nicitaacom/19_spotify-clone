@@ -27,6 +27,17 @@ body,
   font-family: Arial, Helvetica, sans-serif;
 }
 
+html[data-embed],
+html[data-embed] body {
+  height: 100%;
+  background: transparent;
+  background-color: transparent;
+}
+
+html[data-embed] nextjs-portal {
+  display: none !important;
+}
+
 .glow-ring {
   box-shadow:
     0 0 0 1px var(--neon-glow),

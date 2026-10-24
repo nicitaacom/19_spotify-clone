@@ -37,11 +37,21 @@ const config: Config = {
             boxShadow: "0 0 10px rgba(74,222,128,0.16)",
           },
         },
+        "slide-in-right": {
+          from: { transform: "translateX(110%)" },
+          to: { transform: "translateX(0)" },
+        },
+        "slide-out-right": {
+          from: { transform: "translateX(0)" },
+          to: { transform: "translateX(110%)" },
+        },
       },
       animation: {
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "playing-glow": "playing-glow 2.4s ease-in-out infinite",
         "kenburns": "kenburns 15s ease-in-out infinite",
+        "slide-in-right": "slide-in-right 0.5s ease forwards",
+        "slide-out-right": "slide-out-right 0.45s ease forwards",
       },
     },
   },

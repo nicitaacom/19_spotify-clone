@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Music recommendation embed</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #1a1a1a;
+        color: white;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      main {
+        max-width: 40rem;
+        margin: 0 auto;
+        padding: 4rem 1.5rem 8rem;
+      }
+      code {
+        color: #4ade80;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Any website</h1>
+      <p>This page is only the host. The music pill is the iframe below. Copy that same iframe onto another site.</p>
+      <pre><code>&lt;iframe src="http://localhost:3000/embed?songId=299" title="Music recommendation" style="position:fixed;right:16px;bottom:16px;width:420px;height:160px;border:0;background:transparent;z-index:999999"&gt;&lt;/iframe&gt;</code></pre>
+    </main>
+    <iframe
+      src="http://localhost:3000/embed?songId=299"
+      title="Music recommendation"
+      style="position:fixed;right:16px;bottom:16px;width:420px;height:160px;border:0;background:transparent;z-index:999999"></iframe>
+  </body>
+</html>
