@@ -17,11 +17,18 @@ export function UTMTracker() {
     // a refresh must not re-attribute the visit, so the params leave the address bar once they are sent
     function stripUTMParamsFromUrl() {
       const remainingParams = new URLSearchParams(window.location.search)
-      for (const utmParamName of UTM_PARAM_NAMES) remainingParams.delete(utmParamName)
+      let removed = false
+      for (const utmParamName of UTM_PARAM_NAMES) {
+        if (!remainingParams.has(utmParamName)) continue
+        remainingParams.delete(utmParamName)
+        removed = true
+      }
+      if (!removed) return
 
       const search = remainingParams.toString()
-      const url = window.location.origin + window.location.pathname + (search ? `?${search}` : "")
-      window.history.replaceState({}, "", url)
+      const url = window.location.pathname + (search ? `?${search}` : "") + window.location.hash
+      // Next wraps history.replaceState and fetches the page again. The prototype call only updates the address bar.
+      History.prototype.replaceState.call(window.history, window.history.state, "", url)
     }
 
     // even with no UTM params the visit is still tracked, as organic / direct
