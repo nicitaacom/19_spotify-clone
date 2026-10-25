@@ -124,7 +124,7 @@ export default function EmbedClient() {
           const body = JSON.parse(bodyText) as { song?: { title?: string; author?: string; href?: string } }
           const title = body.song?.title?.trim() || "Song"
           const author = body.song?.author?.trim()
-          applySong(requestedSongId, author ? `${title} — ${author}` : title, body.song?.href ?? "")
+          applySong(requestedSongId, author ? `${author} — ${title}` : title, body.song?.href ?? "")
         })
         .catch(error => {
           if (error instanceof Error && error.name === "AbortError") return
@@ -161,7 +161,7 @@ export default function EmbedClient() {
           url.searchParams.set("songId", String(item.id))
           href = `${url.pathname}${url.search}`
         }
-        applySong(String(item.id), item.author ? `${item.title} — ${item.author}` : item.title, href)
+        applySong(String(item.id), item.author ? `${item.author} — ${item.title}` : item.title, href)
         rememberStream(String(item.id))
       })
       .catch(error => {
