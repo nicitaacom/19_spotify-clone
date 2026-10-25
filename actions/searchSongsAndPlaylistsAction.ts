@@ -3,6 +3,7 @@
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { Playlist, PlaylistOption, Song } from "@/types"
 import { withSongAccess } from "@/libs/playlistAccess"
+import { songTagSearchValues } from "@/libs/songTags"
 import { getUserSongPlaylists } from "@/actions/playlists"
 
 type SongPlaylistRef = Pick<PlaylistOption, "id" | "slug" | "title">
@@ -26,8 +27,9 @@ const searchSongsAndPlaylistsAction = async (
   if (songsError) {
     console.log("searchSongsAndPlaylistsAction RPC error - ", songsError.message)
 
-    // Keep title/author search working while the optional tag-search RPC is unavailable.
-    const [titleResult, authorResult] = await Promise.all([
+    // Keep title, author, and tag search working while the tag-search RPC is unavailable.
+    const tagValues = songTagSearchValues(normalizedQuery)
+    const [titleResult, authorResult, tagResult] = await Promise.all([
       supabase
         .from("19_songs")
         .select("*")
@@ -40,6 +42,14 @@ const searchSongsAndPlaylistsAction = async (
         .ilike("author", `%${normalizedQuery}%`)
         .order("created_at", { ascending: false })
         .limit(100),
+      tagValues.length
+        ? supabase
+          .from("19_songs")
+          .select("*")
+          .overlaps("tags", tagValues)
+          .order("created_at", { ascending: false })
+          .limit(100)
+        : Promise.resolve({ data: [] as Song[], error: null }),
     ])
 
     if (titleResult.error || authorResult.error) {
@@ -47,8 +57,15 @@ const searchSongsAndPlaylistsAction = async (
       return `Song search failed. Title query: ${titleResult.error?.message ?? "no message"}. Author query: ${authorResult.error?.message ?? "no message"}.`
     }
 
+    if (tagResult.error) console.log("searchSongsAndPlaylistsAction tag fallback error - ", tagResult.error.message)
+
+    const tagSongs = tagResult.error ? [] : ((tagResult.data as Song[] | null) ?? [])
     const uniqueSongs = new Map<string, Song>()
-    for (const song of [...((titleResult.data as Song[] | null) ?? []), ...((authorResult.data as Song[] | null) ?? [])]) {
+    for (const song of [
+      ...((titleResult.data as Song[] | null) ?? []),
+      ...((authorResult.data as Song[] | null) ?? []),
+      ...tagSongs,
+    ]) {
       uniqueSongs.set(String(song.id), song)
     }
 

@@ -17,10 +17,11 @@ interface MediaItemProps {
   titleClassName?: string
   playlists?: Pick<PlaylistOption, "id" | "slug" | "title">[]
   onPlaylistClick?: () => void
+  matchedTags?: string[]
   songHref?: string
 }
 
-const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleClassName, playlists = [], onPlaylistClick, songHref = "" }) => {
+const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleClassName, playlists = [], onPlaylistClick, matchedTags = [], songHref = "" }) => {
   const player = usePlayer()
   const imageUrl = useLoadImage(data)
   const lockedPaid = data.is_paid === true && data.can_play === false
@@ -96,6 +97,11 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleCl
           <p className="min-w-0 shrink truncate text-neutral-400">
             {lockedPaid ? "Paid track" : `${data.author}${data.access_unavailable ? " · Unavailable" : data.can_play === false ? " · Locked" : ""}`}
           </p>
+          {matchedTags.map(tag => (
+            <span key={tag} title={tag} className="max-w-28 shrink-0 truncate rounded-full border border-neon/40 bg-neon/10 px-1.5 text-[11px] leading-5 text-neon">
+              {tag}
+            </span>
+          ))}
           {playlists.map(playlist => (
             <Link
               key={playlist.id}

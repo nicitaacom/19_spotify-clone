@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { normalizeSongTags, parseSongTags, recentPlaylistTags, songTagsWithDraft } from "./songTags.ts"
+import { matchedSongTags, normalizeSongTags, parseSongTags, recentPlaylistTags, songTagSearchValues, songTagsWithDraft } from "./songTags.ts"
 
 test("song tags survive an API payload with normalized case, Unicode, spacing, and duplicates", () => {
   assert.deepEqual(parseSongTags(JSON.stringify([" HAPPY ", "happy", "lo-fi", " Sa\u0303o  Paulo ", "", "slow"])),
@@ -38,6 +38,16 @@ test("tags used once among several songs stay out of autofill and the row shows 
   ])
   assert.deepEqual(result.autofill, [])
   assert.deepEqual(result.top, ["epic", "film"])
+})
+
+test("search highlights the tag that matched, including an alias", () => {
+  assert.deepEqual(songTagSearchValues(" lo-fi "), ["lofi", "lo-fi"])
+  assert.deepEqual(songTagSearchValues("fast"), ["fast"])
+  assert.deepEqual(matchedSongTags(["russian", "fast", "energy"], "fast"), ["fast"])
+  assert.deepEqual(matchedSongTags(["hip-hop", "vibe"], "hip hop"), ["hip-hop"])
+  assert.deepEqual(matchedSongTags(["быстрая", "energy"], "быстр"), ["быстрая"])
+  assert.deepEqual(matchedSongTags(["sad", "a", "car", "ambient"], "a"), ["a"])
+  assert.deepEqual(matchedSongTags([], "fast"), [])
 })
 
 test("the last typed tag is saved without requiring Enter, including when all badge slots are occupied", () => {

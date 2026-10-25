@@ -1,4 +1,4 @@
-import { normalizeTagList, tagGroups, inferPlaylistGenreTags } from "../config/music-tags.mjs"
+import { canonicalTag, normalizeTagList, tagGroups, inferPlaylistGenreTags } from "../config/music-tags.mjs"
 export { inferPlaylistGenreTags }
 export const MAX_SONG_TAGS = 32
 export const MAX_MUSIC_QUERY_TAGS = 32
@@ -57,4 +57,30 @@ export function recentPlaylistTags(entries: RecentPlaylistSong[]): { autofill: s
     top: topRanked.map(([tag]) => tag),
     autofill: topRanked.filter(([, stat]) => stat.count >= 2).map(([tag]) => tag),
   }
+}
+
+const MAX_MATCHED_SONG_TAGS = 3
+
+/** Tag values to match in search: the canonical label, plus the typed text when it differs. */
+export function songTagSearchValues(query: string): string[] {
+  const typed = query.trim().normalize("NFC").toLowerCase()
+  if (!typed) return []
+  const canonical = canonicalTag(typed)
+  return canonical === typed || !canonical ? [typed] : [canonical, typed]
+}
+
+/** Tags that explain why a song matched a search query. Exact and alias matches come first. */
+export function matchedSongTags(tags: string[] | null | undefined, query: string): string[] {
+  const needle = query.trim().normalize("NFC").toLowerCase()
+  if (!needle || !tags?.length) return []
+  const canonical = canonicalTag(needle)
+  const exact: string[] = []
+  const partial: string[] = []
+  for (const tag of tags) {
+    if (!tag) continue
+    const value = tag.toLowerCase()
+    if (value === needle || value === canonical) exact.push(tag)
+    else if (needle.length >= 2 && value.includes(needle)) partial.push(tag)
+  }
+  return [...exact, ...partial].slice(0, MAX_MATCHED_SONG_TAGS)
 }

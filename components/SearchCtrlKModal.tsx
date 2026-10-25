@@ -10,6 +10,7 @@ import useOnPlay from "@/hooks/useOnPlay"
 import useOwnerStore from "@/hooks/useOwnerStore"
 import searchSongsAndPlaylistsAction from "@/actions/searchSongsAndPlaylistsAction"
 import { errorText } from "@/libs/errorText"
+import { matchedSongTags } from "@/libs/songTags"
 import { Playlist, PlaylistOption, Song } from "@/types"
 
 import Input from "./Input"
@@ -81,19 +82,23 @@ const SearchCtrlKModal = () => {
     if (!open) onClose()
   }
 
+  const showEmptyState = Boolean(debouncedSearchValue) && !errorMessage && songs.length === 0 && playlists.length === 0
+  const showResultList = songs.length > 0 || playlists.length > 0 || showEmptyState
+
   return (
     <Modal
       isOpen={isOpen}
       onChange={onChange}
       title="Search"
       description="Search songs and playlists."
-      contentClassName="md:max-w-[600px] border-neon/20 shadow-neon-lg"
+      contentClassName="flex h-auto max-h-[calc(100dvh-2rem)] flex-col overflow-hidden border-neon/20 shadow-neon-lg md:max-h-[85vh] md:max-w-[600px]"
+      bodyClassName="flex h-auto min-h-0 flex-1 flex-col overflow-hidden"
       onOpenAutoFocus={event => event.preventDefault()}
       onExitComplete={() => {
         if (!isOpen) setSearchValue("")
       }}>
-      <div className="flex flex-col gap-y-4">
-        <div className="relative">
+      <div className="flex min-h-0 flex-1 flex-col gap-y-4">
+        <div className="relative shrink-0">
           <FiSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neon/70" size={16} />
           <Input
             className="pl-9"
@@ -104,46 +109,49 @@ const SearchCtrlKModal = () => {
           />
         </div>
 
-        {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
+        {errorMessage && <p className="shrink-0 text-sm text-red-400">{errorMessage}</p>}
 
-        {songs.length > 0 && (
-          <div className="flex flex-col gap-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Songs</p>
-            {songs.map(song => (
-              <div key={song.id} className="flex items-center gap-x-3">
-                <div className="flex-1 min-w-0">
-                  <MediaItem
-                    onClick={id => onPlay(id)}
-                    data={song}
-                    playlists={songPlaylists[String(song.id)] ?? []}
-                    onPlaylistClick={() => onChange(false)}
-                  />
-                </div>
-                {isOwner && (
-                  <DeleteSongButton song={song} onDeleted={() => setSongs(prev => prev.filter(item => item.id !== song.id))} />
-                )}
+        {showResultList && (
+          <div className="scrollbar flex min-h-0 flex-1 flex-col gap-y-4 overflow-x-hidden overflow-y-auto overscroll-contain pr-1">
+            {songs.length > 0 && (
+              <div className="flex flex-col gap-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Songs</p>
+                {songs.map(song => (
+                  <div key={song.id} className="flex items-center gap-x-3">
+                    <div className="min-w-0 flex-1">
+                      <MediaItem
+                        onClick={id => onPlay(id)}
+                        data={song}
+                        playlists={songPlaylists[String(song.id)] ?? []}
+                        matchedTags={matchedSongTags(song.tags, debouncedSearchValue)}
+                        onPlaylistClick={() => onChange(false)}
+                      />
+                    </div>
+                    {isOwner && (
+                      <DeleteSongButton song={song} onDeleted={() => setSongs(prev => prev.filter(item => item.id !== song.id))} />
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        {playlists.length > 0 && (
-          <div className="flex flex-col gap-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Playlists</p>
-            {playlists.map(playlist => (
-              <Link
-                key={playlist.id}
-                href={`/playlists/${playlist.slug}`}
-                onClick={() => onChange(false)}
-                className="rounded-md border border-white/5 bg-elevated/60 px-3 py-2 text-sm text-white transition hover:border-neon/20 hover:bg-elevated">
-                {playlist.title}
-              </Link>
-            ))}
-          </div>
-        )}
+            {playlists.length > 0 && (
+              <div className="flex flex-col gap-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Playlists</p>
+                {playlists.map(playlist => (
+                  <Link
+                    key={playlist.id}
+                    href={`/playlists/${playlist.slug}`}
+                    onClick={() => onChange(false)}
+                    className="rounded-md border border-white/5 bg-elevated/60 px-3 py-2 text-sm text-white transition hover:border-neon/20 hover:bg-elevated">
+                    {playlist.title}
+                  </Link>
+                ))}
+              </div>
+            )}
 
-        {debouncedSearchValue && !errorMessage && songs.length === 0 && playlists.length === 0 && (
-          <p className="text-sm text-neutral-400">No results found.</p>
+            {showEmptyState && <p className="text-sm text-neutral-400">No results found.</p>}
+          </div>
         )}
       </div>
     </Modal>
