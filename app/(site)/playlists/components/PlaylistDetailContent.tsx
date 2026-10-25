@@ -453,14 +453,14 @@ export default function PlaylistDetailContent({
             Edit playlist
           </button>
         )}
+        <EmbedSnippet
+          songId={
+            sourcePlaylistId === playlist.id && queue.some(song => String(song.id) === String(activeId ?? ""))
+              ? String(activeId)
+              : String(orderedSongs[0]?.song.id ?? "")
+          }
+        />
       </div>
-      <EmbedSnippet
-        songId={
-          sourcePlaylistId === playlist.id && queue.some(song => String(song.id) === String(activeId ?? ""))
-            ? String(activeId)
-            : String(orderedSongs[0]?.song.id ?? "")
-        }
-      />
       <div className={showPurchase ? "mb-6 grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_280px]" : "mb-6"}>
         {showPurchase && !purchaseModalOpen && (
           <div className="xl:col-start-2 xl:row-start-1">
