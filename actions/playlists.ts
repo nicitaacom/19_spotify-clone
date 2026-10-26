@@ -9,6 +9,7 @@ import {
 
 import { createServerComponentClient } from "@/libs/supabaseServer"
 import { commerceAdmin } from "@/libs/commerceAdmin"
+import { choosePlaylistRow } from "@/libs/playlistLookup"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { isSupabaseGatewayUnauthorized, logSupabaseServiceRoleRejected } from "@/libs/supabaseGatewayError"
 import {
@@ -324,28 +325,50 @@ export const getUserSongPlaylists = async (songIds: string[]): Promise<Record<st
   return result
 }
 
+const readPlaylistSongLinks = async (
+  supabase: Awaited<ReturnType<typeof createServerComponentClient>>,
+  playlistId: string,
+) => {
+  const songLinkRead = await supabase
+    .from("19_playlist_songs")
+    .select("playlist_id, song_id, position, created_at")
+    .eq("playlist_id", playlistId)
+    .order("position", { ascending: true })
+  if (!songLinkRead.error) return songLinkRead
+  console.error(`getPlaylistBySlug song-link read failed for "${playlistId}": ${songLinkRead.error.message}`)
+  return commerceAdmin
+    .from("19_playlist_songs")
+    .select("playlist_id, song_id, position, created_at")
+    .eq("playlist_id", playlistId)
+    .order("position", { ascending: true })
+}
+
 export const getPlaylistBySlug = async (slug: string): Promise<PlaylistDetail | null> => {
   const supabase = await createServerComponentClient()
-  const { data, error } = await supabase.from("19_playlists").select("*").eq("slug", slug).maybeSingle()
-
-  if (error || !data) {
-    if (error) {
-      console.log(203, "getPlaylistBySlug error - ", error.message)
-    }
-
-    return null
+  const userRead = await supabase.from("19_playlists").select("*").eq("slug", slug).maybeSingle()
+  let row = userRead.data
+  if (!row) {
+    if (userRead.error) console.error(`getPlaylistBySlug user read failed for "${slug}": ${userRead.error.message}`)
+    const retryRead = userRead.error
+      ? await supabase.from("19_playlists").select("*").eq("slug", slug).maybeSingle()
+      : null
+    if (retryRead?.error) console.error(`getPlaylistBySlug user read retry failed for "${slug}": ${retryRead.error.message}`)
+    const adminRead = retryRead?.data
+      ? { data: null, error: null }
+      : await commerceAdmin.from("19_playlists").select("*").eq("slug", slug).maybeSingle()
+    if (adminRead.error) console.error(`getPlaylistBySlug admin read failed for "${slug}": ${adminRead.error.message}`)
+    const chosen = choosePlaylistRow(userRead, retryRead, adminRead)
+    if (chosen.failure) throw new Error(`getPlaylistBySlug failed for "${slug}". ${chosen.failure}`)
+    row = chosen.row
   }
+  if (!row) return null
 
-  const normalizedPlaylist = normalizePlaylist(data)
+  const normalizedPlaylist = normalizePlaylist(row)
   const [authorsById, commerce, viewer, membershipsResult] = await Promise.all([
     getAuthorsById([normalizedPlaylist.user_id]),
     getPlaylistCommerce([normalizedPlaylist]),
     getViewer(),
-    supabase
-      .from("19_playlist_songs")
-      .select("playlist_id, song_id, position, created_at")
-      .eq("playlist_id", normalizedPlaylist.id)
-      .order("position", { ascending: true }),
+    readPlaylistSongLinks(supabase, normalizedPlaylist.id),
   ])
   if (membershipsResult.error) throw membershipsResult.error
   const memberships = (membershipsResult.data ?? []) as unknown as RawPlaylistMembershipRow[]

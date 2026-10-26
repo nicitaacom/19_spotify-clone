@@ -14,6 +14,7 @@ import PlaylistCoverPicker from "../components/PlaylistCoverPicker"
 import PlaylistDetailContent from "../components/PlaylistDetailContent"
 
 export const revalidate = 0
+export const dynamic = "force-dynamic"
 
 const DEFAULT_PLAYLIST_DESCRIPTION =
   "Even if the original video is deleted from YouTube years later, the music saved in this playlist will stay here."
