@@ -32,6 +32,7 @@ const CompressFileEditor = () => {
     seek,
     isRendering,
     encodePercent,
+    encodedReady,
     download,
     albumArtUrl,
     previewUrl,
@@ -243,8 +244,11 @@ const CompressFileEditor = () => {
               onClick={download}
               disabled={isRendering || chosenKbps == null}
               className="px-5 py-2.5 text-sm font-bold bg-neon text-black hover:bg-neon-strong rounded-full transition flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed">
-              Compress
+              {encodedReady ? "Download" : "Compress"}
             </button>
+            {encodedReady && !isRendering && (
+              <p className="text-neutral-500 text-xs">Ready to download. This file and bitrate stay encoded.</p>
+            )}
             {isRendering && (
               <div className="flex w-full max-w-xs flex-col gap-1">
                 <div className="flex justify-between text-xs text-neutral-400">
