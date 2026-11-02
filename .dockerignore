@@ -1,0 +1,13 @@
+.git
+.github
+.next
+.open-next
+.wrangler
+node_modules
+.env*
+.dockerignore
+Dockerfile
+docker-compose.yml
+TODO
+coverage
+*.jpg

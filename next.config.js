@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // the VPS image (Dockerfile) copies .next/standalone and runs node server.js - the OpenNext Cloudflare build ignores this
+  output: "standalone",
   images: {
     remotePatterns: [
       {
