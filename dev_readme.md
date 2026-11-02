@@ -24,6 +24,26 @@ How to implement this pattern elsewhere:
 2. If iframe mode is active, use a real link or shared auth util to open the production app in a new tab.
 3. If iframe mode is not active, keep the normal `authModal.onOpen()` flow.
 
+# Playing on the phone through outreach-tool's music panel (?playOnPhone=1)
+
+outreach-tool's `/dialer` holds this site in a 24rem iframe (`https://music.jokik.fi?playOnPhone=1&is_iframe=true`) and plays what the iframe plays on the GSM phone paired to it, so the song comes out of the Bluetooth headphones paired to the phone - the same ears that hear the call. Confirmed working 2026-11-02.
+
+What `?playOnPhone=1` changes here (`hooks/usePlayOnPhone.ts`, used by `components/PlayerContent.tsx`):
+
+- the Howl plays at volume 0 (`volumeForHowl`) - the laptop stays silent - unless the holding page sends `{ type: "localSound", on: true }` ("play on this laptop too" in the music panel); `{ type: "volume", percent }` then sets its level
+- every play / pause / seek / song change / link refresh posts `{ type: "nowPlaying", songId, songUrl, expiresAt, title, author, positionSec, durationSec, isPlaying }` to the holding page - `window.parent.postMessage` with that page's origin, never `"*"`
+- the holding page may send `{ type: "play" | "pause" }` (its answered / ended rules) - `usePlayer.requestPlaybackCommand`
+- only `PLAY_ON_PHONE_PARENT_ORIGINS` (outreach-tool.com, www.outreach-tool.com, localhost:3000) are accepted as sender or receiver; the page is found from `document.referrer`, else `location.ancestorOrigins`
+- the flag sticks across the iframe's own navigation - "Iframe Auth Flow" above (`app/utils/stickyQueryFlag.ts`, `app/features/iframe/IframeFlagsTracker.tsx`). Without that a click on a playlist turned the site back into a normal tab and the laptop played
+
+The other side of the chain: outreach-tool `app/widgets/MusicPanel/` -> `POST /api/gsm/commands` -> the VPS (gsm-outreach-tool `server.ts`) -> the phone (AndroidGSM `MusicPlayer.kt`, `MediaPlayer` with `USAGE_MEDIA`) -> the headphones. Commands: `MUSIC_PLAY { songUrl, positionSec, volumePercent, title }` / `MUSIC_SEEK { positionSec }` / `MUSIC_PAUSE` / `MUSIC_VOLUME { percent }` / `MUSIC_STOP`. The phone streams the signed Supabase link itself, so a song is fetched twice (the muted iframe + the phone). The phone never resumes on its own: slow internet or a restart -> `MUSIC_STOPPED { reason }` -> the page pauses the iframe and shows a toast, he presses play again.
+
+Framing: `middleware.ts` answers every path with `Content-Security-Policy: frame-ancestors 'self' https://outreach-tool.com https://www.outreach-tool.com http://localhost:3000` (`/embed` keeps its own wider list).
+
+Layout inside the iframe: `is_iframe=true` -> `components/Sidebar.tsx` renders `main` without `py-2 pr-2 rounded-lg`, and the mobile player row (below md) has the speaker icon + volume slider next to the play button - at 24rem that row is the only player there is.
+
+The page's side is written up in outreach-tool: `app/(routes)/dialer/dev_readme-dialer.md` ("Music panel") and `app/widgets/MusicPanel/dev_readme-music-panel.md`.
+
 # VPS deployment (Coolify + Docker) — the live setup since 2026-11-02
 
 music.jokik.fi runs on the VPS as a Coolify resource built from `Dockerfile`, next to outreach-tool's own image. It is NOT on Cloudflare any more.
