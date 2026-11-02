@@ -4,7 +4,7 @@ Each song on `/playlists/[slug]` has a download button after the add-to-playlist
 
 `components/DownloadSongButton.tsx` renders the button. `hooks/useSongDownload.ts` owns progress, duplicate-click protection, and error notifications. `libs/songDownload.ts` fetches the audio, prepares its metadata, and starts the browser download. Download code and M4A encoding are imported on demand.
 
-Audio comes from `/api/songs/[id]/play?stream=download`. That route checks current song access on every request. Free songs, purchased songs, and songs available to the site owner follow the existing playback rules. A stale page still receives an error if the server denies access.
+Audio comes from `/api/songs/[id]/play?stream=download`. That route checks current song access, then returns a storage address for one hour. The browser reads the file from storage. Proxying a long file through the worker hits Cloudflare error 1102. Free songs, purchased songs, and songs available to the site owner follow the existing playback rules. A stale page still receives an error if the server denies access.
 
 The downloaded file is named `Artist - Title.mp3`, with filesystem separators replaced and control characters removed. Its ID3v2.3 metadata contains:
 

@@ -13,13 +13,19 @@ import { useExclusivePlaybackSource } from "@/app/providers/PlaybackSyncProvider
 import PlayerContent from "./PlayerContent"
 
 const Player = () => {
-  const { user } = useUser()
+  const { user, isLoading: isUserLoading } = useUser()
   const resetPlayer = usePlayer(state => state.reset)
-  const previousUser = useRef(user?.id)
+  const previousUser = useRef<string | null | undefined>(undefined)
   useEffect(() => {
-    if (previousUser.current !== user?.id) resetPlayer()
-    previousUser.current = user?.id
-  }, [resetPlayer, user?.id])
+    if (isUserLoading) return
+    const nextUserId = user?.id ?? null
+    if (previousUser.current === undefined) {
+      previousUser.current = nextUserId
+      return
+    }
+    if (previousUser.current !== nextUserId) resetPlayer()
+    previousUser.current = nextUserId
+  }, [isUserLoading, resetPlayer, user?.id])
   const {
     activeId,
     activeSong: currentStoreSong,
@@ -146,7 +152,7 @@ const Player = () => {
           <div className="flex w-full items-center justify-between gap-3 text-sm" role="alert">
             <p className="text-neutral-300">{audioError}</p>
             <div className="flex shrink-0 gap-3">
-              {unlockSlug && <Link className="text-neon" href={`/playlists/${unlockSlug}#playlist-access`}>View playlist</Link>}
+              {unlockSlug && <Link className="text-neon" href={`/playlists/${unlockSlug}#playlist-access`} prefetch={false}>View playlist</Link>}
               <button className="text-neon" onClick={retry}>Retry</button>
               <button aria-label="Close player" onClick={() => usePlayer.getState().reset()}>Close</button>
             </div>

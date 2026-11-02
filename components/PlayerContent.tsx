@@ -12,6 +12,7 @@ import usePlayer from "@/hooks/usePlayer"
 import usePreloadNextTrack from "@/hooks/usePreloadNextTrack"
 import useVolumeStore from "@/hooks/useVolumeStore"
 import { errorText } from "@/libs/errorText"
+import { nextAudioFailureStep } from "@/libs/playerAudioFailure"
 import toast from "react-hot-toast"
 
 import { NextSongIcon, RepeatSongIcon } from "./PlayerAdvanceIcons"
@@ -37,6 +38,9 @@ interface HowlWithHtml5Nodes {
 
 const STALL_RECOVERY_DELAY_MS = 5_000
 const MAX_STALL_RECOVERY_ATTEMPTS = 3
+const MAX_AUDIO_SKIPS = 3
+const openAttemptsBySong = new Map<string, number>()
+let skippedInARow = 0
 const SEEK_STEP_SECONDS = 5
 const SHIFT_MODIFIER: Array<"shift"> = ["shift"]
 
@@ -94,6 +98,8 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
   const nativeAudioRef = useRef<HTMLAudioElement | null>(null)
   const recoverStalledPlaybackRef = useRef<() => void>(() => {})
   const handleEndRef = useRef<() => void>(() => {})
+  const failSongRef = useRef<(err: unknown) => void>(() => {})
+  const hasStartedRef = useRef(false)
   const endHandledRef = useRef(false)
   const lastNativePositionRef = useRef(-1)
 
@@ -159,6 +165,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
   const noteNativePlayback = useCallback((event: Event) => {
     const audio = event.currentTarget
     if (!(audio instanceof HTMLAudioElement)) return
+    audio.loop = false
     if (audio.ended) {
       handleEndRef.current()
       return
@@ -191,6 +198,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     if (!audio || nativeAudioRef.current === audio) return
 
     detachNativeAudioListeners()
+    audio.loop = false
     audio.addEventListener("waiting", markPlaybackStalled)
     audio.addEventListener("stalled", markPlaybackStalled)
     audio.addEventListener("error", markPlaybackStalled)
@@ -221,16 +229,20 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       return
     }
 
+    const nativeAudio = getHtml5AudioNode(currentSound, activeSoundIdRef.current)
+    const mediaLength = nativeAudio?.duration
+    if (typeof mediaLength !== "number" || !Number.isFinite(mediaLength) || mediaLength <= 0) {
+      // Chunked storage leaves the length open while bytes are still arriving.
+      // Restarting the element drops those bytes, so a long track never becomes audible.
+      scheduleStallRecovery()
+      return
+    }
+
     if (recoveryAttemptsRef.current >= MAX_STALL_RECOVERY_ATTEMPTS) {
       clearRecoveryTimer()
       isRecoveringRef.current = false
-      isBufferingRef.current = false
-      isPlayingRef.current = false
-      setIsBuffering(false)
-      setIsPlaying(false)
-      setIsPlayingInStore(false)
       currentSound.pause()
-      toast.error("Playback stopped because the audio connection could not recover.")
+      failSongRef.current(new Error("the audio connection did not recover"))
       return
     }
 
@@ -250,17 +262,25 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
 
     const currentPosition = seekCurrentSound()
     currentSound.pause()
-    if (typeof currentPosition === "number") seekCurrentSound(currentPosition)
-    getHtml5AudioNode(currentSound, activeSoundIdRef.current)?.load()
+    const audio = getHtml5AudioNode(currentSound, activeSoundIdRef.current)
+    const restorePosition = () => {
+      if (typeof currentPosition === "number") seekCurrentSound(currentPosition)
+    }
+    if (audio) {
+      audio.addEventListener("loadedmetadata", restorePosition, { once: true })
+      audio.load()
+    } else if (typeof currentPosition === "number") {
+      seekCurrentSound(currentPosition)
+    }
     if (activeSoundIdRef.current === null) currentSound.play()
     else currentSound.play(activeSoundIdRef.current)
+    window.setTimeout(restorePosition, 0)
     window.setTimeout(bindNativeAudioListeners, 0)
     scheduleStallRecovery()
   }, [
     bindNativeAudioListeners,
     clearRecoveryTimer,
     scheduleStallRecovery,
-    setIsPlayingInStore,
     expiresAt,
     onRefreshUrl,
     seekCurrentSound,
@@ -333,8 +353,72 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
   // useSound keeps the onend callback from Howl creation, so read current state through a ref.
   useEffect(() => {
     endHandledRef.current = false
+    hasStartedRef.current = false
     lastNativePositionRef.current = -1
   }, [song.id])
+
+  const failCurrentSong = (err: unknown) => {
+    const songId = String(song.id)
+    const started = hasStartedRef.current || isPlayingRef.current || isBufferingRef.current || isRecoveringRef.current
+    const state = usePlayer.getState()
+    const queueIds = state.ids.map(id => String(id))
+    const index = queueIds.indexOf(songId)
+    const nextId = index >= 0 ? queueIds[index + 1] : undefined
+    const openAttempts = openAttemptsBySong.get(songId) ?? 0
+    const step = nextAudioFailureStep({
+      urlNearExpiry: Boolean(expiresAt && Date.now() >= expiresAt - 10_000),
+      started,
+      recoveryAttempts: recoveryAttemptsRef.current,
+      openAttempts,
+      repeatOne: state.repeatMode === "one",
+      hasNext: Boolean(nextId),
+      skippedInARow,
+      maxRecoveryAttempts: MAX_STALL_RECOVERY_ATTEMPTS,
+      maxOpenAttempts: 1,
+      maxSkips: MAX_AUDIO_SKIPS,
+    })
+
+    if (step === "refresh") {
+      if (!started) openAttemptsBySong.set(songId, openAttempts + 1)
+      const position = seekCurrentSound()
+      if (typeof position === "number" && position > 0) setSavedPosition(position)
+      onRefreshUrl()
+      return
+    }
+
+    if (step === "recover") {
+      console.warn("[player] recoverable media error for", songUrl, err)
+      if (!isPlayingRef.current) {
+        isPlayingRef.current = true
+        setIsPlaying(true)
+        setIsPlayingInStore(true)
+      }
+      if (!isBufferingRef.current) markPlaybackStalled()
+      return
+    }
+
+    markPlaybackHealthy()
+    playRequestPendingRef.current = false
+    setIsLoading(false)
+    setIsPlaying(false)
+    isPlayingRef.current = false
+    setIsPlayingInStore(false)
+
+    if (step === "skip" && nextId) {
+      skippedInARow += 1
+      openAttemptsBySong.delete(songId)
+      toast.error(`Skipped "${song.title}". ${errorText(err)}`)
+      startPlayback(nextId)
+      return
+    }
+
+    skippedInARow = 0
+    toast.error(`Audio failed for "${song.title}". ${errorText(err)}`)
+  }
+
+  useEffect(() => {
+    failSongRef.current = failCurrentSong
+  })
 
   useEffect(() => {
     handleEndRef.current = () => {
@@ -354,7 +438,10 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
         }, 400)
         return
       }
-      onPlayNext()
+      const queueIds = playerState.ids.map(id => String(id))
+      const currentIndex = queueIds.indexOf(String(playerState.activeId ?? ""))
+      const nextId = currentIndex >= 0 ? queueIds[currentIndex + 1] : undefined
+      if (nextId && nextId !== String(song.id)) onPlayNext()
     }
   }, [onPlayNext, playTrack, setIsPlayingInStore, song.id])
 
@@ -368,6 +455,9 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       const activeIdAtPlay = usePlayer.getState().activeId
       if (activeIdAtPlay !== song.id) return
       activeSoundIdRef.current = id
+      hasStartedRef.current = true
+      openAttemptsBySong.delete(String(song.id))
+      skippedInARow = 0
       playRequestPendingRef.current = false
       const position = seekCurrentSound()
       if (typeof position === "number" && position < 1) endHandledRef.current = false
@@ -386,6 +476,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
         ignoredPauseEventsRef.current -= 1
         return
       }
+      if (isBufferingRef.current || isRecoveringRef.current) return
       if (!isPlayingRef.current) return
       playRequestPendingRef.current = false
       markPlaybackHealthy()
@@ -398,34 +489,13 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       const activeIdAtLoadError = usePlayer.getState().activeId
       if (activeIdAtLoadError !== song.id) return
       playRequestPendingRef.current = false
-      if (expiresAt && Date.now() >= expiresAt - 10_000) {
-        const position = seekCurrentSound()
-        if (typeof position === "number") setSavedPosition(position)
-        onRefreshUrl()
-        return
-      }
-      if (isPlayingRef.current || isRecoveringRef.current) {
-        console.warn("[player] recoverable media error for", songUrl, err)
-        markPlaybackStalled()
-        return
-      }
-      markPlaybackHealthy()
-      console.error("[player] load error for", songUrl, err)
-      toast.error(`Audio failed for "${song.title}". ${errorText(err)}`)
-      setIsPlaying(false)
-      isPlayingRef.current = false
-      setIsPlayingInStore(false)
-      setIsLoading(false)
+      console.error("[player] media error for", songUrl, err)
+      failSongRef.current(err)
     },
     onplayerror: (_id: number, err: unknown) => {
       const activeIdAtPlayError = usePlayer.getState().activeId
       if (activeIdAtPlayError !== song.id) return
       playRequestPendingRef.current = false
-      if (isRecoveringRef.current) {
-        console.warn("[player] recovery play error for", songUrl, err)
-        return
-      }
-      markPlaybackHealthy()
       const errText = typeof err === "string" ? err : err instanceof Error ? err.message : ""
       const errName = err instanceof DOMException ? err.name : ""
       if (errName === "NotAllowedError" || errText.includes("user interaction")) {
@@ -435,12 +505,12 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
         setIsLoading(false)
         return
       }
+      if (isRecoveringRef.current) {
+        console.warn("[player] recovery play error for", songUrl, err)
+        return
+      }
       console.error("[player] play error for", songUrl, err)
-      toast.error(`Playback failed for "${song.title}". ${errorText(err)}`)
-      setIsPlaying(false)
-      isPlayingRef.current = false
-      setIsPlayingInStore(false)
-      setIsLoading(false)
+      failSongRef.current(err)
     },
   })
 

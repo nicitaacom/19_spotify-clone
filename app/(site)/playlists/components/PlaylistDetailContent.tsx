@@ -225,6 +225,7 @@ export default function PlaylistDetailContent({
   const activeId = usePlayer(state => state.activeId)
   const sourcePlaylistId = usePlayer(state => state.sourcePlaylistId)
   const playedQueryId = useRef("")
+  const queryPlaybackStarted = useRef(false)
   useEffect(() => {
     if (sourcePlaylistId !== playlist.id) return
     const id = String(activeId ?? "")
@@ -239,17 +240,32 @@ export default function PlaylistDetailContent({
   }, [activeId, playlist.id, queue, sourcePlaylistId])
   useEffect(() => {
     const id = songId.trim()
-    if (!id || playedQueryId.current === id) return
+    if (!id) return
+    const player = usePlayer.getState()
+    const queryIsActive = String(player.activeId ?? "") === id && player.sourcePlaylistId === playlist.id
+    if (queryIsActive) {
+      playedQueryId.current = id
+      queryPlaybackStarted.current = true
+      return
+    }
+    if (player.activeId && player.sourcePlaylistId === playlist.id) {
+      playedQueryId.current = id
+      return
+    }
+    if (playedQueryId.current === id && !queryPlaybackStarted.current) return
+    if (queryPlaybackStarted.current && !player.activeId) {
+      queryPlaybackStarted.current = false
+      playedQueryId.current = ""
+    }
+    if (playedQueryId.current === id) return
     playedQueryId.current = id
     const inPlaylist = queue.some(song => String(song.id) === id)
     if (!inPlaylist) {
       toast.error(`Song ${id} is not in this playlist.`)
       return
     }
-    const player = usePlayer.getState()
-    if (String(player.activeId ?? "") === id && player.sourcePlaylistId === playlist.id) return
     void onPlay(id)
-  }, [onPlay, playlist.id, queue, songId])
+  }, [activeId, onPlay, playlist.id, queue, songId])
   const playable = queue.filter(song => song.can_play)
   const hasAccess = Boolean(commerce?.purchased || commerce?.can_manage)
   const showPurchase =

@@ -38,7 +38,13 @@ export async function downloadSong(song: Song, playlistTitle: string, onProgress
   if (!response.ok) {
     throw new Error(await readHttpError(response, `Audio download for song ${song.id}`))
   }
-  const audioFile = await response.blob()
+  const body = await response.json() as { url?: string }
+  if (!body.url) throw new Error(`Audio download for song ${song.id} returned no audio address.`)
+  const audioResponse = await fetch(body.url)
+  if (!audioResponse.ok) {
+    throw new Error(await readHttpError(audioResponse, `Audio file for song ${song.id}`))
+  }
+  const audioFile = await audioResponse.blob()
   if (!audioFile.size) throw new Error("The audio download returned an empty file.")
   onProgress(20)
 
