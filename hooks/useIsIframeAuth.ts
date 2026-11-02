@@ -2,9 +2,10 @@
 
 import { useSyncExternalStore } from "react"
 
-import { isIframeAuthFromSearch } from "@/app/utils/isIframeAuth"
+import { isIframeAuthInThisTab } from "@/app/utils/isIframeAuth"
 
-const getIsIframeAuth = () => isIframeAuthFromSearch(window.location.search)
+// sticky across the iframe's own navigation, not only the first URL - see stickyQueryFlag.ts
+const getIsIframeAuth = () => isIframeAuthInThisTab()
 
 const emptySubscribe = () => () => {}
 

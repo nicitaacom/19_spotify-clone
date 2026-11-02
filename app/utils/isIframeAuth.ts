@@ -1,5 +1,7 @@
 "use client"
 
+import { readStickyQueryFlag } from "@/app/utils/stickyQueryFlag"
+
 type SearchParamsLike = {
   entries: () => IterableIterator<[string, string]>
 }
@@ -43,3 +45,7 @@ export const isIframeAuthFromSearch = (search: string) => {
       }),
   )
 }
+
+// The live answer for this tab / iframe: the param on the current URL, or the one seen on an earlier URL of
+// the same browsing context - navigation inside the iframe drops the query (see stickyQueryFlag.ts).
+export const isIframeAuthInThisTab = () => readStickyQueryFlag("is_iframe", isIframeAuthFromSearch)

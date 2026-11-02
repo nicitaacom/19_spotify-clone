@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react"
 
 import usePlayer from "@/hooks/usePlayer"
+import { readStickyQueryFlag } from "@/app/utils/stickyQueryFlag"
 
 // The only pages allowed to hold this site in an iframe with ?playOnPhone=1, read its "now playing"
 // messages and send it play / pause / localSound / volume (outreach-tool's music panel).
@@ -22,12 +23,19 @@ interface UsePlayOnPhoneArgs {
 
 const emptySubscribe = () => () => {}
 
-const readIsPlayOnPhone = () => new URLSearchParams(window.location.search).get("playOnPhone") === "1"
+// sticky: the param is on the iframe's first URL only, the mode must survive every navigation inside it
+const readIsPlayOnPhone = () =>
+  readStickyQueryFlag("playOnPhone", search => new URLSearchParams(search).get("playOnPhone") === "1")
 
-// The iframe's referrer is the page that holds it - only a listed page gets messages, never "*"
+// The iframe's referrer is the page that holds it - only a listed page gets messages, never "*". After a
+// reload inside the iframe the referrer is this site itself, so the frame's ancestor origins are the fallback.
 const readParentOrigin = () => {
-  const referrer = document.referrer
-  return PLAY_ON_PHONE_PARENT_ORIGINS.find(origin => referrer === origin || referrer.startsWith(`${origin}/`)) ?? null
+  const holderOrigins = [document.referrer, ...Array.from(window.location.ancestorOrigins ?? [])]
+  return (
+    PLAY_ON_PHONE_PARENT_ORIGINS.find(origin =>
+      holderOrigins.some(holderOrigin => holderOrigin === origin || holderOrigin.startsWith(`${origin}/`)),
+    ) ?? null
+  )
 }
 
 /**

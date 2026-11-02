@@ -1,7 +1,7 @@
 "use client"
 
 import useAuthModal from "@/hooks/useAuthModal"
-import { isIframeAuthFromSearch } from "@/app/utils/isIframeAuth"
+import { isIframeAuthInThisTab } from "@/app/utils/isIframeAuth"
 
 type HandleAuthActionParams = {
   isIframe: boolean
@@ -12,7 +12,8 @@ export const shouldUseExternalAuth = ({ isIframe }: HandleAuthActionParams) => {
     return false
   }
 
-  const shouldUseIframeAuth = isIframe || isIframeAuthFromSearch(window.location.search)
+  // sticky: the flag seen on the iframe's first URL still counts after a navigation inside it
+  const shouldUseIframeAuth = isIframe || isIframeAuthInThisTab()
 
   try {
     return shouldUseIframeAuth && window.self !== window.top
