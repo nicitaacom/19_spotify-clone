@@ -25,6 +25,7 @@ const PlaylistCard: React.FC<PlaylistCardProps> = ({ playlist, showVisibility = 
   return (
     <Link
       href={`/playlists/${playlist.slug}`}
+      prefetch={false}
       className={twMerge(
         "group flex flex-col overflow-hidden rounded-xl border border-white/5 bg-elevated/40 transition duration-200 hover:border-neon/40 hover:bg-elevated hover:shadow-neon-sm focus-visible:outline-neon",
         isSourcePlaying && "animate-playing-glow border-neon/25",

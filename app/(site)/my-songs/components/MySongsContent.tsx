@@ -79,7 +79,7 @@ function SongRow({ song, playlists, onDelete, onUpdate }: {
         <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
           <span className="text-neutral-500">{playlists.length ? "In your playlists:" : "Not in your playlists"}</span>
           {playlists.map(playlist => (
-            <Link key={playlist.id} href={`/playlists/${encodeURIComponent(playlist.slug)}`}
+            <Link key={playlist.id} href={`/playlists/${encodeURIComponent(playlist.slug)}`} prefetch={false}
               title={playlist.title}
               className="max-w-full truncate rounded-full border border-white/10 px-2 py-0.5 text-neon/80 hover:border-neon/40 hover:text-neon focus-visible:outline-neon">
               {playlist.title}

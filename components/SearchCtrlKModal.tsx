@@ -142,6 +142,7 @@ const SearchCtrlKModal = () => {
                   <Link
                     key={playlist.id}
                     href={`/playlists/${playlist.slug}`}
+                    prefetch={false}
                     onClick={() => onChange(false)}
                     className="rounded-md border border-white/5 bg-elevated/60 px-3 py-2 text-sm text-white transition hover:border-neon/20 hover:bg-elevated">
                     {playlist.title}

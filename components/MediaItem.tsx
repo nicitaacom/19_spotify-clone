@@ -106,6 +106,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleCl
             <Link
               key={playlist.id}
               href={`/playlists/${playlist.slug}`}
+              prefetch={false}
               title={playlist.title}
               onClick={event => {
                 event.stopPropagation()

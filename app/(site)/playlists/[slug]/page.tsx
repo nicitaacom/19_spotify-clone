@@ -35,7 +35,8 @@ function firstSongId(value: string | string[] | undefined) {
 
 export default async function PlaylistDetailPage({ params, searchParams }: PlaylistDetailPageProps) {
   const [resolvedParams, resolvedSearchParams] = await Promise.all([params, searchParams])
-  const playlist = await getPlaylistBySlug(resolvedParams.slug)
+  let playlist = await getPlaylistBySlug(resolvedParams.slug)
+  if (!playlist) playlist = await getPlaylistBySlug(resolvedParams.slug)
   const supabase = await createServerComponentClient()
 
   if (!playlist) {
