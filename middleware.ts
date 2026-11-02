@@ -12,6 +12,13 @@ export async function middleware(req: NextRequest) {
     { supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL, options: supabaseClientOptions },
   )
   await supabase.auth.getSession()
-  if (req.nextUrl.pathname === "/embed") res.headers.set("Content-Security-Policy", "frame-ancestors * file:")
+  // /embed: anyone may frame it. Every other page: this site itself + outreach-tool's music panel
+  // (it holds the full site in an iframe with ?playOnPhone=1 - hooks/usePlayOnPhone.ts)
+  res.headers.set(
+    "Content-Security-Policy",
+    req.nextUrl.pathname === "/embed"
+      ? "frame-ancestors * file:"
+      : "frame-ancestors 'self' https://outreach-tool.com https://www.outreach-tool.com http://localhost:3000",
+  )
   return res
 }

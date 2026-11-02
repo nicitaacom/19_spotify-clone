@@ -8,6 +8,7 @@ import { AiFillStepBackward, AiFillStepForward, AiOutlineLoading3Quarters } from
 
 import { Song } from "@/types"
 import { useHotkey } from "@/hooks/useHotkey"
+import usePlayOnPhone from "@/hooks/usePlayOnPhone"
 import usePlayer from "@/hooks/usePlayer"
 import usePreloadNextTrack from "@/hooks/usePreloadNextTrack"
 import useVolumeStore from "@/hooks/useVolumeStore"
@@ -110,6 +111,26 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     if (position === undefined) return soundId === null ? currentSound.seek() : currentSound.seek(soundId)
     return soundId === null ? currentSound.seek(position) : currentSound.seek(position, soundId)
   }, [])
+
+  // ?playOnPhone=1 - outreach-tool's music panel plays this song on a phone; see hooks/usePlayOnPhone.ts
+  const { postNowPlaying, volumeForHowl } = usePlayOnPhone({
+    song,
+    songUrl,
+    expiresAt,
+    getPositionSec: () => {
+      const position = seekCurrentSound()
+      return typeof position === "number" && Number.isFinite(position) ? position : 0
+    },
+    getDurationSec: () => {
+      const duration = soundRef.current?.duration()
+      return typeof duration === "number" && Number.isFinite(duration) ? duration : 0
+    },
+  })
+  // the Howl keeps its callbacks from creation - read the latest postNowPlaying through a ref (same as handleEndRef)
+  const postNowPlayingRef = useRef(postNowPlaying)
+  useEffect(() => {
+    postNowPlayingRef.current = postNowPlaying
+  }, [postNowPlaying])
 
   const playSound = useCallback(() => {
     const currentSound = soundRef.current
@@ -341,6 +362,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     seekCurrentSound(position)
     setSavedPosition(position)
     setProgress(position / duration)
+    postNowPlayingRef.current(isPlayingRef.current)
   }, [seekCurrentSound, setProgress, setSavedPosition])
 
   useHotkey({ hotkey: "ArrowRight", ignoreInputs: true, onKeyPressFn: () => seekBySeconds(SEEK_STEP_SECONDS) })
@@ -446,7 +468,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
   }, [onPlayNext, playTrack, setIsPlayingInStore, song.id])
 
   const [, { pause, sound }] = useSound(songUrl, {
-    volume,
+    volume: volumeForHowl(volume),
     format: [song.song_path?.toLowerCase().endsWith(".m4a") ? "mp4" : "mp3"],
     // html5: true streams via <audio> instead of decoding the whole file into Web Audio API memory.
     // Without it, large MP3s (>~10MB) fail with "Decoding audio data failed" in the browser.
@@ -467,8 +489,12 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       setMediaPlaybackState("playing")
       setIsLoading(false)
       window.setTimeout(bindNativeAudioListeners, 0)
+      postNowPlayingRef.current(true)
     },
-    onend: () => handleEndRef.current(),
+    onend: () => {
+      postNowPlayingRef.current(false)
+      handleEndRef.current()
+    },
     onpause: () => {
       const activeIdAtPause = usePlayer.getState().activeId
       if (activeIdAtPause !== song.id) return
@@ -484,6 +510,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       isPlayingRef.current = false
       setIsPlayingInStore(false)
       setMediaPlaybackState("paused")
+      postNowPlayingRef.current(false)
     },
     onloaderror: (_id: number, err: unknown) => {
       const activeIdAtLoadError = usePlayer.getState().activeId
@@ -581,7 +608,10 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       const s = soundRef.current
       if (details.seekTime !== undefined && s) {
         const duration = s.duration()
-        if (duration) seekCurrentSound(details.seekTime)
+        if (duration) {
+          seekCurrentSound(details.seekTime)
+          postNowPlayingRef.current(isPlayingRef.current)
+        }
       }
     })
 
@@ -649,6 +679,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       seekCurrentSound(position)
       setSavedPosition(position)
       setProgress(position / duration)
+      postNowPlayingRef.current(isPlayingRef.current)
     }
     if (sound.duration() > 0) applySeek()
     else {
