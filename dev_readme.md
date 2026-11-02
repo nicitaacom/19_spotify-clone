@@ -33,6 +33,8 @@ Files:
 - **`docker-compose.yml`** - the same build args + runtime env, host port 3010 (outreach-tool's compose already takes 3000). For a local run, not used by Coolify.
 - **`.dockerignore`** - keeps `.git`, `node_modules`, `.next`, `.open-next`, `.wrangler`, `.env*` and the TODO screenshots out of the build context.
 
+Inside this image `request.url` in a route handler is `https://0.0.0.0:<PORT>/...`, not the public URL: Next standalone builds it from the container's own HOSTNAME + PORT (`next-server.js` `attachRequestMeta`). A redirect made from `url.origin` sends the browser to 0.0.0.0 - that was the login loop on 2026-11-02. Public URLs on the server come from `x-forwarded-host` + `x-forwarded-proto` (Traefik sets both) - see `app/auth/callback/oauth/route.ts` `publicOrigin`.
+
 Every env var is needed at BUILD time too, not only at runtime: `NEXT_PUBLIC_*` are inlined by `next build`, and `libs/stripe.ts`, `libs/deviceIdRedis.ts` and the Supabase clients are created at import time while pages render during the build. In Coolify, tick "Build Variable" on each one. The list is `.env.example`.
 
 Coolify setup:
