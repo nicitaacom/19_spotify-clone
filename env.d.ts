@@ -24,6 +24,8 @@ declare global {
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: string
       TURNSTILE_SECRET_KEY: string
 
+      OPENAI_API_KEY: string
+
       OWNER_IDS_ARR: string
 
       DEVICE_ID_ENCRYPTION_KEY: string

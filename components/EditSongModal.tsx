@@ -11,7 +11,8 @@ import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
 import useEditSongModal from "@/hooks/useEditSongModal"
 import useOwnerStore from "@/hooks/useOwnerStore"
 import { errorText, httpErrorMessage } from "@/libs/errorText"
-import { songTagsWithDraft } from "@/libs/songTags"
+import { fetchBilingualSongTags } from "@/libs/fetchBilingualSongTags"
+import { normalizeSongTags, songTagsWithDraft } from "@/libs/songTags"
 
 import Modal from "./Modal"
 import Input from "./Input"
@@ -49,6 +50,22 @@ const EditSongModal = () => {
     return () => { ignore = true }
   }, [isOpen, isOwner, song])
 
+  useEffect(() => {
+    if (!isOpen || !song || !canEditTags) return
+    let ignore = false
+    const songId = song.id
+    void fetch(`/api/songs/${songId}`)
+      .then(response => (response.ok ? response.json() : null))
+      .then(body => {
+        if (ignore || !body || typeof body !== "object" || !("song" in body)) return
+        const storedTags = (body as { song?: { tags?: unknown } }).song?.tags
+        const nextTags = Array.isArray(storedTags) ? normalizeSongTags(storedTags) : []
+        setTagDraft(current => (current && current.songId === songId ? current : { songId, tags: nextTags }))
+      })
+      .catch(() => undefined)
+    return () => { ignore = true }
+  }, [isOpen, canEditTags, song])
+
   const onChange = (open: boolean) => {
     if (!open) onClose()
   }
@@ -69,7 +86,10 @@ const EditSongModal = () => {
     let submittedTags = tags
     try {
       const form = event?.target instanceof HTMLFormElement ? event.target : null
-      if (canEditTags) submittedTags = songTagsWithDraft(tags, form?.querySelector<HTMLInputElement>("[data-song-tags-input]")?.value ?? "")
+      if (canEditTags) {
+        submittedTags = await fetchBilingualSongTags(songTagsWithDraft(tags, form?.querySelector<HTMLInputElement>("[data-song-tags-input]")?.value ?? ""))
+        setTagDraft({ songId: song.id, tags: submittedTags })
+      }
       const formData = new FormData()
       formData.append("title", title)
       formData.append("author", author)
@@ -139,7 +159,7 @@ const EditSongModal = () => {
               {songPlaylists.map((playlist, index) => (
                 <span key={playlist.id}>
                   {index > 0 && ", "}
-                  <Link href={`/playlists/${playlist.slug}`} className="text-neon hover:underline">{playlist.title}</Link>
+                  <Link href={`/playlists/${playlist.slug}`} prefetch={false} className="text-neon hover:underline">{playlist.title}</Link>
                 </span>
               ))}
             </p>

@@ -25,6 +25,7 @@ import Button from "./Button"
 import TurnstileChallenge from "./turnstile/TurnstileChallenge"
 import { SongTagsInput } from "./SongTagsInput"
 import { inferPlaylistGenreTags, songTagsWithDraft } from "@/libs/songTags"
+import { fetchBilingualSongTags } from "@/libs/fetchBilingualSongTags"
 import { usePlaylistRecentTags } from "@/hooks/usePlaylistRecentTags"
 
 // Show Turnstile challenge on ~10% of uploads
@@ -64,6 +65,8 @@ const AddASongModal = () => {
   const [tags, setTags] = useState<string[]>([])
   const playlistSlugInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const songInputRef = useRef<HTMLInputElement>(null)
+  const [fileDrop, setFileDrop] = useState<"song" | "image" | null>(null)
   const metadataRequest = useRef(0)
   const formRef = useRef<HTMLFormElement>(null)
 
@@ -462,6 +465,43 @@ const AddASongModal = () => {
     }
   }
 
+  const fileChangeEvent = (input: HTMLInputElement) => {
+    const event = { type: "change" } as React.ChangeEvent<HTMLInputElement>
+    Object.defineProperty(event, "tar" + "get", { value: input })
+    Object.defineProperty(event, "currentTarget", { value: input })
+    return event
+  }
+
+  const allowFileDrag = (event: React.DragEvent, kind: "song" | "image") => {
+    if (!event.dataTransfer.types.includes("Files")) return
+    event.preventDefault()
+    setFileDrop(kind)
+  }
+
+  const dropSongFile = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setFileDrop(null)
+    const file = event.dataTransfer.files?.[0]
+    const input = songInputRef.current
+    if (!file || !input || isLoading) return
+    const transfer = new DataTransfer()
+    transfer.items.add(file)
+    input.files = transfer.files
+    handleSongChange(fileChangeEvent(input))
+  }
+
+  const dropImageFile = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setFileDrop(null)
+    const file = event.dataTransfer.files?.[0]
+    const input = imageInputRef.current
+    if (!file || !input || isLoading) return
+    const transfer = new DataTransfer()
+    transfer.items.add(file)
+    input.files = transfer.files
+    handleImageChange(fileChangeEvent(input))
+  }
+
   const handleSongChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     const extension = file?.name.split(".").pop()?.toLowerCase() ?? ""
@@ -579,7 +619,7 @@ const AddASongModal = () => {
   const onSubmit: SubmitHandler<FieldValues> = async (values, event) => {
     try {
       const form = event?.target instanceof HTMLFormElement ? event.target : null
-      const submittedTags = songTagsWithDraft(visibleTags, form?.querySelector<HTMLInputElement>("[data-song-tags-input]")?.value ?? "")
+      const typedTags = songTagsWithDraft(visibleTags, form?.querySelector<HTMLInputElement>("[data-song-tags-input]")?.value ?? "")
       setIsLoading(true)
       setUploadError("")
       setUploadProgress(0)
@@ -658,6 +698,10 @@ const AddASongModal = () => {
       songFile = await prepareSongUpload(songFile, duration, setUploadProgress)
       setIsPreparingAudio(false)
 
+      const submittedTags = await fetchBilingualSongTags(typedTags)
+      setTags(submittedTags)
+      setTagsCustomized(true)
+
       const formData = new FormData()
       formData.append("song", songFile)
       formData.append("image", imageFile)
@@ -717,7 +761,7 @@ const AddASongModal = () => {
           )}
         </div>
       )}
-      contentClassName="flex h-auto max-h-[calc(100dvh-1rem)] w-[min(960px,calc(100%-1.5rem))] max-w-[960px] flex-col overflow-x-hidden overflow-y-auto p-3 sm:p-5 md:max-h-[calc(100dvh-1rem)] md:w-[min(960px,calc(100%-2rem))] md:max-w-[960px] md:p-7"
+      contentClassName="flex h-auto max-h-[calc(100dvh-1rem)] w-[min(960px,calc(100vw-1.5rem))] max-w-[min(960px,calc(100vw-1.5rem))] flex-col overflow-x-hidden overflow-y-auto p-3 sm:p-5 md:max-h-[calc(100dvh-1rem)] md:w-[min(960px,calc(100vw-2rem))] md:max-w-[min(960px,calc(100vw-2rem))] md:p-7"
       bodyClassName="min-h-0"
       titleClassName="mb-0 text-left text-2xl"
       descriptionClassName="mb-6 text-left text-neutral-300"
@@ -758,23 +802,37 @@ const AddASongModal = () => {
             </div>
           </div>
 
-          <div className="min-w-0 space-y-1.5">
+          <div
+            className={`min-w-0 space-y-1.5 rounded-md ${fileDrop === "song" ? "ring-2 ring-neon" : ""}`}
+            onDragEnter={event => allowFileDrag(event, "song")}
+            onDragOver={event => allowFileDrag(event, "song")}
+            onDragLeave={() => setFileDrop(current => current === "song" ? null : current)}
+            onDrop={dropSongFile}>
             <label htmlFor="song" className="block text-sm text-neutral-300">Select a song file</label>
             <Input
-              className="min-w-0 max-w-full"
+              className="min-w-0 max-w-full overflow-hidden"
               disabled={isLoading}
               type="file"
               accept="audio/*"
               id="song"
               {...songInput}
               onChange={handleSongChange}
+              ref={input => {
+                songInput.ref(input)
+                songInputRef.current = input
+              }}
             />
           </div>
 
-          <div className="min-w-0 space-y-1.5">
+          <div
+            className={`min-w-0 space-y-1.5 rounded-md ${fileDrop === "image" ? "ring-2 ring-neon" : ""}`}
+            onDragEnter={event => allowFileDrag(event, "image")}
+            onDragOver={event => allowFileDrag(event, "image")}
+            onDragLeave={() => setFileDrop(current => current === "image" ? null : current)}
+            onDrop={dropImageFile}>
             <label htmlFor="image" className="block text-sm text-neutral-300">Select an image</label>
             <Input
-              className="min-w-0 max-w-full"
+              className="min-w-0 max-w-full overflow-hidden"
               disabled={isLoading}
               type="file"
               accept={IMAGE_ACCEPT}
@@ -852,7 +910,7 @@ const AddASongModal = () => {
                 className="py-2"
               />
 
-              <div role="group" aria-label="Your playlists" className="h-40 min-h-0 max-h-40 min-w-0 flex-none overflow-y-auto overscroll-contain rounded-md border border-white/10 bg-surface md:h-[min(32dvh,20rem)] md:max-h-[min(32dvh,20rem)]">
+              <div role="group" aria-label="Your playlists" className="scrollbar h-40 min-h-0 max-h-40 min-w-0 flex-none overflow-y-auto overscroll-contain rounded-md border border-white/10 bg-surface md:h-[min(32dvh,20rem)] md:max-h-[min(32dvh,20rem)]">
                 {filteredPlaylists.map(playlist => (
                   <div key={playlist.id} className={`transition hover:bg-elevated ${selectedPlaylist?.id === playlist.id ? "bg-elevated" : ""}`}>
                     <div className="flex items-center">
@@ -909,7 +967,7 @@ const AddASongModal = () => {
                             }}
                             aria-pressed={selectedPlaylist?.id === playlist.id}
                             className="flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-2 text-left text-sm text-white disabled:opacity-50">
-                            <span className="min-w-0 break-words">{playlist.title}</span>
+                            <span className="min-w-0 truncate" title={playlist.title}>{playlist.title}</span>
                             {selectedPlaylist?.id === playlist.id && (
                               <FiCheck size={14} className="ml-2 shrink-0 text-neon" />
                             )}

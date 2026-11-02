@@ -399,7 +399,7 @@ export const getPlaylistBySlug = async (slug: string): Promise<PlaylistDetail | 
   const { data: songRows, error: songError } = visibleSongIds.length
     ? await commerceAdmin
         .from("19_songs")
-        .select("id, user_id, author, title, song_path, image_path")
+        .select("id, user_id, author, title, song_path, image_path, tags")
         .in("id", visibleSongIds.map(Number))
     : { data: [], error: null }
   if (songError && isSupabaseGatewayUnauthorized(songError)) logSupabaseServiceRoleRejected()
@@ -452,6 +452,7 @@ export const getPlaylistBySlug = async (slug: string): Promise<PlaylistDetail | 
       title: visibleSong.title ?? "",
       song_path: visibleSong.song_path ?? "",
       image_path: visibleSong.image_path ?? "",
+      tags: Array.isArray(visibleSong.tags) ? visibleSong.tags : [],
     }
   })
 
