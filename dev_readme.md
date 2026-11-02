@@ -14,7 +14,7 @@ How it works:
 - `components/Header.tsx` uses a real `<a target="_blank">` for the top-right auth buttons in iframe mode. This is more reliable than `window.open` for the navbar login button.
 - Other guest auth entry points such as library/play/like still call `handleAuthAction({ isIframe })`.
 
-Both query flags stick for the whole life of the iframe, not only its first URL: `app/utils/stickyQueryFlag.ts` keeps a flag in `sessionStorage` once it was on the URL, and `isIframeAuthInThisTab()` / `usePlayOnPhone`'s `readIsPlayOnPhone` read the URL or that stored flag. Without it a click on a playlist (`router.push("/playlists/<slug>")`) dropped `?playOnPhone=1&is_iframe=true` and the site turned back into a normal tab: the laptop played the song, the phone got nothing, Log in opened the embedded modal (2026-11-02, `TODO/2026-11-02_at_16-45`).
+Both query flags stick for the whole life of the iframe, not only its first URL: `app/utils/stickyQueryFlag.ts` keeps a flag in module memory + `sessionStorage` once it was on the URL, and `isIframeAuthInThisTab()` / `usePlayOnPhone`'s `readIsPlayOnPhone` read the URL or that stored flag. `app/features/iframe/IframeFlagsTracker.tsx` (root layout) reads both on the first page, because the player, the only other reader of `playOnPhone`, mounts after the first navigation. Without it a click on a playlist (`router.push("/playlists/<slug>")`) dropped `?playOnPhone=1&is_iframe=true` and the site turned back into a normal tab: the laptop played the song, the phone got nothing, Log in opened the embedded modal (2026-11-02, `TODO/2026-11-02_at_16-45`).
 
 In iframe mode `components/Sidebar.tsx` renders `main` without its `py-2 pr-2 rounded-lg`: the frame itself is the card, so the content fills it edge to edge.
 

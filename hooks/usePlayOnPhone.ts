@@ -23,8 +23,10 @@ interface UsePlayOnPhoneArgs {
 
 const emptySubscribe = () => () => {}
 
-// sticky: the param is on the iframe's first URL only, the mode must survive every navigation inside it
-const readIsPlayOnPhone = () =>
+// sticky: the param is on the iframe's first URL only, the mode must survive every navigation inside it.
+// Exported for IframeFlagsTracker, which reads it on the first page: this hook lives in the player, which
+// mounts only once a song plays - by then the query is already gone from the URL.
+export const readIsPlayOnPhone = () =>
   readStickyQueryFlag("playOnPhone", search => new URLSearchParams(search).get("playOnPhone") === "1")
 
 // The iframe's referrer is the page that holds it - only a listed page gets messages, never "*". After a

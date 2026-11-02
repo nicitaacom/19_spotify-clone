@@ -13,6 +13,7 @@ import { getIsOwner } from "@/libs/getIsOwner"
 import { PlaybackSyncProvider } from "./providers/PlaybackSyncProvider"
 import OfflineProvider from "./providers/OfflineProvider"
 import { UTMTracker } from "./features/UTM/UTMTracker"
+import { IframeFlagsTracker } from "./features/iframe/IframeFlagsTracker"
 
 export const metadata = {
   title: "Spotify clone",
@@ -55,6 +56,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ToasterProvider />
         <OfflineProvider />
         <UTMTracker />
+        <IframeFlagsTracker />
         <UserProvider>
           <PlaybackSyncProvider>
             <ModalProvider />
