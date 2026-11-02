@@ -40,7 +40,7 @@ The other side of the chain: outreach-tool `app/widgets/MusicPanel/` -> `POST /a
 
 Framing: `middleware.ts` answers every path with `Content-Security-Policy: frame-ancestors 'self' https://outreach-tool.com https://www.outreach-tool.com http://localhost:3000` (`/embed` keeps its own wider list).
 
-Layout inside the iframe: `is_iframe=true` -> `components/Sidebar.tsx` renders `main` without `py-2 pr-2 rounded-lg`, and the mobile player row (below md) has the speaker icon + volume slider next to the play button - at 24rem that row is the only player there is.
+Layout inside the iframe: `is_iframe=true` -> `components/Sidebar.tsx` renders `main` without `py-2 pr-2 rounded-lg`. The mobile player row (below md) stays cover + title + play: at 24rem a volume slider in it collided with the like / playlist icons, so the phone's music volume is a row in outreach-tool's music panel instead (his review 2026-11-02).
 
 The page's side is written up in outreach-tool: `app/(routes)/dialer/dev_readme-dialer.md` ("Music panel") and `app/widgets/MusicPanel/dev_readme-music-panel.md`.
 
