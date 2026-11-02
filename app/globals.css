@@ -61,25 +61,25 @@ html[data-embed] nextjs-portal {
 
 .scrollbar {
   scrollbar-gutter: stable;
-  scrollbar-width: thin !important;
-  scrollbar-color: rgba(74, 222, 128, 0.4) transparent !important;
+  scrollbar-width: auto !important;
+  scrollbar-color: #4ade80 #2a2a2a !important;
 }
 .scrollbar::-webkit-scrollbar {
-  width: 6px !important;
+  width: 12px !important;
   display: block !important;
 }
 .scrollbar::-webkit-scrollbar-track {
-  background: #111111 !important;
+  background: #2a2a2a !important;
   border-radius: 9999px !important;
 }
 .scrollbar::-webkit-scrollbar-thumb {
-  background-color: rgba(74, 222, 128, 0.35) !important;
+  background-color: #4ade80 !important;
   border-radius: 9999px !important;
-  border: 2px solid transparent !important;
+  border: 2px solid #2a2a2a !important;
   background-clip: padding-box !important;
 }
 .scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(74, 222, 128, 0.6) !important;
+  background-color: #86efac !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
