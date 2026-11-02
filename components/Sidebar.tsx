@@ -13,6 +13,7 @@ import SidebarItem from "./SidebarItem"
 import Library from "./Library"
 import { Song } from "@/types"
 import usePlayer from "@/hooks/usePlayer"
+import useIsIframeAuth from "@/hooks/useIsIframeAuth"
 import { useSyncOwnerStore } from "@/hooks/useSyncOwnerStore"
 
 interface SidebarProps {
@@ -24,6 +25,9 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ children, songs, isOwner }) => {
   const pathname = usePathname()
   const player = usePlayer()
+  // inside another site's iframe (outreach-tool's music panel, 24rem wide) the frame itself is the card:
+  // no gap above / below / beside the content, no rounded corner - see TODO 2026-11-02_at_16-45
+  const isIframe = useIsIframeAuth()
 
   useSyncOwnerStore(isOwner)
 
@@ -93,7 +97,13 @@ const Sidebar: React.FC<SidebarProps> = ({ children, songs, isOwner }) => {
           <Library songs={songs} />
         </Box>
       </div>
-      <main className="relative z-10 h-full flex-1 overflow-y-auto overflow-x-hidden scrollbar rounded-lg py-2 pr-2">{children}</main>
+      <main
+        className={twMerge(
+          "relative z-10 h-full flex-1 overflow-y-auto overflow-x-hidden scrollbar rounded-lg py-2 pr-2",
+          isIframe && "rounded-none py-0 pr-0",
+        )}>
+        {children}
+      </main>
     </div>
   )
 }
