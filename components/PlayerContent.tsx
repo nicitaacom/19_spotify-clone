@@ -716,17 +716,9 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
         </div>
       </div>
 
-      {/* Mobile: volume + play button. The volume stays reachable below md too - inside outreach-tool's music panel
-          (24rem wide) this is the only player row there is (his ask 2026-11-02: "on mobile need setting to reduce volume") */}
-      <div className="flex md:hidden flex-1 justify-end items-center gap-x-3">
-        <div className="flex items-center gap-x-1 w-[96px]">
-          <VolumeIcon
-            onClick={toggleMute}
-            className="shrink-0 cursor-pointer text-neutral-400 hover:text-neon transition"
-            size={22}
-          />
-          <Slider value={volume} onChange={value => setVolume(value)} />
-        </div>
+      {/* Mobile play button. No volume slider in this row: at 24rem (outreach-tool's music panel) it collided with the
+          like / playlist icons - the phone's music volume lives in the music panel itself (his review 2026-11-02) */}
+      <div className="flex md:hidden flex-1 justify-end items-center">
         <div
           onClick={handlePlay}
           className="h-10 w-10 flex items-center justify-center rounded-full bg-neon p-1 cursor-pointer shadow-neon-sm hover:bg-neon-strong hover:shadow-neon transition">
