@@ -56,6 +56,25 @@ Do not attach it to Studio or internal GoTrue. Do not use the retired
 `kong.supabase.music.jokik.fi` hostname; Cloudflare cannot issue the required certificate for that
 subdomain depth.
 
+### The DNS record must be "DNS only" (grey cloud), never proxied
+
+Cloudflare's free Universal SSL covers `jokik.fi` and one level below it (`music.jokik.fi`), not
+`supabase.music.jokik.fi`. With the orange cloud on, the browser's TLS handshake hits Cloudflare's edge,
+which has no certificate for that name and answers `handshake failure (alert 40)` - in Chrome that is
+`ERR_SSL_VERSION_OR_CIPHER_MISMATCH` on login (seen 2026-11-02: the record resolved to 172.67.217.251 /
+104.21.43.32, Cloudflare's IPs, while `music.jokik.fi` already pointed at the VPS 193.24.209.229).
+
+With the grey cloud the name resolves to the VPS and Coolify's Traefik issues the Let's Encrypt
+certificate for it (the issuance fails while the record is proxied, and Traefik then serves its
+self-signed `TRAEFIK DEFAULT CERT` for that host). After the switch, redeploy the Kong resource once if
+the certificate does not appear within a few minutes. Check from any machine:
+
+```bash
+dig +short supabase.music.jokik.fi          # must print 193.24.209.229, not a 104.x / 172.67.x address
+openssl s_client -connect supabase.music.jokik.fi:443 -servername supabase.music.jokik.fi </dev/null 2>/dev/null | grep issuer
+# issuer=... O=Let's Encrypt ... = good; "TRAEFIK DEFAULT CERT" = Coolify has not issued it yet
+```
+
 The app uses the single shared `supabaseClient` for both data and OAuth. Do not recreate a separate
 auth client: both use `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 
