@@ -12,6 +12,14 @@ import Waveform from "../../slow-and-reverb/components/Waveform"
 import { useDocumentDrag } from "../../slow-and-reverb/hooks/useDocumentDrag"
 import { useCompressFileEngine } from "../hooks/useCompressFileEngine"
 import { estimateMp3Bytes, formatBitrate, formatBytes } from "../lib/bitrate"
+import { PREVIEW_WINDOW_SEC } from "../lib/transcodeMp3"
+
+function formatClock(seconds: number) {
+  const whole = Math.max(0, Math.floor(seconds))
+  const minutes = Math.floor(whole / 60)
+  const remain = whole % 60
+  return `${minutes}:${String(remain).padStart(2, "0")}`
+}
 
 const CompressFileEditor = () => {
   const {
@@ -26,21 +34,28 @@ const CompressFileEditor = () => {
     kbpsIndex,
     setKbpsIndex,
     isPlaying,
-    getPosition,
-    togglePlay,
     pause,
-    seek,
     isRendering,
     encodePercent,
     encodedReady,
     download,
+    encodePreview,
     albumArtUrl,
     previewUrl,
     getKickLevel,
   } = useCompressFileEngine()
 
   const previewRef = useRef<HTMLAudioElement | null>(null)
+  const heardUrlRef = useRef<string | null>(null)
   const [previewPlaying, setPreviewPlaying] = useState(false)
+  const [heardUrl, setHeardUrl] = useState<string | null>(null)
+  const [heardFrom, setHeardFrom] = useState(0)
+  const [heardFile, setHeardFile] = useState(fileName)
+  const [previewBusy, setPreviewBusy] = useState(false)
+  if (fileName !== heardFile) {
+    setHeardFile(fileName)
+    setHeardFrom(0)
+  }
 
   useExclusivePlaybackSource({
     isPlaying: isPlaying || previewPlaying,
@@ -67,12 +82,6 @@ const CompressFileEditor = () => {
       const el = document.activeElement as HTMLElement | null
       const tag = el?.tagName
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "AUDIO" || el?.isContentEditable) return
-      if (buffer) {
-        event.preventDefault()
-        el?.blur()
-        togglePlay()
-        return
-      }
       const preview = previewRef.current
       if (!preview) return
       event.preventDefault()
@@ -82,10 +91,14 @@ const CompressFileEditor = () => {
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [buffer, togglePlay])
+  }, [])
 
   const stopPreview = () => {
     setPreviewPlaying(false)
+    if (heardUrlRef.current) URL.revokeObjectURL(heardUrlRef.current)
+    heardUrlRef.current = null
+    setHeardUrl(null)
+    setHeardFrom(0)
     clear()
   }
 
@@ -107,6 +120,42 @@ const CompressFileEditor = () => {
     )
 
   const isEmpty = !fileName || (!buffer && !previewUrl)
+
+  useEffect(() => {
+    if (chosenKbps == null || isEmpty) return
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      setPreviewBusy(true)
+      void encodePreview(heardFrom).then(file => {
+        if (cancelled || !file) return
+        const url = URL.createObjectURL(file)
+        if (heardUrlRef.current) URL.revokeObjectURL(heardUrlRef.current)
+        heardUrlRef.current = url
+        setHeardUrl(url)
+        const audio = previewRef.current
+        if (audio) {
+          const wasPlaying = !audio.paused
+          audio.src = url
+          audio.currentTime = 0
+          if (wasPlaying) void audio.play()
+        }
+      }).catch(error => {
+        console.error("Could not prepare the bitrate preview", error)
+      }).finally(() => {
+        if (!cancelled) setPreviewBusy(false)
+      })
+    }, 300)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [chosenKbps, encodePreview, fileName, heardFrom, isEmpty])
+
+  useEffect(() => {
+    return () => {
+      if (heardUrlRef.current) URL.revokeObjectURL(heardUrlRef.current)
+    }
+  }, [])
 
   if (isEmpty) {
     return (
@@ -137,7 +186,7 @@ const CompressFileEditor = () => {
         albumArtUrl={albumArtUrl}
         pitchEnabled={false}
         pitchSemitones={0}
-        isPlaying={isPlaying}
+        isPlaying={previewPlaying}
         getKickLevel={getKickLevel}
       />
 
@@ -159,23 +208,46 @@ const CompressFileEditor = () => {
             <Waveform
               buffer={buffer}
               duration={duration}
-              isPlaying={isPlaying}
-              getPosition={getPosition}
-              onSeek={seek}
-              onTogglePlay={togglePlay}
+              isPlaying={previewPlaying}
+              getPosition={() => heardFrom + (previewRef.current?.currentTime ?? 0)}
+              onSeek={seconds => setHeardFrom(Math.max(0, Math.min(seconds, Math.max(0, duration - 0.1))))}
+              onTogglePlay={() => {
+                const preview = previewRef.current
+                if (!preview) return
+                if (preview.paused) void preview.play()
+                else preview.pause()
+              }}
             />
           )}
-          {previewUrl && !buffer && (
+          {(buffer || previewUrl) && (
             <div className="flex flex-col gap-2">
               <audio
                 ref={previewRef}
-                src={previewUrl}
+                src={heardUrl ?? undefined}
                 controls
+                loop={false}
                 className="w-full"
                 onPlay={() => setPreviewPlaying(true)}
                 onPause={() => setPreviewPlaying(false)}
               />
-              <p className="text-center text-xs text-neutral-500">Preview plays the original file.</p>
+              {previewUrl && !buffer && duration > PREVIEW_WINDOW_SEC && (
+                <label className="flex flex-col gap-1 text-xs text-neutral-400">
+                  Preview start
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, duration - 0.1)}
+                    step={1}
+                    value={Math.min(heardFrom, Math.max(0, duration - 0.1))}
+                    onChange={event => setHeardFrom(Number(event.target.value))}
+                  />
+                </label>
+              )}
+              <p className="text-center text-xs text-neutral-500">
+                {previewBusy || !heardUrl
+                  ? `Preparing the ${chosenKbps ?? ""} kbps preview.`
+                  : `Preview is ${chosenKbps} kbps, ${PREVIEW_WINDOW_SEC}s from ${formatClock(heardFrom)}.`}
+              </p>
             </div>
           )}
 

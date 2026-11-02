@@ -29,20 +29,27 @@ test("a 96 kbps file starts at 80", () => {
   assert.equal(choicesFor(96_000).at(-1), 80)
 })
 
-test("a file measured just above 48 kbps starts at 40", () => {
+test("a file measured just above 48 kbps has no step, because 64 kbps is the floor", () => {
   const durationSec = 8112
   const sourceBps = 48000.4
   const sourceBytes = Math.round((durationSec * sourceBps) / 8)
   const choices = bitrateChoices({ sourceBps, durationSec, sourceBytes, sampleRate: 44100 })
-  assert.equal(choices.at(-1), 40)
-  assert.equal(choices.includes(48), false)
+  assert.deepEqual(choices, [])
+})
+
+test("80 kbps can step down to 64 and no further", () => {
+  const choices = choicesFor(80_000)
+  assert.equal(choices.at(-1), 64)
+  assert.equal(choices.includes(56), false)
+  assert.equal(choices.includes(32), false)
 })
 
 test("a WAV-scale bitrate starts at 320", () => {
   assert.equal(choicesFor(1_411_200, 60).at(-1), 320)
 })
 
-test("the bottom of the 44.1 kHz ladder has no lower step", () => {
+test("64 kbps is the floor, so that file has no lower step", () => {
+  assert.deepEqual(choicesFor(64_000, 10), [])
   assert.deepEqual(choicesFor(32_000, 10), [])
   assert.equal(closestStepIndex([]), 0)
 })

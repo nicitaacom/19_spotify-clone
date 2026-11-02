@@ -1,6 +1,9 @@
 const MPEG1_KBPS = [32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320]
 const MPEG2_KBPS = [8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160]
 
+// Below this, the MP3 is too rough to offer as a compression step.
+export const MIN_COMPRESS_KBPS = 64
+
 export function estimateMp3Bytes(durationSec: number, kbps: number): number {
   return Math.round((durationSec * kbps * 1000) / 8)
 }
@@ -33,6 +36,7 @@ export function bitrateChoices(input: {
   if (!Number.isFinite(durationSec) || durationSec <= 0) return []
   if (!Number.isFinite(sourceBytes) || sourceBytes <= 0) return []
   return ladderForSampleRate(sampleRate).filter(kbps => {
+    if (kbps < MIN_COMPRESS_KBPS) return false
     // Half a kbps of header overhead must not count as a smaller bitrate.
     if (kbps * 1000 + 500 >= sourceBps) return false
     return estimateMp3Bytes(durationSec, kbps) < sourceBytes

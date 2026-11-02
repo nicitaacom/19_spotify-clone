@@ -9,7 +9,7 @@ import { bitrateChoices, closestStepIndex } from "../lib/bitrate"
 import { describeError, namedError } from "../lib/describeError"
 import { exportAction, exportKey, type SourceIdentity } from "../lib/exportKey"
 import { id3AudioStart, MAX_PCM_BYTES, pcmBytes, readMp3Info } from "../lib/mp3Info"
-import { transcodeMp3 } from "../lib/transcodeMp3"
+import { PREVIEW_WINDOW_SEC, transcodeMp3 } from "../lib/transcodeMp3"
 
 export interface CompressFileEngine {
   loadFile(file: File): Promise<void>
@@ -31,6 +31,7 @@ export interface CompressFileEngine {
   encodePercent: number | null
   encodedReady: boolean
   download(): Promise<void>
+  encodePreview(startSec: number): Promise<Awaited<ReturnType<typeof encodeMp3>> | null>
   albumArtUrl: string | null
   previewUrl: string | null
   getKickLevel(): number
@@ -48,16 +49,49 @@ async function codecBitrate(bytes: Uint8Array, mimeType: string): Promise<number
   return null
 }
 
-function saveMp3File(mp3: Awaited<ReturnType<typeof encodeMp3>>, base: string, kbps: number) {
+function sliceAudioBuffer(buffer: AudioBuffer, startSec: number, seconds: number): AudioBuffer {
+  const rate = buffer.sampleRate
+  const start = Math.min(Math.max(0, buffer.length - 1), Math.max(0, Math.floor(startSec * rate)))
+  const length = Math.min(buffer.length - start, Math.max(1, Math.floor(seconds * rate)))
+  const channels = Math.min(2, buffer.numberOfChannels)
+  const out = new AudioBuffer({ length, numberOfChannels: channels, sampleRate: rate })
+  for (let channel = 0; channel < channels; channel++) {
+    out.getChannelData(channel).set(buffer.getChannelData(channel).subarray(start, start + length))
+  }
+  return out
+}
+
+async function saveMp3File(mp3: Awaited<ReturnType<typeof encodeMp3>>, base: string, kbps: number): Promise<"saved" | "cancelled"> {
+  const name = `${base} (${kbps}kbps).mp3`
+  const picker = (window as unknown as { showSaveFilePicker?: typeof window extends never ? never : (options: {
+    suggestedName?: string
+    types?: Array<{ description?: string; accept: Record<string, string[]> }>
+  }) => Promise<{ createWritable: () => Promise<{ write: (data: Awaited<ReturnType<typeof encodeMp3>>) => Promise<void>; close: () => Promise<void> }> }> }).showSaveFilePicker
+  if (picker) {
+    try {
+      const handle = await picker({
+        suggestedName: name,
+        types: [{ description: "MP3", accept: { "audio/mpeg": [".mp3"] } }],
+      })
+      const writable = await handle.createWritable()
+      await writable.write(mp3)
+      await writable.close()
+      return "saved"
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return "cancelled"
+      throw error
+    }
+  }
   const url = URL.createObjectURL(mp3)
   const link = document.createElement("a")
   link.href = url
-  link.download = `${base} (${kbps}kbps).mp3`
+  link.download = name
   document.body.appendChild(link)
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
   link.click()
   link.remove()
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  return "saved"
 }
 
 export function useCompressFileEngine(): CompressFileEngine {
@@ -365,30 +399,39 @@ export function useCompressFileEngine(): CompressFileEngine {
     setEncodedReady(false)
   }, [stopCurrent])
 
+  const encodePreview = useCallback(async (startSec: number) => {
+    const chosen = choicesRef.current[kbpsIndexRef.current]
+    if (chosen == null) return null
+    const buf = bufferRef.current
+    if (buf) return encodeMp3(sliceAudioBuffer(buf, startSec, PREVIEW_WINDOW_SEC), undefined, undefined, chosen)
+    const sourceFile = sourceFileRef.current
+    if (!sourceFile) return null
+    return transcodeMp3(sourceFile, chosen, null, undefined, { startSec, seconds: PREVIEW_WINDOW_SEC })
+  }, [])
+
   const download = useCallback(async (): Promise<void> => {
+    if (isRenderingRef.current) return
+    if (Date.now() < suppressSaveUntilRef.current) return
     const buf = bufferRef.current
     const sourceFile = sourceFileRef.current
     const chosen = choicesRef.current[kbpsIndexRef.current]
     const identity = identityRef.current
-    if (isRenderingRef.current || (!buf && !sourceFile) || chosen == null || identity == null) return
+    if ((!buf && !sourceFile) || chosen == null || identity == null) return
 
     const base = identity.name.replace(/\.[^/.]+$/, "")
     const key = exportKey(identity, chosen)
     const generation = openGenerationRef.current
-    const action = exportAction(encodedMp3Ref.current?.key ?? null, key, suppressSaveUntilRef.current, Date.now())
-    if (action === "skip") return
-    if (action === "save" && encodedMp3Ref.current) {
-      suppressSaveUntilRef.current = Date.now() + 60_000
-      saveMp3File(encodedMp3Ref.current.mp3, base, chosen)
-      suppressSaveUntilRef.current = Date.now() + 800
-      return
-    }
-
+    const action = exportAction(encodedMp3Ref.current?.key ?? null, key, 0, Date.now())
     isRenderingRef.current = true
-    setIsRendering(true)
-    setEncodePercent(0)
-
     try {
+      if (action === "save" && encodedMp3Ref.current) {
+        const result = await saveMp3File(encodedMp3Ref.current.mp3, base, chosen)
+        if (result === "cancelled") suppressSaveUntilRef.current = Date.now() + 1200
+        return
+      }
+
+      setIsRendering(true)
+      setEncodePercent(0)
       const onProgress = (pct: number) => {
         setEncodePercent(pct)
       }
@@ -401,9 +444,8 @@ export function useCompressFileEngine(): CompressFileEngine {
       const currentKbps = choicesRef.current[kbpsIndexRef.current]
       const identityNow = identityRef.current
       setEncodedReady(identityNow != null && currentKbps != null && exportKey(identityNow, currentKbps) === key)
-      suppressSaveUntilRef.current = Date.now() + 60_000
-      saveMp3File(mp3, base, chosen)
-      suppressSaveUntilRef.current = Date.now() + 800
+      const result = await saveMp3File(mp3, base, chosen)
+      if (result === "cancelled") suppressSaveUntilRef.current = Date.now() + 1200
     } catch (error) {
       console.error(`Could not encode "${base}.mp3" at ${chosen} kbps`, error)
       toast.error(`Could not encode "${base}.mp3" at ${chosen} kbps. ${describeError(error)}`, { id: "compress-export" })
@@ -443,6 +485,7 @@ export function useCompressFileEngine(): CompressFileEngine {
     encodePercent,
     encodedReady,
     download,
+    encodePreview,
     albumArtUrl,
     previewUrl,
     getKickLevel,

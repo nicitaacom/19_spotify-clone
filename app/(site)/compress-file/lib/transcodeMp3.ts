@@ -24,11 +24,14 @@ function toInt16(samples: Float32Array): Int16Array {
   return pcm
 }
 
+export const PREVIEW_WINDOW_SEC = 30
+
 export async function transcodeMp3(
   file: File,
   kbps: number,
   metadata: Id3Metadata | null,
   onProgress?: (pct: number) => void,
+  windowSec?: { startSec: number; seconds: number },
 ): Promise<Blob> {
   const head = new Uint8Array(await file.slice(0, Math.min(file.size, 1024 * 1024)).arrayBuffer())
   const info = readMp3Info(head, file.size)
@@ -42,25 +45,45 @@ export async function transcodeMp3(
   const decoder = new MPEGDecoder()
   await decoder.ready
   const encoded: Uint8Array[] = []
-  const state: { encoder: Mp3Encoder | null } = { encoder: null }
+  const state: { encoder: Mp3Encoder | null; samples: number; sampleRate: number } = {
+    encoder: null,
+    samples: 0,
+    sampleRate: info.sampleRate,
+  }
   let firstDecoderMessage: string | null = null
+  const windowSamples = windowSec ? Math.max(1, Math.round(windowSec.seconds * info.sampleRate)) : 0
 
   const pushDecoded = (decoded: MPEGDecodedAudio) => {
     if (decoded.errors.length > 0 && !firstDecoderMessage) firstDecoderMessage = decoded.errors[0].message
     if (decoded.samplesDecoded <= 0 || decoded.channelData.length === 0) return
+    if (windowSamples > 0 && state.samples >= windowSamples) return
     const channels = Math.min(2, decoded.channelData.length)
+    state.sampleRate = decoded.sampleRate
     if (!state.encoder) state.encoder = new Mp3Encoder(channels, decoded.sampleRate, kbps)
-    const left = toInt16(decoded.channelData[0])
-    const packet = channels > 1
-      ? state.encoder.encodeBuffer(left, toInt16(decoded.channelData[1]))
-      : state.encoder.encodeBuffer(left)
+    let left = toInt16(decoded.channelData[0])
+    let right = channels > 1 ? toInt16(decoded.channelData[1]) : left
+    if (windowSamples > 0) {
+      const room = windowSamples - state.samples
+      if (left.length > room) {
+        left = left.subarray(0, room)
+        right = right.subarray(0, room)
+      }
+    }
+    const packet = channels > 1 ? state.encoder.encodeBuffer(left, right) : state.encoder.encodeBuffer(left)
     if (packet.length > 0) encoded.push(new Uint8Array(packet))
+    state.samples += left.length
   }
 
   try {
     let pending = new Uint8Array(0)
+    const bytesPerSec = Math.max(1, info.bitrateBps / 8)
+    const wantedStart = windowSec ? Math.max(0, windowSec.startSec) : 0
     let offset = info.audioStart
-    const total = Math.max(1, file.size - info.audioStart)
+    if (wantedStart > 0) {
+      const guess = info.audioStart + Math.floor(wantedStart * bytesPerSec)
+      offset = Math.max(info.audioStart, Math.min(file.size - 1, guess))
+    }
+    const total = Math.max(1, file.size - offset)
     const batch: Uint8Array[] = []
     const flushBatch = () => {
       if (batch.length === 0) return
@@ -88,6 +111,7 @@ export async function transcodeMp3(
       flushBatch()
       onProgress?.(Math.max(1, Math.min(99, Math.round(((offset - info.audioStart) / total) * 100))))
       await new Promise((resolve) => setTimeout(resolve, 0))
+      if (windowSamples > 0 && state.samples >= windowSamples) break
     }
   } finally {
     try { decoder.free() } catch { /* already closed */ }
