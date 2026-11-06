@@ -207,9 +207,9 @@ export default function EmbedClient() {
   if (hidden) return null
 
   return (
-    <div className="flex h-full w-full items-end justify-end overflow-hidden bg-transparent p-2">
+    <div className="flex h-full w-full items-end justify-end bg-transparent px-3 pb-3 pt-4">
       <div
-        className={`min-w-0 max-w-full ${leaving ? "animate-slide-out-right" : "animate-slide-in-right"}`}
+        className={`w-full min-w-0 max-w-full ${leaving ? "animate-slide-out-right" : "animate-slide-in-right"}`}
         onAnimationEnd={() => {
           if (!leaving) return
           if (persistCloseRef.current) hideRecommendation()

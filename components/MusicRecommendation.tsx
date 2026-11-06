@@ -32,7 +32,7 @@ export default function MusicRecommendation({
   }
 
   return (
-    <div className={twMerge("relative flex w-full max-w-full items-center gap-3 rounded-full border-2 border-white bg-black py-2 pl-2 pr-5 text-white", className)}>
+    <div className={twMerge("relative flex w-full max-w-full items-center gap-3 overflow-visible rounded-full border-2 border-white bg-black py-2 pl-2 pr-5 text-white", className)}>
       <button
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-black transition hover:bg-neutral-300"
         type="button"
@@ -41,15 +41,15 @@ export default function MusicRecommendation({
         <PlayIcon className={twMerge("h-4 w-4 fill-current", !isPlaying && "ml-0.5")} />
       </button>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-1 overflow-hidden">
         {trackHref ? (
-          <a href={trackHref} title={track} target="_blank" rel="noopener noreferrer" className="truncate text-sm font-medium leading-tight hover:underline">
+          <a href={trackHref} title={track} target="_blank" rel="noopener noreferrer" className="block w-full min-w-0 truncate text-sm font-medium leading-5 hover:underline">
             {track}
           </a>
         ) : (
-          <p title={track} className="truncate text-sm font-medium leading-tight">{track}</p>
+          <p title={track} className="block w-full min-w-0 truncate text-sm font-medium leading-5">{track}</p>
         )}
-        <label className="flex cursor-pointer items-center gap-2 text-xs leading-tight text-neutral-300">
+        <label className="flex min-w-0 cursor-pointer items-center gap-2 whitespace-nowrap text-xs leading-5 text-neutral-300">
           <input
             className="h-3.5 w-3.5 cursor-pointer accent-white"
             type="checkbox"

@@ -30,6 +30,7 @@ body,
 html[data-embed],
 html[data-embed] body {
   height: 100%;
+  overflow: hidden;
   background: transparent;
   background-color: transparent;
   color-scheme: dark;
