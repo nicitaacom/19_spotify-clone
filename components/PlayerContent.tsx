@@ -707,12 +707,18 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
 
   return (
     <div className="flex h-full w-full">
-      {/* Left: Song info */}
-      <div className="flex w-[30%] justify-start">
-        <div className="flex items-center gap-x-4">
-          <MediaItem data={song} />
-          <AddToPlaylistButton song={song} />
-          <LikeButton songId={song.id} />
+      {/* Left: Song info. From md up, min-w-0 keeps a long title inside this 30% column
+          so it ellipsizes before the playlist and like icons. Below md the play button
+          sits in the free space, and this column stays free to use it. */}
+      <div className="flex w-[30%] justify-start md:min-w-0 md:overflow-hidden">
+        <div className="flex items-center gap-x-4 md:w-full md:min-w-0">
+          <div className="md:min-w-0 md:flex-1 md:overflow-hidden">
+            <MediaItem data={song} />
+          </div>
+          <div className="flex shrink-0 items-center gap-x-4">
+            <AddToPlaylistButton song={song} />
+            <LikeButton songId={song.id} />
+          </div>
         </div>
       </div>
 
