@@ -112,14 +112,21 @@ test("a two hour recording is stored below 128 kbps so it fits in 50 MB", () => 
   assert.equal(uploadBitrateKbps(3 * 3600), 32)
 })
 
-test("encodes a long mp3 at the fitting bitrate instead of refusing it", async t => {
+test("keeps a small 128 kbps mp3 when the bytes already fit, even if the duration argument is long", async t => {
   const decode = mockDecoder(t)
   const source = mp3File(128)
   const result = await prepareSongUpload(source, 8112)
   assert.equal(decode.mock.callCount(), 0)
-  assert.equal(result.type, "audio/mpeg")
-  assert.ok(result.size <= MAX_SONG_UPLOAD_BYTES)
-  assert.equal((await parseBlob(result)).format.bitrate, 48000)
+  assert.equal(result, source)
+  assert.equal((await parseBlob(result)).format.bitrate, 128000)
+})
+
+test("a file just over the cap drops one bitrate step, not down to half", () => {
+  const bytes = 52 * 1024 * 1024
+  assert.equal(uploadBitrateKbps(bytes * 8 / 128000, bytes, 128000), 112)
+  assert.equal(uploadBitrateKbps(bytes * 8 / 64000, bytes, 64000), 56)
+  const underCap = 40 * 1024 * 1024
+  assert.equal(uploadBitrateKbps(underCap * 8 / 128000, underCap, 128000), 128)
 })
 
 test("reports unreadable audio and invalid duration instead of uploading the original M4A", async t => {

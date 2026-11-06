@@ -1,12 +1,21 @@
 export const MAX_SONG_UPLOAD_BYTES = 50 * 1024 * 1024
+// Stay under the storage cap. A file that is only slightly over is cut to this size, not to half.
+const UPLOAD_FIT_BYTES = 49 * 1024 * 1024
 const PREFERRED_KBPS = 128
 const FITTING_KBPS = [128, 112, 96, 80, 64, 56, 48, 40, 32, 24, 16, 8]
 const ACCEPTED_AUDIO_EXTENSIONS = ["mp3", "m4a", "wav", "flac", "ogg", "oga", "opus", "aac", "webm", "aif", "aiff"]
 const MAX_PCM_BYTES = 256 * 1024 * 1024
 
-export function uploadBitrateKbps(durationSec: number): number {
+export function uploadBitrateKbps(durationSec: number, sourceBytes = 0, sourceBitrate = 0): number {
+  if (sourceBytes > 0 && sourceBitrate > 0) {
+    if (sourceBytes <= MAX_SONG_UPLOAD_BYTES) return PREFERRED_KBPS
+    for (const kbps of FITTING_KBPS) {
+      if (sourceBytes * (kbps * 1000) / sourceBitrate <= UPLOAD_FIT_BYTES) return kbps
+    }
+    return 8
+  }
   for (const kbps of FITTING_KBPS) {
-    if (durationSec * kbps * 1000 / 8 <= MAX_SONG_UPLOAD_BYTES) return kbps
+    if (durationSec * kbps * 1000 / 8 <= UPLOAD_FIT_BYTES) return kbps
   }
   return 8
 }
@@ -25,16 +34,17 @@ export async function prepareSongUpload(
     throw new Error(`Could not determine the duration of "${file.name}".`)
   }
 
-  const kbps = uploadBitrateKbps(duration)
   onProgress?.(0)
   let sourceBitrate = 0
   let needsEncoding = extension !== "mp3" || file.size > MAX_SONG_UPLOAD_BYTES
   if (extension === "mp3") {
     const { parseBlob } = await import("music-metadata")
     const metadata = await parseBlob(file, { skipCovers: true })
-    sourceBitrate = metadata.format.bitrate ?? (file.size * 8 / duration)
-    needsEncoding ||= Math.round(sourceBitrate) > kbps * 1000
+    const reportedBitrate = metadata.format.bitrate
+    sourceBitrate = reportedBitrate && reportedBitrate > 0 ? reportedBitrate : file.size * 8 / duration
   }
+  const kbps = uploadBitrateKbps(duration, extension === "mp3" ? file.size : 0, sourceBitrate)
+  if (sourceBitrate > 0 && Math.round(sourceBitrate) > kbps * 1000) needsEncoding = true
 
   if (!needsEncoding && kbps === PREFERRED_KBPS) {
     onProgress?.(100)
