@@ -11,10 +11,9 @@ test("the same file and bitrate keep one export key", () => {
   assert.notEqual(exportKey(file, 64), exportKey({ ...file, size: file.size + 1 }, 64))
 })
 
-test("a finished export is saved again, and the click after Escape is skipped", () => {
+test("a finished file stays ready, and a new bitrate encodes", () => {
   const key = exportKey(file, 64)
-  assert.equal(exportAction(null, key, 0, 1_000), "encode")
-  assert.equal(exportAction(key, key, 0, 1_000), "save")
-  assert.equal(exportAction(key, key, 1_500, 1_000), "skip")
-  assert.equal(exportAction(key, exportKey(file, 96), 1_500, 1_000), "encode")
+  assert.equal(exportAction(null, key), "encode")
+  assert.equal(exportAction(key, key), "ready")
+  assert.equal(exportAction(key, exportKey(file, 96)), "encode")
 })

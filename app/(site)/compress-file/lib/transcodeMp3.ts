@@ -24,8 +24,6 @@ function toInt16(samples: Float32Array): Int16Array {
   return pcm
 }
 
-export const PREVIEW_WINDOW_SEC = 30
-
 export async function transcodeMp3(
   file: File,
   kbps: number,

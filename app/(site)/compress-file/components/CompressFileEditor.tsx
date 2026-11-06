@@ -1,6 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect } from "react"
+import { FaPause, FaPlay } from "react-icons/fa"
+import { IoMdDownload } from "react-icons/io"
 import { twMerge } from "tailwind-merge"
 
 import { useExclusivePlaybackSource } from "@/app/providers/PlaybackSyncProvider"
@@ -10,14 +12,16 @@ import FileDropZone from "../../slow-and-reverb/components/FileDropZone"
 import FullScreenDropOverlay from "../../slow-and-reverb/components/FullScreenDropOverlay"
 import Waveform from "../../slow-and-reverb/components/Waveform"
 import { useDocumentDrag } from "../../slow-and-reverb/hooks/useDocumentDrag"
+import { useCompressedPreview } from "../hooks/useCompressedPreview"
 import { useCompressFileEngine } from "../hooks/useCompressFileEngine"
 import { estimateMp3Bytes, formatBitrate, formatBytes } from "../lib/bitrate"
-import { PREVIEW_WINDOW_SEC } from "../lib/transcodeMp3"
 
 function formatClock(seconds: number) {
   const whole = Math.max(0, Math.floor(seconds))
-  const minutes = Math.floor(whole / 60)
+  const hours = Math.floor(whole / 3600)
+  const minutes = Math.floor((whole % 3600) / 60)
   const remain = whole % 60
+  if (hours > 0) return `${hours}:${String(minutes).padStart(2, "0")}:${String(remain).padStart(2, "0")}`
   return `${minutes}:${String(remain).padStart(2, "0")}`
 }
 
@@ -33,37 +37,17 @@ const CompressFileEditor = () => {
     choices,
     kbpsIndex,
     setKbpsIndex,
-    isPlaying,
     pause,
     isRendering,
     encodePercent,
     encodedReady,
+    compress,
     download,
     encodePreview,
     albumArtUrl,
     previewUrl,
     getKickLevel,
   } = useCompressFileEngine()
-
-  const previewRef = useRef<HTMLAudioElement | null>(null)
-  const heardUrlRef = useRef<string | null>(null)
-  const [previewPlaying, setPreviewPlaying] = useState(false)
-  const [heardUrl, setHeardUrl] = useState<string | null>(null)
-  const [heardFrom, setHeardFrom] = useState(0)
-  const [heardFile, setHeardFile] = useState(fileName)
-  const [previewBusy, setPreviewBusy] = useState(false)
-  if (fileName !== heardFile) {
-    setHeardFile(fileName)
-    setHeardFrom(0)
-  }
-
-  useExclusivePlaybackSource({
-    isPlaying: isPlaying || previewPlaying,
-    onStop: () => {
-      pause()
-      previewRef.current?.pause()
-    },
-  })
 
   const { isDragging } = useDocumentDrag()
 
@@ -75,32 +59,6 @@ const CompressFileEditor = () => {
     window.addEventListener("beforeunload", handler)
     return () => window.removeEventListener("beforeunload", handler)
   }, [isRendering])
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.code !== "Space" && event.key !== " ") return
-      const el = document.activeElement as HTMLElement | null
-      const tag = el?.tagName
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "AUDIO" || el?.isContentEditable) return
-      const preview = previewRef.current
-      if (!preview) return
-      event.preventDefault()
-      el?.blur()
-      if (preview.paused) void preview.play()
-      else preview.pause()
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [])
-
-  const stopPreview = () => {
-    setPreviewPlaying(false)
-    if (heardUrlRef.current) URL.revokeObjectURL(heardUrlRef.current)
-    heardUrlRef.current = null
-    setHeardUrl(null)
-    setHeardFrom(0)
-    clear()
-  }
 
   const chosenKbps = choices[kbpsIndex]
   const estimate = chosenKbps == null ? null : estimateMp3Bytes(duration, chosenKbps)
@@ -120,42 +78,36 @@ const CompressFileEditor = () => {
     )
 
   const isEmpty = !fileName || (!buffer && !previewUrl)
+  const preview = useCompressedPreview({
+    active: !isEmpty && chosenKbps != null,
+    durationSec: duration,
+    kbps: chosenKbps ?? null,
+    fileName,
+    encodeChunk: encodePreview,
+  })
+
+  useExclusivePlaybackSource({
+    isPlaying: preview.playing,
+    onStop: () => {
+      pause()
+      preview.pause()
+    },
+  })
 
   useEffect(() => {
-    if (chosenKbps == null || isEmpty) return
-    let cancelled = false
-    const timer = window.setTimeout(() => {
-      setPreviewBusy(true)
-      void encodePreview(heardFrom).then(file => {
-        if (cancelled || !file) return
-        const url = URL.createObjectURL(file)
-        if (heardUrlRef.current) URL.revokeObjectURL(heardUrlRef.current)
-        heardUrlRef.current = url
-        setHeardUrl(url)
-        const audio = previewRef.current
-        if (audio) {
-          const wasPlaying = !audio.paused
-          audio.src = url
-          audio.currentTime = 0
-          if (wasPlaying) void audio.play()
-        }
-      }).catch(error => {
-        console.error("Could not prepare the bitrate preview", error)
-      }).finally(() => {
-        if (!cancelled) setPreviewBusy(false)
-      })
-    }, 300)
-    return () => {
-      cancelled = true
-      window.clearTimeout(timer)
+    const onKey = (event: KeyboardEvent) => {
+      if (event.code !== "Space" && event.key !== " ") return
+      const el = document.activeElement as HTMLElement | null
+      const tag = el?.tagName
+      if (tag === "INPUT" || tag === "TEXTAREA" || el?.isContentEditable) return
+      if (isEmpty) return
+      event.preventDefault()
+      el?.blur()
+      preview.toggle()
     }
-  }, [chosenKbps, encodePreview, fileName, heardFrom, isEmpty])
-
-  useEffect(() => {
-    return () => {
-      if (heardUrlRef.current) URL.revokeObjectURL(heardUrlRef.current)
-    }
-  }, [])
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [isEmpty, preview.toggle])
 
   if (isEmpty) {
     return (
@@ -186,7 +138,7 @@ const CompressFileEditor = () => {
         albumArtUrl={albumArtUrl}
         pitchEnabled={false}
         pitchSemitones={0}
-        isPlaying={previewPlaying}
+        isPlaying={preview.playing}
         getKickLevel={getKickLevel}
       />
 
@@ -196,7 +148,10 @@ const CompressFileEditor = () => {
             <div className="inline-flex items-center gap-2 rounded-lg bg-elevated border border-white/10 px-4 py-1.5 text-sm text-neutral-300 max-w-full">
               <span className="truncate">{fileName}</span>
               <button
-                onClick={stopPreview}
+                onClick={() => {
+                  preview.stop()
+                  clear()
+                }}
                 className="text-neutral-500 hover:text-white ml-1"
                 aria-label="Clear file">
                 ×
@@ -208,48 +163,51 @@ const CompressFileEditor = () => {
             <Waveform
               buffer={buffer}
               duration={duration}
-              isPlaying={previewPlaying}
-              getPosition={() => heardFrom + (previewRef.current?.currentTime ?? 0)}
-              onSeek={seconds => setHeardFrom(Math.max(0, Math.min(seconds, Math.max(0, duration - 0.1))))}
-              onTogglePlay={() => {
-                const preview = previewRef.current
-                if (!preview) return
-                if (preview.paused) void preview.play()
-                else preview.pause()
-              }}
+              isPlaying={preview.playing}
+              getPosition={preview.getPosition}
+              onSeek={preview.seek}
+              onTogglePlay={preview.toggle}
             />
           )}
-          {(buffer || previewUrl) && (
-            <div className="flex flex-col gap-2">
-              <audio
-                ref={previewRef}
-                src={heardUrl ?? undefined}
-                controls
-                loop={false}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-3 rounded-full bg-neutral-800 px-3 py-2">
+              <button
+                type="button"
+                aria-label={preview.playing ? "Pause preview" : "Play preview"}
+                onClick={preview.toggle}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-black">
+                {preview.playing ? <FaPause className="h-3 w-3" /> : <FaPlay className="ml-0.5 h-3 w-3" />}
+              </button>
+              <span className="shrink-0 text-xs tabular-nums text-neutral-300">
+                {formatClock(preview.positionSec)} / {formatClock(duration)}
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={Math.max(duration, 0.1)}
+                step={0.1}
+                value={Math.min(preview.positionSec, Math.max(duration, 0))}
+                aria-label="Preview position"
+                onChange={event => preview.seek(Number(event.target.value))}
                 className="w-full"
-                onPlay={() => setPreviewPlaying(true)}
-                onPause={() => setPreviewPlaying(false)}
               />
-              {previewUrl && !buffer && duration > PREVIEW_WINDOW_SEC && (
-                <label className="flex flex-col gap-1 text-xs text-neutral-400">
-                  Preview start
-                  <input
-                    type="range"
-                    min={0}
-                    max={Math.max(0, duration - 0.1)}
-                    step={1}
-                    value={Math.min(heardFrom, Math.max(0, duration - 0.1))}
-                    onChange={event => setHeardFrom(Number(event.target.value))}
-                  />
-                </label>
-              )}
-              <p className="text-center text-xs text-neutral-500">
-                {previewBusy || !heardUrl
-                  ? `Preparing the ${chosenKbps ?? ""} kbps preview.`
-                  : `Preview is ${chosenKbps} kbps, ${PREVIEW_WINDOW_SEC}s from ${formatClock(heardFrom)}.`}
-              </p>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={preview.volume}
+                aria-label="Preview volume"
+                onChange={event => preview.setVolume(Number(event.target.value))}
+                className="w-16 shrink-0"
+              />
             </div>
-          )}
+            <p className="text-center text-xs text-neutral-500" role="status">
+              {preview.preparing
+                ? `Preparing the ${chosenKbps ?? ""} kbps preview.`
+                : `Preview plays ${chosenKbps} kbps.`}
+            </p>
+          </div>
 
           <div className="flex flex-col gap-2">
             <div className="text-center text-xs uppercase tracking-widest text-neutral-400">Bitrate</div>
@@ -311,15 +269,25 @@ const CompressFileEditor = () => {
           </div>
 
           <div className="flex flex-col items-center gap-1 pt-2">
-            <button
-              type="button"
-              onClick={download}
-              disabled={isRendering || chosenKbps == null}
-              className="px-5 py-2.5 text-sm font-bold bg-neon text-black hover:bg-neon-strong rounded-full transition flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed">
-              {encodedReady ? "Download" : "Compress"}
-            </button>
-            {encodedReady && !isRendering && (
-              <p className="text-neutral-500 text-xs">Ready to download. This file and bitrate stay encoded.</p>
+            {encodedReady && !isRendering ? (
+              <>
+                <p className="text-sm font-bold text-white" role="status">Compressed</p>
+                <button
+                  type="button"
+                  onClick={download}
+                  className="px-5 py-2.5 text-sm font-bold bg-neon text-black hover:bg-neon-strong rounded-full transition flex items-center justify-center gap-2">
+                  <IoMdDownload size={18} aria-hidden="true" />
+                  Download
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { void compress() }}
+                disabled={isRendering || chosenKbps == null}
+                className="px-5 py-2.5 text-sm font-bold bg-neon text-black hover:bg-neon-strong rounded-full transition flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed">
+                Compress
+              </button>
             )}
             {isRendering && (
               <div className="flex w-full max-w-xs flex-col gap-1">
