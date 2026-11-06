@@ -35,7 +35,7 @@ test("non-administrators cannot create songs or change tags, before storage/cata
 })
 test("administrator edits normalize and clear tags; invalid tags never write", async () => {
   const writes=[]
-  const query={select:()=>query,eq:()=>query,maybeSingle:async()=>({data:{user_id:"administrator",image_path:null},error:null}),
+  const query={select:()=>query,eq:()=>query,limit:()=>query,maybeSingle:async()=>({data:{user_id:"administrator",image_path:null},error:null}),
     update:values=>({eq:async()=>{writes.push(values);return {error:null}}})}
   const edit=await load("../app/api/songs/[id]/route.ts", {
     "next/server":{NextResponse},"@/libs/songTags":tags,"@/libs/getOwnerIds":{isOwnerId:id=>id==="administrator"},

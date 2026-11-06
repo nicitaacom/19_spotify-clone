@@ -91,6 +91,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "You cannot edit this song." }, { status: 403 })
     }
 
+    const { data: playlistRow, error: playlistRowError } = await admin
+      .from("19_playlist_songs")
+      .select("song_id")
+      .eq("song_id", Number(id))
+      .limit(1)
+      .maybeSingle()
+    if (playlistRowError) throw playlistRowError
+    if (!playlistRow) {
+      return NextResponse.json({ error: "Add this song to a playlist first." }, { status: 400 })
+    }
+
     let previousAccess: boolean | null = null
     if (playlistId) {
       const [{ data: playlist, error: playlistError }, { data: membership, error: membershipError }, access] = await Promise.all([
