@@ -68,7 +68,7 @@ onpause: () => {
 
 **Fix:**
 
-- `usePlayer.startPlayback` atomically sets the queue, active song, loading state, and a new `play` command. Initial selection, next, previous, and repeat-all use this action.
+- `usePlayer.startPlayback` atomically sets the queue, active song, loading state, and a new `play` command. Initial selection, next, and previous use this action. Next plays the following queue song and stops after the last one. Previous wraps to the last song. The advance control is `next` (following song) or `one` (same song).
 - `PlayerContent` waits for its sound instance, then handles each command ID once. It no longer has a separate mount-autoplay path.
 - Every start goes through `playSound`, which skips calls while Howler is already playing or a request is pending. Natural end reads current repeat and queue state through a ref.
 - Cleanup saves the position only when the same track is being reloaded. A new sound instance replays the command and restores that position after playback starts.
@@ -131,13 +131,21 @@ therefore attaches listeners to the HTML5 audio node owned by the Howl:
 
 - `waiting`, `stalled`, and media `error` switch the control to a buffering spinner
 - `playing` clears buffering as soon as media is flowing again
-- a five-second watchdog reloads the stream and retries from the exact current position without
-  creating a second audio node
+- a five-second watchdog retries from the current position while that position is still inside the song
+- the ended event, a freeze in the last 0.45 seconds, and a jump from later than 2 seconds back to the first second all advance to the following queue song
 - an `online` event retries immediately after connectivity returns
 - after three failed retries playback is paused and the user gets an error instead of an
   indefinitely stuck pause button/progress bar
 
 The buffering spinner remains clickable so the user can cancel recovery and pause.
+
+### Bug: the same song starts again while Next song will play is showing
+
+Symptom: the advance control showed Next song will play, and the finished song started from 0.
+
+The player reads a signed storage address. That file can jump back to the start when the bytes finish. `libs/playerTrackEnd.ts` treats that jump, a freeze in the last 0.45 seconds, and the ended event as the end. `handleEnd` then plays the following queue song. The same song plays from the start only when the control shows This song repeats.
+
+A seek from the progress bar, the replay control, or the 0 key is ignored by that check. A stall in the middle of the song still retries in place. A stall in the last 0.45 seconds advances.
 
 ## Exclusive playback across tabs
 
