@@ -18,7 +18,7 @@ It is re-encoded when any of these is true:
 - the file is over 50 MiB
 - the source bitrate is over the chosen step (a 320 kbps MP3 under the cap becomes 128 kbps)
 
-A second Create during that work does not insert another song. `songCreateBusy` stays set for the whole prepare-and-send, including a second modal instance, and the form is cleared before the button enables again. Held Ctrl+Enter does not submit on each key repeat. The upload route also reuses a song with the same title, author, and byte size from the last 3 minutes, so two requests still leave one playlist row.
+A second Create during that work does not insert another song. `songCreateBusy` stays set for the whole prepare-and-send, including a second modal instance, and the form is cleared before the button enables again. Held Ctrl+Enter does not submit on each key repeat. The upload route rejects another create with the same user, title, author, and byte size from the last 3 minutes. The error is `same song <title> already exists`.
 
 ## Bitrate step
 

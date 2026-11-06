@@ -1,5 +1,23 @@
 export const RECENT_UPLOAD_MS = 3 * 60 * 1000
 
+export function sameSongExistsMessage(songName: string) {
+  return `same song ${songName} already exists`
+}
+
+export function isSameSongExistsMessage(message: string) {
+  return message.startsWith("same song ") && message.endsWith(" already exists") && message.length > "same song  already exists".length
+}
+
+export function sameSongErrorText(bodyText: string) {
+  try {
+    const body = JSON.parse(bodyText) as { error?: unknown }
+    if (typeof body.error === "string" && isSameSongExistsMessage(body.error)) return body.error
+  } catch {
+    return ""
+  }
+  return ""
+}
+
 export function createdInsideWindow(createdAt: string | null | undefined, nowMs: number, windowMs = RECENT_UPLOAD_MS) {
   if (!createdAt) return false
   const created = Date.parse(createdAt)

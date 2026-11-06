@@ -18,6 +18,7 @@ import { verifyTurnstileTokenFn } from "@/app/utils/verifyTurnstileToken"
 import { PlaylistOption } from "@/types"
 import supabaseClient from "@/libs/supabaseClient"
 import { errorText, httpErrorMessage } from "@/libs/errorText"
+import { isSameSongExistsMessage, sameSongErrorText } from "@/libs/songCreateGuard"
 import {
   byteSendPercent,
   formatTimeLeft,
@@ -710,7 +711,8 @@ const AddASongModal = () => {
           }
           return
         }
-        finish(() => reject(new Error(httpErrorMessage({
+        const sameSongError = sameSongErrorText(xhr.responseText)
+        finish(() => reject(new Error(sameSongError || httpErrorMessage({
           action: `Upload of "${songName}"`,
           status: xhr.status,
           statusText: xhr.statusText,
@@ -873,7 +875,8 @@ const AddASongModal = () => {
       resetTurnstileFn()
       window.setTimeout(() => document.getElementById("title")?.focus(), 0)
     } catch (error) {
-      setUploadError(errorText(error))
+      const message = error instanceof Error ? error.message : ""
+      setUploadError(isSameSongExistsMessage(message) ? message : errorText(error))
     } finally {
       songCreateBusy = false
       submitGuard.current = false
