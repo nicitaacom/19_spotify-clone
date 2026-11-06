@@ -31,10 +31,9 @@ async function findRecentUpload(userId: string, title: string, author: string, s
 
 async function claimUploadSlot(slotPath: string): Promise<"claimed" | "busy"> {
   const body = new TextEncoder().encode(String(Date.now()))
-  const first = await supabaseAdmin.storage.from("songs").upload(slotPath, body, {
-    upsert: false,
-    contentType: "text/plain",
-  })
+  // The songs bucket allows only audio/mpeg and audio/mp4.
+  const lockUpload = { upsert: false, contentType: "audio/mpeg" }
+  const first = await supabaseAdmin.storage.from("songs").upload(slotPath, body, lockUpload)
   if (!first.error) return "claimed"
   if (!isStoredObjectPresent(first.error)) throw new Error(errorText(first.error))
   const downloaded = await supabaseAdmin.storage.from("songs").download(slotPath)
@@ -43,10 +42,7 @@ async function claimUploadSlot(slotPath: string): Promise<"claimed" | "busy"> {
     : Number.NaN
   if (!lockIsStale(started, Date.now())) return "busy"
   await supabaseAdmin.storage.from("songs").remove([slotPath])
-  const second = await supabaseAdmin.storage.from("songs").upload(slotPath, new TextEncoder().encode(String(Date.now())), {
-    upsert: false,
-    contentType: "text/plain",
-  })
+  const second = await supabaseAdmin.storage.from("songs").upload(slotPath, new TextEncoder().encode(String(Date.now())), lockUpload)
   if (!second.error) return "claimed"
   if (!isStoredObjectPresent(second.error)) throw new Error(errorText(second.error))
   return "busy"
