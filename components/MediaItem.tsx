@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { FiEdit2 } from "react-icons/fi"
 import { twMerge } from "tailwind-merge"
 
 import useLoadImage from "@/hooks/useLoadImage"
@@ -19,9 +20,10 @@ interface MediaItemProps {
   onPlaylistClick?: () => void
   matchedTags?: string[]
   songHref?: string
+  onEdit?: () => void
 }
 
-const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleClassName, playlists = [], onPlaylistClick, matchedTags = [], songHref = "" }) => {
+const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleClassName, playlists = [], onPlaylistClick, matchedTags = [], songHref = "", onEdit }) => {
   const player = usePlayer()
   const imageUrl = useLoadImage(data)
   const lockedPaid = data.is_paid === true && data.can_play === false
@@ -118,6 +120,18 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleCl
           ))}
         </div>
       </div>
+      {onEdit && (
+        <button
+          type="button"
+          aria-label={`Edit ${data.title}`}
+          className="ml-auto shrink-0 text-neutral-400 transition hover:text-white"
+          onClick={event => {
+            event.stopPropagation()
+            onEdit()
+          }}>
+          <FiEdit2 size={22} />
+        </button>
+      )}
     </div>
   )
 }
