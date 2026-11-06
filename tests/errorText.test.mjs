@@ -14,7 +14,7 @@ async function compile(path) {
   return compiledModule.exports
 }
 
-const { errorText, httpErrorMessage } = await compile("../libs/errorText.ts")
+const { backupErrorBody, errorText, httpErrorMessage } = await compile("../libs/errorText.ts")
 
 test("an empty HTTP body keeps the status and the empty-body sentence", () => {
   const message = httpErrorMessage({ action: "Upload of \"demo.mp3\"", status: 503, statusText: "", bodyText: "" })
@@ -34,6 +34,19 @@ test("a JSON error body keeps the server fields", () => {
   assert.match(message, /Playlist not found\./)
   assert.match(message, /code PGRST116/)
   assert.match(message, /0 rows/)
+})
+
+test("a backup error keeps the name, message, database fields, and file path", () => {
+  const error = new Error("permission denied for table 19_songs")
+  error.name = "PostgrestError"
+  error.code = "42501"
+  error.details = "0 rows"
+  error.hint = "Grant select."
+  const body = backupErrorBody(error, "songs/room.mp3")
+  assert.equal(body.error, "PostgrestError: permission denied for table 19_songs (songs/room.mp3)")
+  assert.equal(body.code, "42501")
+  assert.equal(body.details, "0 rows")
+  assert.equal(body.hint, "Grant select.")
 })
 
 test("error text keeps the name, message, cause, and database code", () => {

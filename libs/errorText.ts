@@ -31,6 +31,20 @@ export function errorText(error: unknown): string {
   return `Error: ${String(error)}`
 }
 
+export function backupErrorBody(error: unknown, path?: string) {
+  const fields = error && typeof error === "object" ? error as Record<string, unknown> : {}
+  const name = typeof fields.name === "string" && fields.name.trim() ? fields.name.trim() : "Error"
+  const rawMessage = typeof fields.message === "string" ? fields.message.trim() : ""
+  const text = rawMessage ? `${name}: ${rawMessage}` : errorText(error)
+  const where = path ? ` (${path})` : ""
+  return {
+    error: `${text}${where}`,
+    code: fields.code,
+    details: fields.details,
+    hint: fields.hint,
+  }
+}
+
 export function namedError(name: string, message: string, cause?: unknown): Error {
   const error = new Error(message)
   error.name = name

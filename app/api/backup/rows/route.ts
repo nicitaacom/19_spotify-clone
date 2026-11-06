@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { backupErrorBody } from "@/libs/errorText"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { requireUser } from "../requireUser"
 import { BACKUP_TABLES, getTableConfig, assertBackupAccess } from "@/app/features/backup/backupTables"
@@ -20,6 +21,7 @@ export const maxDuration = 60
 //
 // Response: { tables: Record<table, rows[]> }
 export async function GET() {
+  try {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
   const { userId } = auth
@@ -33,16 +35,19 @@ export async function GET() {
   for (const table of BACKUP_TABLES) {
     if (table.scopeSelect) {
       const { data, error } = await table.scopeSelect(supabaseAdmin, userId)
-      if (error) return NextResponse.json({ error: error.message, code: error.code, details: error.details, hint: error.hint }, { status: 500 })
+      if (error) return NextResponse.json(backupErrorBody(error), { status: 500 })
       tables[table.name] = data ?? []
     } else {
       const { data, error } = await supabaseAdmin.from(table.name as TableName).select("*")
-      if (error) return NextResponse.json({ error: error.message, code: error.code, details: error.details, hint: error.hint }, { status: 500 })
+      if (error) return NextResponse.json(backupErrorBody(error), { status: 500 })
       tables[table.name] = data ?? []
     }
   }
 
   return NextResponse.json({ tables })
+  } catch (error: unknown) {
+    return NextResponse.json(backupErrorBody(error), { status: 500 })
+  }
 }
 
 type PostBody = { table?: string; rows?: Record<string, unknown>[] }
@@ -55,6 +60,7 @@ type PostBody = { table?: string; rows?: Record<string, unknown>[] }
 // skipped, and 19_playlist_songs rows are further filtered to playlists the user owns.
 // Returns { rows, skipped } or the raw Postgres error.
 export async function POST(req: Request) {
+  try {
   const { table, rows } = (await req.json().catch(() => ({}))) as PostBody
 
   const config = table ? getTableConfig(table) : undefined
@@ -83,6 +89,9 @@ export async function POST(req: Request) {
   // ownedRows' shape varies per dynamic table (backupConfig.ts), so no single table's upsert row type fits it
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await supabaseAdmin.from(config.name as TableName).upsert(ownedRows as any, { onConflict: config.onConflict })
-  if (error) return NextResponse.json({ error: error.message, code: error.code, details: error.details, hint: error.hint }, { status: 500 })
+  if (error) return NextResponse.json(backupErrorBody(error), { status: 500 })
   return NextResponse.json({ rows: ownedRows.length, skipped })
+  } catch (error: unknown) {
+    return NextResponse.json(backupErrorBody(error), { status: 500 })
+  }
 }

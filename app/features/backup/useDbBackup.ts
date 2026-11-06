@@ -2,6 +2,18 @@ import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "react-hot-toast"
 import { errorText } from "@/libs/errorText"
+
+function showBackupError(message: string) {
+  toast.error(message, {
+    duration: 12000,
+    style: {
+      maxWidth: "min(36rem, calc(100vw - 2rem))",
+      whiteSpace: "pre-wrap",
+      overflowWrap: "anywhere",
+      textAlign: "left",
+    },
+  })
+}
 import { exportTables, exportFiles, importTables, importFiles, downloadBlob, TablesImportResult, FilesImportResult } from "./BackupSDK"
 
 type TablesExportPhase = "idle" | "exporting" | "done" | "error"
@@ -106,7 +118,7 @@ export function useDbBackup() {
       setTablesExportPhase("error")
       const message = errorText(err)
       setTablesExportError(message)
-      toast.error(message)
+      showBackupError(message)
     }
   }
 
@@ -130,7 +142,7 @@ export function useDbBackup() {
       setFilesExportPhase("error")
       const message = errorText(err)
       setFilesExportError(message)
-      toast.error(message)
+      showBackupError(message)
     }
   }
 
@@ -161,7 +173,7 @@ export function useDbBackup() {
       setFilesImportPhase("error")
       const message = errorText(err)
       setFilesImportError(message)
-      toast.error(message)
+      showBackupError(message)
     }
   }
 
@@ -192,7 +204,7 @@ export function useDbBackup() {
       setTablesImportPhase("error")
       const message = errorText(err)
       setTablesImportError(message)
-      toast.error(message)
+      showBackupError(message)
     }
   }
 

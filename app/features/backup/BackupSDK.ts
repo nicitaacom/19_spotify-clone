@@ -67,7 +67,7 @@ const failedResponseMessage = (response: Response, action: string) => readHttpEr
  */
 export async function exportTables(onProgress: (done: number, total: number) => void): Promise<{ fileName: string; blob: Blob }> {
   const rowsRes = await fetch("/api/backup/rows")
-  if (!rowsRes.ok) throw new Error(await failedResponseMessage(rowsRes, "Failed to fetch table rows"))
+  if (!rowsRes.ok) throw new Error(await failedResponseMessage(rowsRes, "Fetch table rows"))
   const { tables }: { tables: Record<string, Record<string, unknown>[]> } = await rowsRes.json()
 
   const tarChunks: Buffer[] = []
@@ -204,19 +204,7 @@ export async function importTables(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ table: table.name, rows: batch }),
       })
-      if (!res.ok) {
-        const responseText = await res.text().catch(() => "")
-        let message: string | undefined
-        try {
-          const body = JSON.parse(responseText)
-          message = [body?.error, body?.code ? `(code: ${body.code})` : null, body?.details, body?.hint ? `Hint: ${body.hint}` : null]
-            .filter(Boolean)
-            .join(" — ")
-        } catch {
-          message = responseText || undefined
-        }
-        throw new Error(`Failed to import ${table.name} (${res.status})${message ? `: ${message}` : ""}`)
-      }
+      if (!res.ok) throw new Error(await readHttpError(res, `Import ${table.name}`))
       const { rows: rowsUpserted, skipped } = await res.json()
       importedRows += rowsUpserted
       skippedRows += skipped ?? 0
@@ -244,7 +232,7 @@ export async function exportFiles(
   onProgress: (done: number, total: number) => void,
 ): Promise<{ fileName: string; blob: Blob }> {
   const filesRes = await fetch(`/api/backup/files`)
-  if (!filesRes.ok) throw new Error(await failedResponseMessage(filesRes, "Failed to fetch file list"))
+  if (!filesRes.ok) throw new Error(await failedResponseMessage(filesRes, "Fetch file list"))
   const { files: allFiles }: { files: BackupFileRef[] } = await filesRes.json()
   const files = includeImages ? allFiles : allFiles.filter(file => file.bucket !== "images")
 
@@ -293,6 +281,7 @@ export async function exportFiles(
 
 export interface FilesImportResult {
   buckets: { bucket: string; files: number; failed: number }[]
+  failure?: string
 }
 
 type ArchiveFile = { bucket: string; path: string; bytes: Uint8Array; contentType: string }
@@ -354,6 +343,7 @@ export async function importFiles(
   const byPath = new Map(archiveFiles.map(archiveFile => [`${archiveFile.bucket}/${archiveFile.path}`, archiveFile]))
   const bucketStats: Record<string, { files: number; failed: number }> = {}
   const firstErrorByBucket: Record<string, string> = {}
+  let firstSkipReason = ""
   let done = 0
 
   const bumpStat = (bucket: string, key: "files" | "failed") => {
@@ -369,40 +359,32 @@ export async function importFiles(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ files: batch.map(archiveFile => ({ bucket: archiveFile.bucket, path: archiveFile.path })) }),
     })
-    if (!res.ok) {
-      const responseText = await res.text().catch(() => "")
-      let message: string | undefined
-      try {
-        message = JSON.parse(responseText)?.error
-      } catch {
-        message = responseText || undefined
-      }
-      throw new Error(`Failed to prepare file upload (${res.status})${message ? `: ${message}` : ""}`)
-    }
+    if (!res.ok) throw new Error(await readHttpError(res, "Prepare file upload"))
 
     const { results }: { results: UploadTarget[] } = await res.json()
 
-    for (const target of results) {
-      const archiveFile = byPath.get(`${target.bucket}/${target.path}`)
+    for (const uploadItem of results) {
+      const archiveFile = byPath.get(`${uploadItem.bucket}/${uploadItem.path}`)
       done++
 
-      if ("skipped" in target) {
-        bumpStat(target.bucket, "failed")
+      if ("skipped" in uploadItem) {
+        bumpStat(uploadItem.bucket, "failed")
+        if (!firstSkipReason) firstSkipReason = `${uploadItem.bucket}/${uploadItem.path}: ${uploadItem.reason}`
         continue
       }
       if (!archiveFile) {
-        bumpStat(target.bucket, "failed")
+        bumpStat(uploadItem.bucket, "failed")
         continue
       }
 
-      onProgress(done, archiveFiles.length, `Uploading ${target.bucket}/${target.path.split("/").pop()}…`)
+      onProgress(done, archiveFiles.length, `Uploading ${uploadItem.bucket}/${uploadItem.path.split("/").pop()}…`)
       const uploadBlob = new Blob([archiveFile.bytes], { type: archiveFile.contentType })
       try {
-        await uploadToSignedUrlWithProgress(target.signedUrl, uploadBlob, () => {})
-        bumpStat(target.bucket, "files")
+        await uploadToSignedUrlWithProgress(uploadItem.signedUrl, uploadBlob, () => {})
+        bumpStat(uploadItem.bucket, "files")
       } catch (error: unknown) {
-        bumpStat(target.bucket, "failed")
-        if (!firstErrorByBucket[target.bucket]) firstErrorByBucket[target.bucket] = errorText(error)
+        bumpStat(uploadItem.bucket, "failed")
+        if (!firstErrorByBucket[uploadItem.bucket]) firstErrorByBucket[uploadItem.bucket] = errorText(error)
       }
     }
   }
@@ -410,12 +392,15 @@ export async function importFiles(
   // Surface a real error only if EVERY file failed — a partial success still returns counts so the
   // user sees what landed and what didn't, rather than a blanket failure.
   const totalUploaded = Object.values(bucketStats).reduce((sum, stat) => sum + stat.files, 0)
+  const failure = Object.values(firstErrorByBucket)[0] || firstSkipReason
   if (totalUploaded === 0) {
-    const firstError = Object.values(firstErrorByBucket)[0]
-    throw new Error(firstError ?? "No files were uploaded — every path was skipped (import tables first so the files are recognized as yours).")
+    throw new Error(failure || "No files were uploaded — every path was skipped (import tables first so the files are recognized as yours).")
   }
 
-  return { buckets: Object.entries(bucketStats).map(([bucket, stat]) => ({ bucket, ...stat })) }
+  return {
+    buckets: Object.entries(bucketStats).map(([bucket, stat]) => ({ bucket, ...stat })),
+    failure: failure || undefined,
+  }
 }
 
 export function downloadBlob(blob: Blob, fileName: string) {

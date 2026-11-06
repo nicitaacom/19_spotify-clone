@@ -133,9 +133,9 @@ export function DbBackupModal() {
                 )}
 
                 {backup.tablesExportPhase === "error" && (
-                  <div className="flex items-start gap-x-2 text-sm text-red-400">
+                  <div className="flex items-start gap-x-2 text-sm text-red-400" role="alert">
                     <FiAlertCircle size={14} className="mt-0.5 shrink-0" />
-                    <span className="break-words">{backup.tablesExportError ?? "Tables export failed."}</span>
+                    <span className="min-w-0 break-words">{backup.tablesExportError ?? "Tables export failed."}</span>
                   </div>
                 )}
               </div>
@@ -202,9 +202,9 @@ export function DbBackupModal() {
                 )}
 
                 {backup.tablesImportPhase === "error" && (
-                  <div className="flex items-start gap-x-2 text-sm text-red-400">
+                  <div className="flex items-start gap-x-2 text-sm text-red-400" role="alert">
                     <FiAlertCircle size={14} className="mt-0.5 shrink-0" />
-                    <span className="break-words">{backup.tablesImportError ?? "Tables import failed."}</span>
+                    <span className="min-w-0 break-words">{backup.tablesImportError ?? "Tables import failed."}</span>
                   </div>
                 )}
               </div>
@@ -276,9 +276,9 @@ export function DbBackupModal() {
                 )}
 
                 {backup.filesExportPhase === "error" && (
-                  <div className="flex items-start gap-x-2 text-sm text-red-400">
+                  <div className="flex items-start gap-x-2 text-sm text-red-400" role="alert">
                     <FiAlertCircle size={14} className="mt-0.5 shrink-0" />
-                    <span className="break-words">{backup.filesExportError ?? "Files export failed."}</span>
+                    <span className="min-w-0 break-words">{backup.filesExportError ?? "Files export failed."}</span>
                   </div>
                 )}
               </div>
@@ -340,13 +340,16 @@ export function DbBackupModal() {
                         </span>
                       </div>
                     ))}
+                    {backup.filesImportResult.failure && (
+                      <p className="min-w-0 break-words text-xs text-red-300" role="alert">{backup.filesImportResult.failure}</p>
+                    )}
                   </div>
                 )}
 
                 {backup.filesImportPhase === "error" && (
-                  <div className="flex items-start gap-x-2 text-sm text-red-400">
+                  <div className="flex items-start gap-x-2 text-sm text-red-400" role="alert">
                     <FiAlertCircle size={14} className="mt-0.5 shrink-0" />
-                    <span className="break-words">{backup.filesImportError ?? "Files import failed."}</span>
+                    <span className="min-w-0 break-words">{backup.filesImportError ?? "Files import failed."}</span>
                   </div>
                 )}
               </div>
@@ -359,7 +362,7 @@ export function DbBackupModal() {
         {showStallNotice && (
           <div className="flex items-start gap-x-2 rounded-md border border-amber-400/30 bg-amber-400/10 p-2.5 text-xs text-amber-300">
             <FiClock size={13} className="mt-0.5 shrink-0" />
-            <span className="break-words">
+            <span className="min-w-0 break-words">
               Taking longer than usual{backup.activeLabel ? ` — still ${backup.activeLabel}` : ""}. A large library or a
               slow connection can cause this; leave this open while it finishes.
             </span>

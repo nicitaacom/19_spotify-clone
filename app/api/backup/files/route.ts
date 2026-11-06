@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { PostgrestError } from "@supabase/supabase-js"
-import { errorText } from "@/libs/errorText"
+import { backupErrorBody, errorText } from "@/libs/errorText"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { requireUser } from "../requireUser"
@@ -17,21 +16,8 @@ export const maxDuration = 60
 // per-user here: it derives paths from the caller's own 19_songs rows.
 //
 // Response: { files: BackupFileRef[] }
-const backupJsonError = (error: unknown, path?: string) => {
-  const named = error instanceof Error ? error : null
-  const pgError = error as Partial<PostgrestError>
-  const name = named?.name || "Error"
-  const message = named?.message || pgError.message || errorText(error)
-  return NextResponse.json(
-    {
-      error: path ? `${name}: ${message} (${path})` : `${name}: ${message}`,
-      code: pgError.code,
-      details: pgError.details,
-      hint: pgError.hint,
-    },
-    { status: 500 },
-  )
-}
+const backupJsonError = (error: unknown, path?: string) =>
+  NextResponse.json(backupErrorBody(error, path), { status: 500 })
 
 export async function GET() {
   try {
@@ -90,6 +76,7 @@ const MAX_FILES_PER_REQUEST = 100
 //
 // Response: { results: UploadTarget[] }
 export async function POST(req: Request) {
+  try {
   const { files } = (await req.json().catch(() => ({}))) as PostBody
 
   if (!Array.isArray(files) || files.length === 0) {
@@ -117,7 +104,12 @@ export async function POST(req: Request) {
       continue
     }
 
-    const isOwned = await isOwnedFile(supabaseAdmin, userId, bucket, path)
+    let isOwned = false
+    try {
+      isOwned = await isOwnedFile(supabaseAdmin, userId, bucket, path)
+    } catch (error: unknown) {
+      return backupJsonError(error, `${bucket}/${path}`)
+    }
     if (!isOwned) {
       results.push({ bucket, path, skipped: true, reason: "path not found in your songs — import tables first" })
       continue
@@ -125,11 +117,14 @@ export async function POST(req: Request) {
 
     const { data, error: urlError } = await supabaseAdmin.storage.from(bucket).createSignedUploadUrl(path, { upsert: true })
     if (urlError || !data) {
-      results.push({ bucket, path, skipped: true, reason: urlError?.message ?? "could not create upload URL" })
+      results.push({ bucket, path, skipped: true, reason: urlError ? errorText(urlError) : "could not create upload URL" })
       continue
     }
     results.push({ bucket, path, signedUrl: data.signedUrl })
   }
 
   return NextResponse.json({ results })
+  } catch (error: unknown) {
+    return backupJsonError(error)
+  }
 }
