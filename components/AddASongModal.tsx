@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useRef, useState, useEffect, useCallback } from "react"
+import { createPortal } from "react-dom"
 import { FieldValues, SubmitHandler, useForm, useWatch } from "react-hook-form"
 import { toast } from "react-hot-toast"
 import { usePathname, useRouter } from "next/navigation"
@@ -17,6 +18,15 @@ import { verifyTurnstileTokenFn } from "@/app/utils/verifyTurnstileToken"
 import { PlaylistOption } from "@/types"
 import supabaseClient from "@/libs/supabaseClient"
 import { errorText, httpErrorMessage } from "@/libs/errorText"
+import {
+  byteSendPercent,
+  formatTimeLeft,
+  remainingSendMs,
+  SEND_QUIET_MS,
+  storePercent,
+  storeWaitLimitMs,
+  uploadButtonLabel,
+} from "@/libs/uploadProgress"
 import { getPlaylistSlug, getPlaylistSlugPreservingCase } from "@/libs/helpers"
 
 import Modal from "./Modal"
@@ -27,22 +37,52 @@ import { SongTagsInput } from "./SongTagsInput"
 import { inferPlaylistGenreTags, songTagsWithDraft } from "@/libs/songTags"
 import { fetchBilingualSongTags } from "@/libs/fetchBilingualSongTags"
 import { usePlaylistRecentTags } from "@/hooks/usePlaylistRecentTags"
+import { useDocumentDrag } from "@/app/(site)/slow-and-reverb/hooks/useDocumentDrag"
+import { IMAGE_MIME_BY_EXTENSION } from "@/libs/imageFiles"
+import { SONG_FILE_ACCEPT, coverTypeToStamp, isCoverImageFile, songInputError, splitDroppedFiles } from "@/libs/droppedFileKind"
 
 // Show Turnstile challenge on ~10% of uploads
 const TURNSTILE_PROBABILITY = 0.1
 const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/avif,.jpg,.jpeg,.png,.webp,.avif"
 const CREATE_SONG_HOTKEY_MODIFIERS: Array<"ctrl"> = ["ctrl"]
-const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-  avif: "image/avif",
-}
+let songCreateBusy = false
 
-const isSupportedCoverImage = (file: File) => {
-  const extension = file.name.split(".").pop()?.toLowerCase() ?? ""
-  return IMAGE_MIME_BY_EXTENSION[extension] === file.type.toLowerCase()
+const isSupportedCoverImage = (file: File) => isCoverImageFile(file.name, file.type)
+
+function SongScreenDrop({
+  disabled,
+  onFiles,
+}: {
+  disabled: boolean
+  onFiles: (files: File[]) => void
+}) {
+  const { isDragging } = useDocumentDrag()
+  const onFilesRef = useRef(onFiles)
+  const disabledRef = useRef(disabled)
+  onFilesRef.current = onFiles
+  disabledRef.current = disabled
+
+  useEffect(() => {
+    const onDrop = (event: DragEvent) => {
+      const list = event.dataTransfer?.files
+      if (!list?.length) return
+      event.preventDefault()
+      if (disabledRef.current) return
+      onFilesRef.current(Array.from(list))
+    }
+    document.addEventListener("drop", onDrop)
+    return () => document.removeEventListener("drop", onDrop)
+  }, [])
+
+  if (!isDragging || disabled) return null
+  return createPortal(
+    <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center bg-dark-base/75">
+      <div className="rounded-xl border-2 border-dashed border-neon/70 bg-dark-base/80 px-8 py-6 text-center text-lg text-white">
+        Drop a song or a cover image
+      </div>
+    </div>,
+    document.body,
+  )
 }
 
 const AddASongModal = () => {
@@ -50,6 +90,8 @@ const AddASongModal = () => {
   const [isPreparingAudio, setIsPreparingAudio] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadSpeed, setUploadSpeed] = useState("")
+  const [uploadTimeLeft, setUploadTimeLeft] = useState("")
+  const [isStoringSong, setIsStoringSong] = useState(false)
   const [playlists, setPlaylists] = useState<PlaylistOption[]>([])
   const [playlistSearch, setPlaylistSearch] = useState("")
   const [selectedPlaylist, setSelectedPlaylist] = useState<PlaylistOption | null>(null)
@@ -59,16 +101,22 @@ const AddASongModal = () => {
   const [isSavingPlaylistSlug, setIsSavingPlaylistSlug] = useState(false)
   const [requiresChallenge, setRequiresChallenge] = useState(false)
   const [confirmDiscard, setConfirmDiscard] = useState(false)
-  const [uploadError, setUploadError] = useState("")
+  const [uploadError, setUploadErrorValue] = useState("")
+  const [uploadNotice, setUploadNotice] = useState("")
+  const setUploadError = (message: string) => {
+    setUploadErrorValue(message)
+    setUploadNotice("")
+  }
   const [embeddedImage, setEmbeddedImage] = useState<File | null>(null)
   const [readingMetadata, setReadingMetadata] = useState(false)
   const [tags, setTags] = useState<string[]>([])
   const playlistSlugInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const songInputRef = useRef<HTMLInputElement>(null)
-  const [fileDrop, setFileDrop] = useState<"song" | "image" | null>(null)
+  const [songPickerKey, setSongPickerKey] = useState(0)
   const metadataRequest = useRef(0)
   const formRef = useRef<HTMLFormElement>(null)
+  const submitGuard = useRef(false)
 
   useAutoFocus(playlistSlugInputRef, editingPlaylistId !== null, 50)
 
@@ -105,8 +153,10 @@ const AddASongModal = () => {
   useHotkey({
     hotkey: "Enter",
     modifiers: CREATE_SONG_HOTKEY_MODIFIERS,
+    ignoreRepeat: true,
     isEnabled: uploadModal.isOpen && editingPlaylistId === null && !isCreateDisabled && !confirmDiscard,
     onKeyPressFn: () => {
+      if (songCreateBusy) return
       formRef.current?.requestSubmit()
     },
   })
@@ -281,6 +331,8 @@ const AddASongModal = () => {
     setTags([])
     setUploadProgress(0)
     setUploadSpeed("")
+    setUploadTimeLeft("")
+    setIsStoringSong(false)
     setSelectedPlaylist(null)
     setPlaylistSearch("")
     setEditingPlaylistId(null)
@@ -472,46 +524,29 @@ const AddASongModal = () => {
     return event
   }
 
-  const allowFileDrag = (event: React.DragEvent, kind: "song" | "image") => {
-    if (!event.dataTransfer.types.includes("Files")) return
-    event.preventDefault()
-    setFileDrop(kind)
+  const assignInputFile = (input: HTMLInputElement, file: File) => {
+    const transfer = new DataTransfer()
+    transfer.items.add(file)
+    input.files = transfer.files
   }
 
-  const dropSongFile = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    setFileDrop(null)
-    const file = event.dataTransfer.files?.[0]
+  const clearSongPicker = () => {
     const input = songInputRef.current
-    if (!file || !input || isLoading) return
-    const transfer = new DataTransfer()
-    transfer.items.add(file)
-    input.files = transfer.files
-    handleSongChange(fileChangeEvent(input))
-  }
-
-  const dropImageFile = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    setFileDrop(null)
-    const file = event.dataTransfer.files?.[0]
-    const input = imageInputRef.current
-    if (!file || !input || isLoading) return
-    const transfer = new DataTransfer()
-    transfer.items.add(file)
-    input.files = transfer.files
-    handleImageChange(fileChangeEvent(input))
+    if (input) input.value = ""
+    resetField("song")
+    setSongPickerKey(key => key + 1)
+    void readSongMetadata(undefined)
   }
 
   const handleSongChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    const extension = file?.name.split(".").pop()?.toLowerCase() ?? ""
-    const acceptedAudio = ["mp3", "m4a", "wav", "flac", "ogg", "oga", "opus", "aac", "webm", "aif", "aiff"]
-    if (file && !file.type.startsWith("audio/") && !acceptedAudio.includes(extension)) {
-      event.target.value = ""
-      songInput.onChange(event)
-      void readSongMetadata(undefined)
-      setUploadError(`"${file.name}" is not an audio file. Pick an audio file (MP3, WAV, M4A, FLAC, OGG…).`)
-      return
+    if (file) {
+      const message = songInputError(file.name, file.type)
+      if (message) {
+        clearSongPicker()
+        setUploadError(message)
+        return
+      }
     }
     songInput.onChange(event)
     readSongMetadata(file)
@@ -519,17 +554,44 @@ const AddASongModal = () => {
   }
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file && !isSupportedCoverImage(file)) {
-      event.target.value = ""
+    const input = event.target
+    const file = input.files?.[0]
+    if (file && !isCoverImageFile(file.name, file.type)) {
+      input.value = ""
       imageInput.onChange(event)
       setCoverPreviewFile(embeddedImage)
       setUploadError("Choose a JPG, JPEG, PNG, WebP, or AVIF image.")
       return
     }
+    if (file) {
+      const type = coverTypeToStamp(file.name, file.type)
+      if (type) assignInputFile(input, new File([file], file.name, { type, lastModified: file.lastModified }))
+    }
     imageInput.onChange(event)
-    setCoverPreviewFile(file ?? embeddedImage)
+    setCoverPreviewFile(input.files?.[0] ?? embeddedImage)
     setUploadError("")
+  }
+
+  const applyDroppedFiles = (files: File[]) => {
+    const split = splitDroppedFiles(files)
+    const songInputEl = songInputRef.current
+    const imageInputEl = imageInputRef.current
+    if (split.song && songInputEl) {
+      assignInputFile(songInputEl, split.song)
+      handleSongChange(fileChangeEvent(songInputEl))
+    }
+    if (split.image && imageInputEl) {
+      assignInputFile(imageInputEl, split.image)
+      handleImageChange(fileChangeEvent(imageInputEl))
+    }
+    if (!split.song && !split.image) {
+      const name = split.skipped[0]?.name
+      setUploadError(
+        name
+          ? `"${name}" is not a song or a cover image. Drop an audio file, or a JPG, JPEG, PNG, WebP, or AVIF image.`
+          : "Drop an audio file, or a JPG, JPEG, PNG, WebP, or AVIF image.",
+      )
+    }
   }
 
   const getSongDuration = (file: File): Promise<number> => {
@@ -561,55 +623,115 @@ const AddASongModal = () => {
   }
 
   const uploadViaApi = (formData: FormData, songName: string, files: File[]): Promise<{ id: number }> => {
+    setIsStoringSong(false)
     setUploadProgress(0)
     setUploadSpeed("")
+    setUploadTimeLeft("")
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
-      let lastLoaded = 0
-      let lastTime = Date.now()
+      let settled = false
+      let sendDone = false
+      let lastBytes = 0
+      let lastTick = Date.now()
+      let speedTick = Date.now()
+      const sendStarted = Date.now()
+      let sendFinishedAt = sendStarted
+      let sendMs = 3000
+      let stopReason = ""
+      let watch = 0
+
+      const finish = (done: () => void) => {
+        if (settled) return
+        settled = true
+        window.clearInterval(watch)
+        done()
+      }
+      const markSent = () => {
+        if (sendDone) return
+        sendDone = true
+        sendFinishedAt = Date.now()
+        sendMs = Math.max(3000, sendFinishedAt - sendStarted)
+        setIsStoringSong(true)
+        setUploadProgress(90)
+        setUploadSpeed("")
+        setUploadTimeLeft(formatTimeLeft(sendMs))
+      }
+      const stop = (message: string) => {
+        stopReason = message
+        xhr.abort()
+        finish(() => reject(new Error(message)))
+      }
+
+      watch = window.setInterval(() => {
+        if (settled) return
+        const now = Date.now()
+        if (!sendDone) {
+          if (now - lastTick >= SEND_QUIET_MS) {
+            stop(`Upload of "${songName}" stopped. No new bytes for ${SEND_QUIET_MS / 1000} seconds. Check the connection and send it again.`)
+          }
+          return
+        }
+        const waited = now - sendFinishedAt
+        const left = sendMs - waited
+        setUploadTimeLeft(left >= 1000 ? formatTimeLeft(left) : "")
+        setUploadProgress(storePercent(waited, sendMs))
+        if (waited >= storeWaitLimitMs(sendFinishedAt - sendStarted)) {
+          stop(`Upload of "${songName}" was sent. The server did not finish storing it. Send it again.`)
+        }
+      }, 500)
 
       xhr.upload.onprogress = event => {
-        if (!event.lengthComputable) return
+        lastTick = Date.now()
+        if (!event.lengthComputable || sendDone) return
+        const sentBytes = event.loaded
+        const totalBytes = event.total
         const now = Date.now()
-        const elapsed = (now - lastTime) / 1000
-        if (elapsed > 0.2) {
-          const bytesPerSec = (event.loaded - lastLoaded) / elapsed
-          setUploadSpeed(`${(bytesPerSec / 1024 / 1024).toFixed(1)} MB/s`)
-          lastLoaded = event.loaded
-          lastTime = now
+        const elapsed = (now - speedTick) / 1000
+        if (sentBytes > lastBytes && elapsed > 0.2) {
+          const perSec = (sentBytes - lastBytes) / elapsed
+          setUploadSpeed(`${(perSec / 1024 / 1024).toFixed(1)} MB/s`)
+          const leftMs = remainingSendMs(sentBytes, totalBytes, perSec)
+          setUploadTimeLeft(leftMs == null ? "" : formatTimeLeft(leftMs))
+          lastBytes = sentBytes
+          speedTick = now
         }
-        setUploadProgress(Math.round((event.loaded / event.total) * 100))
+        setUploadProgress(byteSendPercent(sentBytes, totalBytes))
+        if (totalBytes > 0 && sentBytes >= totalBytes) markSent()
       }
+      xhr.upload.onload = () => markSent()
 
       xhr.onload = () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
-            resolve(JSON.parse(xhr.responseText) as { id: number })
+            finish(() => resolve(JSON.parse(xhr.responseText) as { id: number }))
           } catch (error) {
             const body = xhr.responseText.replace(/\s+/g, " ").trim().slice(0, 300)
-            reject(new Error(`Upload of "${songName}" returned HTTP ${xhr.status} with a body that is not JSON. ${errorText(error)} Body: ${body || "empty"}.`))
+            finish(() => reject(new Error(`Upload of "${songName}" returned HTTP ${xhr.status} with a body that is not JSON. ${errorText(error)} Body: ${body || "empty"}.`)))
           }
           return
         }
-        reject(new Error(httpErrorMessage({
+        finish(() => reject(new Error(httpErrorMessage({
           action: `Upload of "${songName}"`,
           status: xhr.status,
           statusText: xhr.statusText,
           url: xhr.responseURL,
           bodyText: xhr.responseText,
           contentType: xhr.getResponseHeader("content-type") ?? "",
-        })))
+        }))))
       }
       xhr.onerror = () => {
         void (async () => {
           try {
             await ensureFileIsReadable(files[0], "song")
             if (files[1]) await ensureFileIsReadable(files[1], "image")
-            reject(new Error(`Upload of "${songName}" stopped: no response from the server. Check the connection and send it again.`))
+            finish(() => reject(new Error(`Upload of "${songName}" stopped: no response from the server. Check the connection and send it again.`)))
           } catch (error) {
-            reject(error instanceof Error ? error : new Error(`File "${songName}" is not on disk. It was moved or renamed. Pick the song again.`))
+            finish(() => reject(error instanceof Error ? error : new Error(`File "${songName}" is not on disk. It was moved or renamed. Pick the song again.`)))
           }
         })()
+      }
+      xhr.onabort = () => {
+        finish(() => reject(new Error(stopReason || `Upload of "${songName}" stopped before the song row existed.`)))
       }
       xhr.open("POST", "/api/songs")
       xhr.send(formData)
@@ -617,6 +739,9 @@ const AddASongModal = () => {
   }
 
   const onSubmit: SubmitHandler<FieldValues> = async (values, event) => {
+    if (songCreateBusy || submitGuard.current) return
+    songCreateBusy = true
+    submitGuard.current = true
     try {
       const form = event?.target instanceof HTMLFormElement ? event.target : null
       const typedTags = songTagsWithDraft(visibleTags, form?.querySelector<HTMLInputElement>("[data-song-tags-input]")?.value ?? "")
@@ -624,6 +749,8 @@ const AddASongModal = () => {
       setUploadError("")
       setUploadProgress(0)
       setUploadSpeed("")
+      setUploadTimeLeft("")
+      setIsStoringSong(false)
 
       const imageFile = values.image?.[0] ?? embeddedImage
       let songFile = values.song?.[0]
@@ -635,6 +762,13 @@ const AddASongModal = () => {
       }
       if (!songFile) {
         setUploadError("Please select an audio file.")
+        setIsLoading(false)
+        return
+      }
+      const songChoiceError = songInputError(songFile.name, songFile.type)
+      if (songChoiceError) {
+        clearSongPicker()
+        setUploadError(songChoiceError)
         setIsLoading(false)
         return
       }
@@ -695,7 +829,9 @@ const AddASongModal = () => {
 
       setIsPreparingAudio(true)
       const { prepareSongUpload } = await import("@/libs/songUpload")
-      songFile = await prepareSongUpload(songFile, duration, setUploadProgress)
+      songFile = await prepareSongUpload(songFile, duration, percent => {
+        setUploadProgress(Math.min(99, Math.max(0, percent)))
+      })
       setIsPreparingAudio(false)
 
       const submittedTags = await fetchBilingualSongTags(typedTags)
@@ -719,18 +855,19 @@ const AddASongModal = () => {
       await uploadViaApi(formData, songFile.name, [songFile, imageFile])
 
       router.refresh()
-      setIsLoading(false)
-      toast.success("Song created!")
       reset()
       setTags([])
       setTagsCustomized(false)
       setAppliedSuggestionKey("")
       setUploadProgress(0)
       setUploadSpeed("")
+      setUploadTimeLeft("")
+      setIsStoringSong(false)
       setEmbeddedImage(null)
       setCoverPreviewFile(null)
       setReadingMetadata(false)
       setUploadError("")
+      setUploadNotice("Song created.")
       setLastUploadedPlaylistSlug(selectedPlaylist?.slug ?? null)
       setUploadCount(count => count + 1)
       resetTurnstileFn()
@@ -738,7 +875,11 @@ const AddASongModal = () => {
     } catch (error) {
       setUploadError(errorText(error))
     } finally {
+      songCreateBusy = false
+      submitGuard.current = false
       setIsPreparingAudio(false)
+      setIsStoringSong(false)
+      setUploadTimeLeft("")
       setIsLoading(false)
     }
   }
@@ -759,6 +900,11 @@ const AddASongModal = () => {
               {uploadError}
             </p>
           )}
+          {!uploadError && uploadNotice && (
+            <p role="status" className="line-clamp-2 w-full min-w-0 overflow-hidden break-words rounded-md border border-green-500/40 bg-green-500/10 px-2 py-1 text-xs leading-4 text-green-200">
+              {uploadNotice}
+            </p>
+          )}
         </div>
       )}
       contentClassName="flex h-auto max-h-[calc(100dvh-1rem)] w-[min(960px,calc(100vw-1.5rem))] max-w-[min(960px,calc(100vw-1.5rem))] flex-col overflow-x-hidden overflow-y-auto p-3 sm:p-5 md:max-h-[calc(100dvh-1rem)] md:w-[min(960px,calc(100vw-2rem))] md:max-w-[min(960px,calc(100vw-2rem))] md:p-7"
@@ -768,6 +914,7 @@ const AddASongModal = () => {
       isShowCloseButton={!confirmDiscard}
       onEscapeKeyDown={handleEscapeKeyDown}>
       <>
+      <SongScreenDrop disabled={isLoading || confirmDiscard} onFiles={applyDroppedFiles} />
       <form
         ref={formRef}
         inert={confirmDiscard || undefined}
@@ -802,18 +949,14 @@ const AddASongModal = () => {
             </div>
           </div>
 
-          <div
-            className={`min-w-0 space-y-1.5 rounded-md ${fileDrop === "song" ? "ring-2 ring-neon" : ""}`}
-            onDragEnter={event => allowFileDrag(event, "song")}
-            onDragOver={event => allowFileDrag(event, "song")}
-            onDragLeave={() => setFileDrop(current => current === "song" ? null : current)}
-            onDrop={dropSongFile}>
+          <div className="min-w-0 space-y-1.5">
             <label htmlFor="song" className="block text-sm text-neutral-300">Select a song file</label>
             <Input
+              key={songPickerKey}
               className="min-w-0 max-w-full overflow-hidden"
               disabled={isLoading}
               type="file"
-              accept="audio/*"
+              accept={SONG_FILE_ACCEPT}
               id="song"
               {...songInput}
               onChange={handleSongChange}
@@ -822,14 +965,10 @@ const AddASongModal = () => {
                 songInputRef.current = input
               }}
             />
+            <p className="text-xs leading-5 text-neutral-400">MP3, WAV, M4A, FLAC, or OGG. Stored as MP3.</p>
           </div>
 
-          <div
-            className={`min-w-0 space-y-1.5 rounded-md ${fileDrop === "image" ? "ring-2 ring-neon" : ""}`}
-            onDragEnter={event => allowFileDrag(event, "image")}
-            onDragOver={event => allowFileDrag(event, "image")}
-            onDragLeave={() => setFileDrop(current => current === "image" ? null : current)}
-            onDrop={dropImageFile}>
+          <div className="min-w-0 space-y-1.5">
             <label htmlFor="image" className="block text-sm text-neutral-300">Select an image</label>
             <Input
               className="min-w-0 max-w-full overflow-hidden"
@@ -1012,9 +1151,13 @@ const AddASongModal = () => {
             )}
             {isLoading ? (
               <span className="relative">
-                {isPreparingAudio
-                  ? `Preparing audio… ${Math.round(uploadProgress)}%`
-                  : `Uploading… ${Math.round(uploadProgress)}%${uploadSpeed ? ` · ${uploadSpeed}` : ""}`}
+                {uploadButtonLabel({
+                  preparing: isPreparingAudio,
+                  storing: isStoringSong,
+                  percent: uploadProgress,
+                  speed: uploadSpeed,
+                  timeLeft: uploadTimeLeft,
+                })}
               </span>
             ) : (
               <span className="inline-flex items-center justify-center gap-2">
