@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { getSafeStoragePath } from "@/libs/helpers"
 import { errorText } from "@/libs/errorText"
+import { createdInsideWindow, isStoredObjectPresent, lockIsStale, uploadSlotPath } from "@/libs/songCreateGuard"
 import { imageFileError } from "@/libs/imageFiles"
 import { parseSongTags, normalizeSongTags, inferPlaylistGenreTags } from "@/libs/songTags"
 
@@ -12,7 +13,89 @@ import { requireUser } from "../backup/requireUser"
 
 export const maxDuration = 60 // max on Hobby plan Vercel 60s
 
+async function findRecentUpload(userId: string, title: string, author: string, size: number) {
+  const { data, error } = await supabaseAdmin
+    .from("19_songs")
+    .select("id, created_at")
+    .eq("user_id", userId)
+    .eq("title", title)
+    .eq("author", author)
+    .eq("size_bytes", size)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  if (!data?.id || !createdInsideWindow(data.created_at, Date.now())) return null
+  return { id: Number(data.id) }
+}
+
+async function linkSongToPlaylist(songId: number, playlistId: string, isPaid: boolean) {
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("19_playlist_songs")
+    .select("song_id")
+    .eq("playlist_id", playlistId)
+    .eq("song_id", songId)
+    .maybeSingle()
+  if (existingError) return NextResponse.json({ error: errorText(existingError) }, { status: 400 })
+  if (!existing) {
+    const { data: existingPositions, error: positionError } = await supabaseAdmin
+      .from("19_playlist_songs")
+      .select("position")
+      .eq("playlist_id", playlistId)
+      .order("position", { ascending: false })
+      .limit(1)
+    if (positionError) return NextResponse.json({ error: errorText(positionError) }, { status: 400 })
+    const nextPosition = (existingPositions?.[0]?.position ?? -1) + 1
+    const { error: linkError } = await supabaseAdmin.from("19_playlist_songs").insert({
+      playlist_id: playlistId,
+      song_id: songId,
+      position: nextPosition,
+    })
+    if (linkError && linkError.code !== "23505") return NextResponse.json({ error: errorText(linkError) }, { status: 400 })
+  }
+  const { error: accessError } = await supabaseAdmin.from("19_song_access").upsert({
+    playlist_id: playlistId,
+    song_id: songId,
+    is_paid: isPaid,
+  }, { onConflict: "playlist_id,song_id" })
+  if (accessError) return NextResponse.json({ error: errorText(accessError) }, { status: 400 })
+  return null
+}
+
+async function claimUploadSlot(slotPath: string): Promise<"claimed" | "busy"> {
+  const body = new TextEncoder().encode(String(Date.now()))
+  const first = await supabaseAdmin.storage.from("songs").upload(slotPath, body, {
+    upsert: false,
+    contentType: "text/plain",
+  })
+  if (!first.error) return "claimed"
+  if (!isStoredObjectPresent(first.error)) throw new Error(errorText(first.error))
+  const downloaded = await supabaseAdmin.storage.from("songs").download(slotPath)
+  const started = downloaded.data && typeof downloaded.data.text === "function"
+    ? Number(await downloaded.data.text())
+    : Number.NaN
+  if (!lockIsStale(started, Date.now())) return "busy"
+  await supabaseAdmin.storage.from("songs").remove([slotPath])
+  const second = await supabaseAdmin.storage.from("songs").upload(slotPath, new TextEncoder().encode(String(Date.now())), {
+    upsert: false,
+    contentType: "text/plain",
+  })
+  if (!second.error) return "claimed"
+  if (!isStoredObjectPresent(second.error)) throw new Error(errorText(second.error))
+  return "busy"
+}
+
+async function waitForRecentUpload(userId: string, title: string, author: string, size: number) {
+  for (let attempt = 0; attempt < 45; attempt++) {
+    const recent = await findRecentUpload(userId, title, author, size)
+    if (recent) return recent
+    await new Promise(resolve => setTimeout(resolve, 1000))
+  }
+  return null
+}
+
 export async function POST(request: Request) {
+  let slotPath = ""
   try {
   const auth = await requireUser()
   if (auth instanceof NextResponse) return auth
@@ -72,6 +155,28 @@ export async function POST(request: Request) {
     try { tags = normalizeSongTags([...tags, ...inferPlaylistGenreTags(playlist.title, playlist.slug)]) }
     catch (error) { return NextResponse.json({ error: errorText(error) }, { status: 400 }) }
   }
+
+  const songTitle = title.trim()
+  const songAuthor = author.trim()
+  const recent = await findRecentUpload(auth.userId, songTitle, songAuthor, songFile.size)
+  if (recent) {
+    const reuseError = await linkSongToPlaylist(recent.id, playlistId, isPaid)
+    if (reuseError) return reuseError
+    return NextResponse.json({ success: true, id: recent.id })
+  }
+
+  const slotName = uploadSlotPath(auth.userId, songTitle, songAuthor, songFile.size)
+  const slot = await claimUploadSlot(slotName)
+  if (slot === "busy") {
+    const waited = await waitForRecentUpload(auth.userId, songTitle, songAuthor, songFile.size)
+    if (!waited) {
+      return NextResponse.json({ error: "This song is already uploading. Wait for it to finish." }, { status: 409 })
+    }
+    const reuseError = await linkSongToPlaylist(waited.id, playlistId, isPaid)
+    if (reuseError) return reuseError
+    return NextResponse.json({ success: true, id: waited.id })
+  }
+  slotPath = slotName
 
   const uniqueID = uniqid()
   const songPath = getSafeStoragePath({
@@ -178,5 +283,7 @@ export async function POST(request: Request) {
   return NextResponse.json({ success: true, id: songRecord.id })
   } catch (error) {
     return NextResponse.json({ error: errorText(error) }, { status: 500 })
+  } finally {
+    if (slotPath) await supabaseAdmin.storage.from("songs").remove([slotPath])
   }
 }
