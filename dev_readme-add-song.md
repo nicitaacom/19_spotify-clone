@@ -6,13 +6,17 @@
 
 ## Progress in the Create button
 
-Upload progress is drawn inside the Create button. The button is `relative overflow-hidden`. A fill behind the label uses `absolute inset-y-0 left-0 bg-black/15` and its width is the percent. The label reads `Uploading… 45% · 4.9 MB/s`, or `Preparing audio… 45%` while the file is being encoded. The button stays the same height before, during, and after the upload, so the modal does not jump.
+Upload progress is drawn inside the Create button. The button is `relative overflow-hidden`. A fill behind the label uses `absolute inset-y-0 left-0 bg-black/15` and its width is the percent. The button stays the same height before, during, and after the upload, so the modal does not jump.
+
+While the file is encoded the label is `Preparing audio… 45%`, and that number stays at 99 or below. While the bytes are sending it is `Uploading… 45% · 4.9 MB/s · about 12s left`, and the fill stops at 90 when the last byte has been sent. The label then reads `Storing the song… 94% · about 8s left`. When that estimate passes, it reads `Storing the song… 99% · still working`. The fill stays under 100 for the whole open request. The button returns to Create when the song row exists.
+
+`Song created.` stays in the modal header until the next edit. A failure stays in that same header. Neither result uses a toast.
 
 ## Accepted audio and conversion
 
 The song picker uses `accept="audio/*"`. That hint is not a check. The change handler refuses a file when its type does not start with `audio/` and its extension is not one of mp3, m4a, wav, flac, ogg, oga, opus, aac, webm, aif, or aiff. The input is cleared and the message names the file.
 
-`libs/songUpload.ts` accepts that same list. A short file is stored at 128 kbps. A longer file is stored at the highest bitrate that fits in 50 MB (down to 8 kbps). The stored name always ends in `.mp3`. When the browser fails to decode the file, the error names the file and the browser error (`Error: …`). The upload route accepts only `.mp3` with `audio/mpeg`, because the browser converts before sending.
+`libs/songUpload.ts` accepts that same list. A short file is stored at 128 kbps. A file over 50 MiB is stored at the highest bitrate whose estimated size is at or under 49 MiB (down to 8 kbps), using the source bitrate when it is known. See `dev_readme-compress.md`. The stored name always ends in `.mp3`. When the browser fails to decode the file, the error names the file and the browser error (`Error: …`). The upload route accepts only `.mp3` with `audio/mpeg`, because the browser converts before sending.
 
 ## After an upload
 

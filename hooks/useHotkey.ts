@@ -9,6 +9,7 @@ type TUseHotkeyOptions = {
   onKeyPressFn: () => void
   ignoreInputs?: boolean
   ignoreButtons?: boolean
+  ignoreRepeat?: boolean
   isEnabled?: boolean
 }
 
@@ -67,6 +68,7 @@ export const useHotkey = ({
   onKeyPressFn,
   ignoreInputs = false,
   ignoreButtons = false,
+  ignoreRepeat = false,
   isEnabled = true,
 }: TUseHotkeyOptions) => {
   const sequenceIndexRef = useRef(0)
@@ -123,6 +125,8 @@ export const useHotkey = ({
 
       if (matchesHotkey(event, hotkey)) {
         event.preventDefault()
+        if (ignoreRepeat) event.stopImmediatePropagation()
+        if (ignoreRepeat && event.repeat) return
         onKeyPressFnRef.current()
       }
     }
@@ -132,5 +136,5 @@ export const useHotkey = ({
       document.removeEventListener("keydown", handleKeyDown, true)
       if (sequenceTimerRef.current) clearTimeout(sequenceTimerRef.current)
     }
-  }, [hotkey, sequence, modifiers, ignoreInputs, ignoreButtons, isEnabled])
+  }, [hotkey, sequence, modifiers, ignoreInputs, ignoreButtons, ignoreRepeat, isEnabled])
 }
