@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useSyncExternalStore } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { twMerge } from "tailwind-merge"
@@ -24,6 +24,8 @@ interface HeaderProps {
   className?: string
 }
 
+const emptySubscribe = () => () => {}
+
 const Header: React.FC<HeaderProps> = ({ children, className }) => {
   const player = usePlayer()
   const router = useRouter()
@@ -31,7 +33,9 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
   const { user } = useUser()
   const isIframe = useIsIframeAuth()
   const authUrl = getProductionAuthUrl()
-  const shouldOpenExternalAuth = shouldUseExternalAuth({ isIframe })
+  // window.top is a browser-only read - the server's false keeps the 1st render on <button>, same as the
+  // server html, then the iframe switches to the <a> link
+  const shouldOpenExternalAuth = useSyncExternalStore(emptySubscribe, () => shouldUseExternalAuth({ isIframe }), () => false)
   const searchModal = useSearchModal()
 
   useEffect(() => {
