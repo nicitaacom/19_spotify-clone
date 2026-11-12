@@ -7,7 +7,7 @@ import { toast } from "react-hot-toast"
 import useCreatePlaylistModal from "@/hooks/useCreatePlaylistModal"
 import { useUser } from "@/hooks/useUser"
 import { PlaylistVisibility } from "@/types"
-import { errorText } from "@/libs/errorText"
+import { errorText, readJsonBody } from "@/libs/errorText"
 import { getPlaylistSlug } from "@/libs/helpers"
 import supabaseClient from "@/libs/supabaseClient"
 
@@ -70,8 +70,7 @@ const CreatePlaylistModal = () => {
           title, description, visibility, price_cents: parsePlaylistPrice(Math.round(Number(price) * 100)),
           youtube_url: normalizeYoutubePlaylist(youtube), songs: [],
         }) })
-        const body = await response.json()
-        if (!response.ok) throw new Error(body.error)
+        const body = await readJsonBody<{ id?: string | number; slug?: string }>(response, "Create playlist")
         const createdPlaylistId = body.id ? String(body.id) : null
         createPlaylistStore.setCreatedPlaylistId(createdPlaylistId)
         toast.success("Playlist created. Add paid tracks to make it available for purchase.")

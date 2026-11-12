@@ -39,7 +39,7 @@ const AccountContent = ({ isOwner }: AccountContentProps) => {
   const redirectToCustomerPortal = async () => {
     setLoading(true)
     try {
-      const { url } = await postData({
+      const { url } = await postData<{ url: string }>({
         url: "/api/create-portal-link",
       })
       window.location.assign(url)

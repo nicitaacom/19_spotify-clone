@@ -7,7 +7,7 @@ import {
   gunzipBufferClient,
 } from "./tarClient"
 import { toCsv, parseCsv } from "./csvClient"
-import { errorText, httpErrorMessage, readHttpError } from "@/libs/errorText"
+import { errorText, httpErrorMessage, readHttpError, readJsonBody } from "@/libs/errorText"
 
 /**
  * Upload a file/chunk to a Supabase signed upload URL with real progress events, using the same
@@ -58,8 +58,6 @@ function uploadToSignedUrlWithProgress(
 // public CDN, so there is no Vercel timeout to respect — this is purely a throughput/politeness knob.
 const DOWNLOAD_CONCURRENCY = 5
 
-const failedResponseMessage = (response: Response, action: string) => readHttpError(response, action)
-
 /**
  * Export the user's table rows only (no storage files) as one .tar.gz containing a .csv per
  * table. Kept separate from file export so a table-only backup never has to touch Storage or
@@ -67,8 +65,7 @@ const failedResponseMessage = (response: Response, action: string) => readHttpEr
  */
 export async function exportTables(onProgress: (done: number, total: number) => void): Promise<{ fileName: string; blob: Blob }> {
   const rowsRes = await fetch("/api/backup/rows")
-  if (!rowsRes.ok) throw new Error(await failedResponseMessage(rowsRes, "Fetch table rows"))
-  const { tables }: { tables: Record<string, Record<string, unknown>[]> } = await rowsRes.json()
+  const { tables } = await readJsonBody<{ tables: Record<string, Record<string, unknown>[]> }>(rowsRes, "Fetch table rows")
 
   const tarChunks: Buffer[] = []
   let done = 0
@@ -204,8 +201,7 @@ export async function importTables(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ table: table.name, rows: batch }),
       })
-      if (!res.ok) throw new Error(await readHttpError(res, `Import ${table.name}`))
-      const { rows: rowsUpserted, skipped } = await res.json()
+      const { rows: rowsUpserted, skipped } = await readJsonBody<{ rows: number; skipped?: number }>(res, `Import ${table.name}`)
       importedRows += rowsUpserted
       skippedRows += skipped ?? 0
     }
@@ -232,8 +228,7 @@ export async function exportFiles(
   onProgress: (done: number, total: number) => void,
 ): Promise<{ fileName: string; blob: Blob }> {
   const filesRes = await fetch(`/api/backup/files`)
-  if (!filesRes.ok) throw new Error(await failedResponseMessage(filesRes, "Fetch file list"))
-  const { files: allFiles }: { files: BackupFileRef[] } = await filesRes.json()
+  const { files: allFiles } = await readJsonBody<{ files: BackupFileRef[] }>(filesRes, "Fetch file list")
   const files = includeImages ? allFiles : allFiles.filter(file => file.bucket !== "images")
 
   let done = 0
@@ -359,9 +354,7 @@ export async function importFiles(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ files: batch.map(archiveFile => ({ bucket: archiveFile.bucket, path: archiveFile.path })) }),
     })
-    if (!res.ok) throw new Error(await readHttpError(res, "Prepare file upload"))
-
-    const { results }: { results: UploadTarget[] } = await res.json()
+    const { results } = await readJsonBody<{ results: UploadTarget[] }>(res, "Prepare file upload")
 
     for (const uploadItem of results) {
       const archiveFile = byPath.get(`${uploadItem.bucket}/${uploadItem.path}`)

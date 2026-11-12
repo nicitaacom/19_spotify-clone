@@ -10,7 +10,7 @@ import Input from "@/components/Input"
 import Button from "@/components/Button"
 import PlaylistCommerceFields from "@/components/PlaylistCommerceFields"
 import { normalizeYoutubePlaylist, parsePlaylistPrice } from "@/libs/commerceRules"
-import { errorText } from "@/libs/errorText"
+import { errorText, readJsonBody } from "@/libs/errorText"
 import supabaseClient from "@/libs/supabaseClient"
 import { useAreYouSureModals } from "@/store/modals/useAreYouSureModals"
 
@@ -59,8 +59,7 @@ export default function PlaylistEditor({ playlist, onClose }: { playlist: Playli
               .map(item => item.song_id),
           }),
         })
-        const body = await response.json()
-        if (!response.ok) throw new Error(body.error)
+        await readJsonBody<{ error?: string }>(response, "Update playlist")
       } else {
         const { error: detailsError } = await supabaseClient
           .from("19_playlists")

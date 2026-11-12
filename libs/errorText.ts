@@ -99,3 +99,21 @@ export async function readHttpError(response: Response, action: string): Promise
     contentType: response.headers.get("content-type") ?? "",
   })
 }
+
+// Every JSON response body is read through here, never response.json(). On an HTML page (an error page, a sign-in
+// redirect, the host's own outage page) response.json() put the parser's own words on screen:
+// Unexpected token '<', "<!DOCTYPE "... is not valid JSON.
+export async function readJsonBody<T>(response: Response, action: string): Promise<T> {
+  const bodyText = await response.text().catch(() => "")
+  const contentType = response.headers.get("content-type") ?? ""
+  if (!response.ok) {
+    throw new Error(httpErrorMessage({ action, status: response.status, statusText: response.statusText, url: response.url, bodyText, contentType }))
+  }
+  try {
+    return JSON.parse(bodyText) as T
+  } catch {
+    const pageText = bodyText.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200)
+    const where = [`HTTP ${response.status}`, contentType, response.url].filter(Boolean).join(" ")
+    throw new Error(`${action} got a page instead of data (${where}). ${pageText || "The page was empty."} Reload the page.`)
+  }
+}

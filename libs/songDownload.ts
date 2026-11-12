@@ -1,7 +1,7 @@
 import type { Song } from "@/types"
 import type { Id3Metadata } from "@/app/(site)/slow-and-reverb/lib/id3AlbumArt"
 import { buildId3Tag } from "@/app/(site)/slow-and-reverb/lib/id3Writer"
-import { readHttpError } from "@/libs/errorText"
+import { readHttpError, readJsonBody } from "@/libs/errorText"
 import { getSupabasePublicUrl } from "@/libs/helpers"
 import { getMp3AudioBytes, getSongDownloadFilename } from "@/libs/mp3Tags"
 
@@ -35,10 +35,7 @@ async function getCoverMetadata(image: Blob): Promise<Pick<Id3Metadata, "artData
 
 export async function downloadSong(song: Song, playlistTitle: string, onProgress: (progress: number) => void): Promise<void> {
   const response = await fetch(`/api/songs/${encodeURIComponent(song.id)}/play?stream=download`, { cache: "no-store" })
-  if (!response.ok) {
-    throw new Error(await readHttpError(response, `Audio download for song ${song.id}`))
-  }
-  const body = await response.json() as { url?: string }
+  const body = await readJsonBody<{ url?: string }>(response, `Audio download for song ${song.id}`)
   if (!body.url) throw new Error(`Audio download for song ${song.id} returned no audio address.`)
   const audioResponse = await fetch(body.url)
   if (!audioResponse.ok) {

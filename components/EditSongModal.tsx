@@ -10,7 +10,7 @@ import { getSongPlaylists } from "@/actions/songPlaylists"
 import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
 import useEditSongModal from "@/hooks/useEditSongModal"
 import useOwnerStore from "@/hooks/useOwnerStore"
-import { errorText, httpErrorMessage } from "@/libs/errorText"
+import { errorText, httpErrorMessage, readJsonBody } from "@/libs/errorText"
 import { fetchBilingualSongTags } from "@/libs/fetchBilingualSongTags"
 import { normalizeSongTags, songTagsWithDraft } from "@/libs/songTags"
 
@@ -64,7 +64,7 @@ const EditSongModal = () => {
     let ignore = false
     const songId = song.id
     void fetch(`/api/songs/${songId}`)
-      .then(response => (response.ok ? response.json() : null))
+      .then(response => (response.ok ? readJsonBody<unknown>(response, `Song ${songId} tags`) : null))
       .then(body => {
         if (ignore || !body || typeof body !== "object" || !("song" in body)) return
         const storedTags = (body as { song?: { tags?: unknown } }).song?.tags

@@ -36,6 +36,28 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    // client code only - a route handler's own request.json() reads what the browser sent, never an HTML page
+    files: [
+      "components/**/*.{ts,tsx}",
+      "hooks/**/*.{ts,tsx}",
+      "libs/**/*.{ts,tsx}",
+      "providers/**/*.{ts,tsx}",
+      "app/(site)/**/*.{ts,tsx}",
+      "app/features/**/*.{ts,tsx}",
+    ],
+    rules: {
+      // response.json() on an HTML page (an error page, a sign-in redirect) put the parser's own words on screen:
+      // Unexpected token '<', "<!DOCTYPE "... is not valid JSON (TODO/Screenshot_20261018-181716.png)
+      "no-restricted-syntax": [
+        "warn",
+        {
+          selector: "CallExpression[callee.property.name='json'][arguments.length=0]",
+          message: "Read the body with readJsonBody(response, action) from libs/errorText.ts - response.json() on an HTML page shows \"Unexpected token '<'\" to the user.",
+        },
+      ],
+    },
+  },
+  {
     // package.json is not JavaScript, so the local `json` processor puts it in parentheses first -
     // that makes it one object expression espree reads, with every line number unchanged.
     files: ["package.json"],

@@ -1,8 +1,8 @@
 import { Price } from "@/types"
-import { readHttpError } from "@/libs/errorText"
+import { readJsonBody } from "@/libs/errorText"
 import { buildSupabasePublicUrl } from "./supabasePublicUrl"
 
-export const postData = async ({ url, data }: { url: string; data?: { price: Price } }) => {
+export const postData = async <T>({ url, data }: { url: string; data?: { price: Price } }): Promise<T> => {
   console.log("POST REQUEST", url, data)
 
   const res: Response = await fetch(url, {
@@ -12,12 +12,8 @@ export const postData = async ({ url, data }: { url: string; data?: { price: Pri
     body: JSON.stringify(data),
   })
 
-  if (!res.ok) {
-    console.log("Error in POST", { url, data, status: res.status, statusText: res.statusText })
-    throw new Error(await readHttpError(res, `POST ${url}`))
-  }
-
-  return res.json()
+  if (!res.ok) console.log("Error in POST", { url, data, status: res.status, statusText: res.statusText })
+  return readJsonBody<T>(res, `POST ${url}`)
 }
 
 export const toDateTime = (secs: number) => {
