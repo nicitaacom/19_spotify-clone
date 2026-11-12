@@ -771,12 +771,12 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
 
   return (
     <div className="flex h-full w-full">
-      {/* Left: Song info. From md up, min-w-0 keeps a long title inside this 30% column
-          so it ellipsizes before the playlist and like icons. Below md the play button
-          sits in the free space, and this column stays free to use it. */}
-      <div className="flex w-[30%] justify-start md:min-w-0 md:overflow-hidden">
-        <div className="flex items-center gap-x-4 md:w-full md:min-w-0">
-          <div className="md:min-w-0 md:flex-1 md:overflow-hidden">
+      {/* Left: Song info. min-w-0 keeps a long title and author inside this column, so they ellipsize before the
+          playlist and like icons. Below md it takes the space left of the play button (flex-1) - a fixed 30% column
+          let the author run under the play button and the play button cover the like icon on a phone. */}
+      <div className="flex min-w-0 flex-1 justify-start overflow-hidden md:w-[30%] md:flex-none">
+        <div className="flex w-full min-w-0 items-center gap-x-4">
+          <div className="min-w-0 flex-1 overflow-hidden">
             <MediaItem data={song} />
           </div>
           <div className="flex shrink-0 items-center gap-x-4">
@@ -788,7 +788,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
 
       {/* Mobile play button. No volume slider in this row: at 24rem (outreach-tool's music panel) it collided with the
           like / playlist icons - the phone's music volume lives in the music panel itself (his review 2026-11-02) */}
-      <div className="flex md:hidden flex-1 justify-end items-center">
+      <div className="flex shrink-0 items-center pl-3 md:hidden">
         <div
           onClick={handlePlay}
           className="h-10 w-10 flex items-center justify-center rounded-full bg-neon p-1 cursor-pointer shadow-neon-sm hover:bg-neon-strong hover:shadow-neon transition">

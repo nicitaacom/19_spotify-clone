@@ -27,6 +27,17 @@ body,
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* A phone browser hides its address bar on scroll. 100% kept the height with the bar shown, so the fixed player moved
+   down while the page stayed above it - an empty black strip between the song list and the player. 100dvh is the
+   height that is visible right now. */
+@supports (height: 100dvh) {
+  html,
+  body,
+  :root {
+    height: 100dvh;
+  }
+}
+
 html[data-embed],
 html[data-embed] body {
   height: 100%;

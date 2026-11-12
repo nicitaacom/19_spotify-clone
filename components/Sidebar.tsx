@@ -85,7 +85,8 @@ const Sidebar: React.FC<SidebarProps> = ({ children, songs, isOwner }) => {
 
   return (
     <div className={twMerge(`flex h-full`, player.activeId && "h-[calc(100%-80px)]")}>
-      <div className="hidden md:flex flex-col gap-y-2 bg-dark-base border-r border-white/5 h-full w-[300px] p-2">
+      {/* 220px on a tablet - at 768px wide a 300px sidebar left the song list 440px and cut titles to 8 letters */}
+      <div className="hidden md:flex flex-col gap-y-2 bg-dark-base border-r border-white/5 h-full md:w-[220px] lg:w-[300px] p-2">
         <Box>
           <div className="flex flex-col gap-y-4 px-5 py-4">
             {routes.map(item => (
@@ -99,8 +100,9 @@ const Sidebar: React.FC<SidebarProps> = ({ children, songs, isOwner }) => {
       </div>
       <main
         className={twMerge(
-          "relative z-10 h-full flex-1 overflow-y-auto overflow-x-hidden scrollbar rounded-lg py-2 pr-2",
-          isIframe && "rounded-none py-0 pr-0",
+          // pl-2 below md: no sidebar there to hold the left gap, so the card touched the left screen edge
+          "relative z-10 h-full flex-1 overflow-y-auto overflow-x-hidden scrollbar rounded-lg py-2 pr-2 pl-2 md:pl-0",
+          isIframe && "rounded-none p-0 md:p-0",
         )}>
         {children}
       </main>

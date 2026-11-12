@@ -68,9 +68,10 @@ function AccessBadge({ song, canManage }: { song: Song; canManage: boolean }) {
         : "border-white/10 bg-white/5 text-neutral-400"
 
   return (
-    <span className={`inline-flex h-7 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border px-2.5 text-xs font-medium ${tone}`}>
+    // the word shows from sm up - on a phone the lock icon and the colour show it, and the song title gets the room
+    <span title={label} aria-label={label} className={`inline-flex h-7 shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-full border px-2 text-xs font-medium sm:px-2.5 ${tone}`}>
       <Icon size={12} />
-      {label}
+      <span className="hidden sm:inline">{label}</span>
     </span>
   )
 }

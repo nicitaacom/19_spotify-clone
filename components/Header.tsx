@@ -63,7 +63,8 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
   }
 
   return (
-    <div className={twMerge(`h-fit bg-gradient-to-b from-[#0f1f14] via-[#0b0f0c] to-transparent border-b border-white/5 rounded-lg p-6 pr-8`, className)}>
+    // p-4 on a phone: p-6 pr-8 took 56px of a 360px screen and wrapped "Sign up" / "Log in" onto 2 lines each
+    <div className={twMerge(`h-fit bg-gradient-to-b from-[#0f1f14] via-[#0b0f0c] to-transparent border-b border-white/5 rounded-lg p-4 sm:p-6 sm:pr-8`, className)}>
       <div className="w-full mb-4 flex justify-between items-center">
         <div className="hidden md:flex gap-x-2 items-center">
           <button
@@ -78,7 +79,10 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
           </button>
         </div>
         <div className="flex md:hidden gap-x-2 items-center">
-          <button className="rounded-full p-2 bg-surface border border-white/10 flex items-center justify-center hover:border-neon/40 hover:shadow-neon-sm transition">
+          <button
+            aria-label="Home"
+            className="rounded-full p-2 bg-surface border border-white/10 flex items-center justify-center hover:border-neon/40 hover:shadow-neon-sm transition"
+            onClick={() => router.push("/")}>
             <HiHome className="text-white" size={20} />
           </button>
           <button
@@ -87,7 +91,7 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
             <BiSearch className="text-white" size={20} />
           </button>
         </div>
-        <div className="flex justify-between items-center gap-x-4">
+        <div className="flex shrink-0 justify-between items-center gap-x-2 whitespace-nowrap sm:gap-x-4">
           {user ? (
             <div className="flex gap-x-4 items-center">
               <Button onClick={handleLogout} className="bg-neon text-black hover:bg-neon-strong hover:shadow-neon hover:opacity-100">Logout</Button>
