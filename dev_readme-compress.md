@@ -8,7 +8,7 @@ The upload route accepts one `audio/mpeg` file up to 50 MiB (`MAX_SONG_UPLOAD_BY
 
 ## When Create re-encodes
 
-`components/AddASongModal.tsx` calls `prepareSongUpload` before the POST. The Create button reads `Preparing audio… N%` while that work runs.
+`components/AddASongModal.tsx` calls `prepareSongUpload` before the POST. The Create button reads `Reading audio… N%` until the bitrate step is picked, then `Converting 52.0 MB -> 45.5 MB… N%` while the encoder runs (the source size, then the estimate for the picked step). When the file is sent unchanged, no `Converting` label shows. The upload percent starts again at 0 after that.
 
 The file is sent unchanged when it is already an MP3, at or under 128 kbps, and at or under 50 MiB.
 
@@ -18,7 +18,7 @@ It is re-encoded when any of these is true:
 - the file is over 50 MiB
 - the source bitrate is over the chosen step (a 320 kbps MP3 under the cap becomes 128 kbps)
 
-A second Create during that work does not insert another song. `songCreateBusy` stays set for the whole prepare-and-send, including a second modal instance, and the form is cleared before the button enables again. Held Ctrl+Enter does not submit on each key repeat. The upload route rejects another create with the same user, title, author, and byte size from the last 3 minutes. The error is `same song <title> already exists`.
+A second Create during that work does not insert another song. `songCreateBusy` stays set for the whole prepare-and-send, including a second modal instance, and the form is cleared before the button enables again. Held Ctrl+Enter does not submit on each key repeat. The upload route rejects another create with the same user, title, author, and byte size, however long ago the first one was stored - before it stores the files, and once more right before it inserts the row, so a re-sent POST or a stale upload lock removes its own files instead of adding a 2nd song. The error is `same song <title> already exists`.
 
 ## Bitrate step
 
@@ -28,8 +28,10 @@ For an MP3, `music-metadata` supplies `format.bitrate`. A missing or zero number
 
 When the file is already at or under 50 MiB, the step is 128 kbps. A file at or under 128 kbps is kept. A higher bitrate is encoded at 128.
 
-When the file is over 50 MiB, the estimate for a step is `file bytes × (step × 1000) / source bitrate`. The highest step whose estimate is at or under 49 MiB is the one used.
+When the file is over 50 MiB, the ladder starts higher: 320, 256, 224, 192, 160, then the steps above. A step over the source bitrate is skipped. The estimate for a step is `file bytes × (step × 1000) / source bitrate`. The highest step whose estimate is at or under 49 MiB is the one used - only as much compression as the cap needs.
 
+- 52 MiB at 320 kbps becomes 256 kbps, about 41.6 MiB
+- 52 MiB at 256 kbps becomes 224 kbps, about 45.5 MiB (not 128 kbps, 26 MiB)
 - 52 MiB at 128 kbps becomes 112 kbps, about 45.5 MiB
 - 52 MiB at 64 kbps becomes 56 kbps, about 45.5 MiB
 - 40 MiB at 128 kbps stays 128 kbps

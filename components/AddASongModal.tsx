@@ -24,6 +24,7 @@ import {
   formatTimeLeft,
   remainingSendMs,
   SEND_QUIET_MS,
+  STORED_CHECK_MS,
   storePercent,
   storeWaitLimitMs,
   uploadButtonLabel,
@@ -60,8 +61,11 @@ function SongScreenDrop({
   const { isDragging } = useDocumentDrag()
   const onFilesRef = useRef(onFiles)
   const disabledRef = useRef(disabled)
-  onFilesRef.current = onFiles
-  disabledRef.current = disabled
+  // after each render, not during it - a ref written during render can hold a value from a render React threw away
+  useEffect(() => {
+    onFilesRef.current = onFiles
+    disabledRef.current = disabled
+  })
 
   useEffect(() => {
     const onDrop = (event: DragEvent) => {
@@ -89,6 +93,7 @@ function SongScreenDrop({
 const AddASongModal = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [isPreparingAudio, setIsPreparingAudio] = useState(false)
+  const [compressSizes, setCompressSizes] = useState<{ fromBytes: number; toBytes: number } | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadSpeed, setUploadSpeed] = useState("")
   const [uploadTimeLeft, setUploadTimeLeft] = useState("")
@@ -623,7 +628,12 @@ const AddASongModal = () => {
     }
   }
 
-  const uploadViaApi = (formData: FormData, songName: string, files: File[]): Promise<{ id: number }> => {
+  const uploadViaApi = (
+    formData: FormData,
+    songName: string,
+    files: File[],
+    storedQuery: URLSearchParams,
+  ): Promise<{ id: number }> => {
     setIsStoringSong(false)
     setUploadProgress(0)
     setUploadSpeed("")
@@ -640,12 +650,31 @@ const AddASongModal = () => {
       let sendMs = 3000
       let stopReason = ""
       let watch = 0
+      let lastStoredCheck = 0
+      let isCheckingStored = false
 
       const finish = (done: () => void) => {
         if (settled) return
         settled = true
         window.clearInterval(watch)
         done()
+      }
+      // the stored song is what ends the wait, not the POST answer - that answer sometimes never arrived after the
+      // song was stored, and "Send it again" then stored it a 2nd time
+      const selectStoredSongId = async () => {
+        try {
+          const response = await fetch(`/api/songs/upload-status?${storedQuery}&since=${sendStarted}`, { cache: "no-store" })
+          const bodyText = await response.text()
+          if (!response.ok) {
+            console.warn("[upload] stored check", response.status, bodyText.slice(0, 300))
+            return null
+          }
+          const body = JSON.parse(bodyText) as { id?: number | null }
+          return typeof body.id === "number" ? body.id : null
+        } catch (error) {
+          console.warn("[upload] stored check", errorText(error))
+          return null
+        }
       }
       const markSent = () => {
         if (sendDone) return
@@ -676,6 +705,16 @@ const AddASongModal = () => {
         const left = sendMs - waited
         setUploadTimeLeft(left >= 1000 ? formatTimeLeft(left) : "")
         setUploadProgress(storePercent(waited, sendMs))
+        if (!isCheckingStored && now - lastStoredCheck >= STORED_CHECK_MS) {
+          lastStoredCheck = now
+          isCheckingStored = true
+          void selectStoredSongId().then(id => {
+            isCheckingStored = false
+            if (id === null) return
+            finish(() => resolve({ id }))
+            xhr.abort()
+          })
+        }
         if (waited >= storeWaitLimitMs(sendFinishedAt - sendStarted)) {
           stop(`Upload of "${songName}" was sent. The server did not finish storing it. Send it again.`)
         }
@@ -775,7 +814,7 @@ const AddASongModal = () => {
         return
       }
       if (readingMetadata) {
-        setUploadError("Please wait for cover art to be checked.")
+        setUploadError("Cover art is still being read from the song file. Wait for the cover preview, then press Create.")
         setIsLoading(false)
         return
       }
@@ -816,7 +855,7 @@ const AddASongModal = () => {
       const isDev = process.env.NODE_ENV !== "production"
       if (requiresChallenge && isHumanGateEnabled && !isDev) {
         if (!isVerified || !token) {
-          setUploadError("Complete the verification challenge before uploading.")
+          setUploadError("The human check above Create is not done yet. Check its box, then press Create.")
           setIsLoading(false)
           return
         }
@@ -831,10 +870,16 @@ const AddASongModal = () => {
 
       setIsPreparingAudio(true)
       const { prepareSongUpload } = await import("@/libs/songUpload")
-      songFile = await prepareSongUpload(songFile, duration, percent => {
-        setUploadProgress(Math.min(99, Math.max(0, percent)))
-      })
+      songFile = await prepareSongUpload(
+        songFile,
+        duration,
+        percent => setUploadProgress(Math.min(99, Math.max(0, percent))),
+        (fromBytes, toBytes) => setCompressSizes({ fromBytes, toBytes }),
+      )
       setIsPreparingAudio(false)
+      setCompressSizes(null)
+      // the compress percent ends at 99 - the upload counts its own bytes from 0, not on top of that 99
+      setUploadProgress(0)
 
       const submittedTags = await fetchBilingualSongTags(typedTags)
       setTags(submittedTags)
@@ -854,7 +899,13 @@ const AddASongModal = () => {
 
       await ensureFileIsReadable(songFile, "song")
       await ensureFileIsReadable(imageFile, "image")
-      await uploadViaApi(formData, songFile.name, [songFile, imageFile])
+      const storedQuery = new URLSearchParams({
+        title: String(values.title ?? "").trim(),
+        author: String(values.author ?? "").trim(),
+        size: String(songFile.size),
+        playlistId: selectedPlaylist?.id ?? "",
+      })
+      await uploadViaApi(formData, songFile.name, [songFile, imageFile], storedQuery)
 
       router.refresh()
       reset()
@@ -881,6 +932,7 @@ const AddASongModal = () => {
       songCreateBusy = false
       submitGuard.current = false
       setIsPreparingAudio(false)
+      setCompressSizes(null)
       setIsStoringSong(false)
       setUploadTimeLeft("")
       setIsLoading(false)
@@ -1156,6 +1208,7 @@ const AddASongModal = () => {
               <span className="relative">
                 {uploadButtonLabel({
                   preparing: isPreparingAudio,
+                  compressSizes,
                   storing: isStoringSong,
                   percent: uploadProgress,
                   speed: uploadSpeed,

@@ -100,9 +100,12 @@ test("allows an original larger than 50 MB when its compressed result fits", asy
   mockDecoder(t)
   const source = new File([mp3File(320), new Uint8Array(MAX_SONG_UPLOAD_BYTES)], "large.mp3", { type: "audio/mpeg" })
   assert.ok(source.size > MAX_SONG_UPLOAD_BYTES)
-  const result = await prepareSongUpload(source, 1)
+  const sizes = []
+  const result = await prepareSongUpload(source, 1, undefined, (fromBytes, toBytes) => sizes.push([fromBytes, toBytes]))
   assert.ok(result.size < MAX_SONG_UPLOAD_BYTES)
-  assert.equal((await parseBlob(result)).format.bitrate, 128000)
+  // 320 kbps over the cap keeps 256, the highest step under 49 MiB - not 128
+  assert.equal((await parseBlob(result)).format.bitrate, 256000)
+  assert.deepEqual(sizes, [[source.size, source.size * 256 / 320]])
 })
 
 test("a two hour recording is stored below 128 kbps so it fits in 50 MB", () => {
@@ -125,6 +128,9 @@ test("a file just over the cap drops one bitrate step, not down to half", () => 
   const bytes = 52 * 1024 * 1024
   assert.equal(uploadBitrateKbps(bytes * 8 / 128000, bytes, 128000), 112)
   assert.equal(uploadBitrateKbps(bytes * 8 / 64000, bytes, 64000), 56)
+  // above 128 too: 52 MiB at 256 is about 45.5 MiB at 224, not 26 MiB at 128
+  assert.equal(uploadBitrateKbps(bytes * 8 / 256000, bytes, 256000), 224)
+  assert.equal(uploadBitrateKbps(bytes * 8 / 320000, bytes, 320000), 256)
   const underCap = 40 * 1024 * 1024
   assert.equal(uploadBitrateKbps(underCap * 8 / 128000, underCap, 128000), 128)
 })

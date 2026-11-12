@@ -18,12 +18,6 @@ export function sameSongErrorText(bodyText: string) {
   return ""
 }
 
-export function createdInsideWindow(createdAt: string | null | undefined, nowMs: number, windowMs = RECENT_UPLOAD_MS) {
-  if (!createdAt) return false
-  const created = Date.parse(createdAt)
-  return Number.isFinite(created) && created <= nowMs + 5000 && nowMs - created < windowMs
-}
-
 export function lockIsStale(startedAtMs: number, nowMs: number, windowMs = RECENT_UPLOAD_MS) {
   return !Number.isFinite(startedAtMs) || nowMs - startedAtMs > windowMs
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { createdInsideWindow, isSameSongExistsMessage, isStoredObjectPresent, lockIsStale, sameSongErrorText, sameSongExistsMessage, uploadSlotPath } from "../libs/songCreateGuard.ts"
+import { isSameSongExistsMessage, isStoredObjectPresent, lockIsStale, sameSongErrorText, sameSongExistsMessage, uploadSlotPath } from "../libs/songCreateGuard.ts"
 
 test("a repeated song names the title in the error", () => {
   assert.equal(sameSongExistsMessage("Server room"), "same song Server room already exists")
@@ -9,13 +9,6 @@ test("a repeated song names the title in the error", () => {
   assert.equal(isSameSongExistsMessage("This song is already uploading. Wait for it to finish."), false)
   assert.equal(sameSongErrorText(JSON.stringify({ error: sameSongExistsMessage("Server room") })), "same song Server room already exists")
   assert.equal(sameSongErrorText("{"), "")
-})
-
-test("a song from the last 3 minutes counts as the same upload", () => {
-  const now = Date.parse("2026-11-06T12:00:00Z")
-  assert.equal(createdInsideWindow("2026-11-06T11:58:00Z", now), true)
-  assert.equal(createdInsideWindow("2026-11-06T11:56:00Z", now), false)
-  assert.equal(createdInsideWindow("", now), false)
 })
 
 test("storage 409 and the duplicate message count as the object already being there", () => {

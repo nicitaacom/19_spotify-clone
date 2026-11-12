@@ -1,6 +1,8 @@
 /** Send fills 0–90. Store fills 90–99. The button leaves this state when the song row exists. */
 export const SEND_QUIET_MS = 30_000
 export const STORE_WAIT_FLOOR_MS = 3 * 60 * 1000
+// while storing, GET /api/songs/upload-status is asked this often - a stored song ends the wait without the POST answer
+export const STORED_CHECK_MS = 5_000
 
 export function byteSendPercent(sent: number, total: number): number {
   if (!(total > 0) || sent <= 0) return 0
@@ -36,13 +38,19 @@ export function formatTimeLeft(ms: number): string {
 
 export function uploadButtonLabel(input: {
   preparing: boolean
+  compressSizes: { fromBytes: number; toBytes: number } | null
   storing: boolean
   percent: number
   speed: string
   timeLeft: string
 }): string {
   const percent = Math.min(99, Math.max(0, Math.round(input.percent)))
-  if (input.preparing) return `Preparing audio… ${percent}%`
+  const toMb = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1)
+  // the bitrate is known once the file is read - until then nothing is compressing yet
+  if (input.preparing && input.compressSizes) {
+    return `Converting ${toMb(input.compressSizes.fromBytes)} MB -> ${toMb(input.compressSizes.toBytes)} MB… ${percent}%`
+  }
+  if (input.preparing) return `Reading audio… ${percent}%`
   if (input.storing) {
     const tail = input.timeLeft ? `${input.timeLeft} left` : "still working"
     return `Storing the song… ${percent}% · ${tail}`

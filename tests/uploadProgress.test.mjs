@@ -39,13 +39,23 @@ test("a finished send waits at least 3 minutes, longer when the send itself was 
 test("the button names the phase and keeps 100 off the label", () => {
   assert.equal(uploadButtonLabel({
     preparing: true,
+    compressSizes: null,
     storing: false,
     percent: 100,
     speed: "",
     timeLeft: "",
-  }), "Preparing audio… 99%")
+  }), "Reading audio… 99%")
+  assert.equal(uploadButtonLabel({
+    preparing: true,
+    compressSizes: { fromBytes: 52 * 1024 * 1024, toBytes: 45.5 * 1024 * 1024 },
+    storing: false,
+    percent: 37,
+    speed: "",
+    timeLeft: "",
+  }), "Converting 52.0 MB -> 45.5 MB… 37%")
   assert.equal(uploadButtonLabel({
     preparing: false,
+    compressSizes: null,
     storing: false,
     percent: 45,
     speed: "4.9 MB/s",
@@ -53,6 +63,7 @@ test("the button names the phase and keeps 100 off the label", () => {
   }), "Uploading… 45% · 4.9 MB/s · about 12s left")
   assert.equal(uploadButtonLabel({
     preparing: false,
+    compressSizes: null,
     storing: true,
     percent: 94,
     speed: "4.9 MB/s",
@@ -60,6 +71,7 @@ test("the button names the phase and keeps 100 off the label", () => {
   }), "Storing the song… 94% · about 8s left")
   assert.equal(uploadButtonLabel({
     preparing: false,
+    compressSizes: null,
     storing: true,
     percent: 100,
     speed: "",

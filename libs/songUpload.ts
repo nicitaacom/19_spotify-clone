@@ -2,6 +2,8 @@ export const MAX_SONG_UPLOAD_BYTES = 50 * 1024 * 1024
 // Stay under the storage cap. A file that is only slightly over is cut to this size, not to half.
 const UPLOAD_FIT_BYTES = 49 * 1024 * 1024
 const PREFERRED_KBPS = 128
+// MPEG-1 steps above 128. A file over the cap keeps the highest step its own bitrate allows that still fits.
+const ABOVE_PREFERRED_KBPS = [320, 256, 224, 192, 160]
 const FITTING_KBPS = [128, 112, 96, 80, 64, 56, 48, 40, 32, 24, 16, 8]
 const ACCEPTED_AUDIO_EXTENSIONS = ["mp3", "m4a", "wav", "flac", "ogg", "oga", "opus", "aac", "webm", "aif", "aiff"]
 const MAX_PCM_BYTES = 256 * 1024 * 1024
@@ -9,7 +11,8 @@ const MAX_PCM_BYTES = 256 * 1024 * 1024
 export function uploadBitrateKbps(durationSec: number, sourceBytes = 0, sourceBitrate = 0): number {
   if (sourceBytes > 0 && sourceBitrate > 0) {
     if (sourceBytes <= MAX_SONG_UPLOAD_BYTES) return PREFERRED_KBPS
-    for (const kbps of FITTING_KBPS) {
+    for (const kbps of [...ABOVE_PREFERRED_KBPS, ...FITTING_KBPS]) {
+      if (kbps * 1000 > sourceBitrate) continue
       if (sourceBytes * (kbps * 1000) / sourceBitrate <= UPLOAD_FIT_BYTES) return kbps
     }
     return 8
@@ -25,6 +28,7 @@ export async function prepareSongUpload(
   file: File,
   duration: number,
   onProgress?: (progress: number) => void,
+  onCompress?: (fromBytes: number, toBytes: number) => void,
 ): Promise<File> {
   const extension = file.name.split(".").pop()?.toLowerCase()
   if (!extension || !ACCEPTED_AUDIO_EXTENSIONS.includes(extension)) {
@@ -55,6 +59,7 @@ export async function prepareSongUpload(
     return file.type === "audio/mpeg" ? file : new File([file], file.name, { type: "audio/mpeg" })
   }
 
+  onCompress?.(file.size, sourceBitrate > 0 ? file.size * kbps * 1000 / sourceBitrate : duration * kbps * 1000 / 8)
   const baseName = file.name.replace(/\.[^.]+$/, "") || "song"
   const tooLargeToDecode = duration * 44100 * 2 * 4 > MAX_PCM_BYTES
   if (extension === "mp3" && tooLargeToDecode) {

@@ -5,28 +5,20 @@ import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { getSafeStoragePath } from "@/libs/helpers"
 import { errorText } from "@/libs/errorText"
-import { createdInsideWindow, isStoredObjectPresent, lockIsStale, sameSongExistsMessage, uploadSlotPath } from "@/libs/songCreateGuard"
+import { isStoredObjectPresent, lockIsStale, sameSongExistsMessage, uploadSlotPath } from "@/libs/songCreateGuard"
 import { imageFileError } from "@/libs/imageFiles"
 import { parseSongTags, normalizeSongTags, inferPlaylistGenreTags } from "@/libs/songTags"
+import { selectDBLatestSongUpload } from "@/libs/songUploadRow"
 
 import { requireUser } from "../backup/requireUser"
 
 export const maxDuration = 60 // max on Hobby plan Vercel 60s
 
-async function findRecentUpload(userId: string, title: string, author: string, size: number) {
-  const { data, error } = await supabaseAdmin
-    .from("19_songs")
-    .select("id, created_at")
-    .eq("user_id", userId)
-    .eq("title", title)
-    .eq("author", author)
-    .eq("size_bytes", size)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (error) throw error
-  if (!data?.id || !createdInsideWindow(data.created_at, Date.now())) return null
-  return { id: Number(data.id) }
+// Same user, title, author and byte size = the same file, however long ago it was stored. A 3-minute window used to
+// let a re-send after a lost answer store the song a 2nd time.
+async function findSameSong(userId: string, title: string, author: string, size: number) {
+  const latest = await selectDBLatestSongUpload(userId, title, author, size)
+  return latest ? { id: latest.id } : null
 }
 
 async function claimUploadSlot(slotPath: string): Promise<"claimed" | "busy"> {
@@ -48,10 +40,10 @@ async function claimUploadSlot(slotPath: string): Promise<"claimed" | "busy"> {
   return "busy"
 }
 
-async function waitForRecentUpload(userId: string, title: string, author: string, size: number) {
+async function waitForSameSong(userId: string, title: string, author: string, size: number) {
   for (let attempt = 0; attempt < 45; attempt++) {
-    const recent = await findRecentUpload(userId, title, author, size)
-    if (recent) return recent
+    const sameSong = await findSameSong(userId, title, author, size)
+    if (sameSong) return sameSong
     await new Promise(resolve => setTimeout(resolve, 1000))
   }
   return null
@@ -121,15 +113,15 @@ export async function POST(request: Request) {
 
   const songTitle = title.trim()
   const songAuthor = author.trim()
-  const recent = await findRecentUpload(auth.userId, songTitle, songAuthor, songFile.size)
-  if (recent) {
+  const sameSong = await findSameSong(auth.userId, songTitle, songAuthor, songFile.size)
+  if (sameSong) {
     return NextResponse.json({ error: sameSongExistsMessage(songTitle) }, { status: 409 })
   }
 
   const slotName = uploadSlotPath(auth.userId, songTitle, songAuthor, songFile.size)
   const slot = await claimUploadSlot(slotName)
   if (slot === "busy") {
-    const waited = await waitForRecentUpload(auth.userId, songTitle, songAuthor, songFile.size)
+    const waited = await waitForSameSong(auth.userId, songTitle, songAuthor, songFile.size)
     if (!waited) {
       return NextResponse.json({ error: "This song is already uploading. Wait for it to finish." }, { status: 409 })
     }
@@ -170,6 +162,16 @@ export async function POST(request: Request) {
   if (imageError) {
     await supabaseAdmin.storage.from("songs").remove([songPath])
     return NextResponse.json({ error: `Image storage upload failed. ${errorText(imageError)}` }, { status: 400 })
+  }
+
+  // checked again after the files are stored: a 2nd request for this file that started before the 1st one inserted
+  // its row (the browser re-sent the POST, or the lock went stale during a long upload) stops here
+  if (await findSameSong(auth.userId, songTitle, songAuthor, songFile.size)) {
+    await Promise.all([
+      supabaseAdmin.storage.from("songs").remove([songPath]),
+      supabaseAdmin.storage.from("images").remove([imagePath]),
+    ])
+    return NextResponse.json({ error: sameSongExistsMessage(songTitle) }, { status: 409 })
   }
 
   const { data: songRecord, error: insertError } = await supabaseAdmin
