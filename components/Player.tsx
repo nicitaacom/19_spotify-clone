@@ -6,11 +6,12 @@ import { useUser } from "@/hooks/useUser"
 import { AiOutlineLoading3Quarters } from "react-icons/ai"
 
 import usePlayer from "@/hooks/usePlayer"
-import useLoadSongUrl from "@/hooks/useLoadSongUrl"
+import useSongPlayUrl from "@/hooks/useSongPlayUrl"
 import useGetSongById from "@/hooks/useGetSongById"
 import { useExclusivePlaybackSource } from "@/app/providers/PlaybackSyncProvider"
 
 import PlayerContent from "./PlayerContent"
+import PlayerProgressBar from "./PlayerProgressBar"
 
 const Player = () => {
   const { user, isLoading: isUserLoading } = useUser()
@@ -31,8 +32,6 @@ const Player = () => {
     activeSong: currentStoreSong,
     isPlaying,
     setActiveSong,
-    progress,
-    setProgress,
     requestSeek,
     requestPlaybackCommand,
     togglePlayback,
@@ -94,19 +93,10 @@ const Player = () => {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [requestSeek, togglePlayback, stopPlayback])
 
-  const { url: songUrl, error: audioError, unlockSlug, expiresAt, retry } = useLoadSongUrl(song)
+  const { url: songUrl, error: audioError, unlockSlug, expiresAt, retry } = useSongPlayUrl(song)
 
   if (!activeId) {
     return null
-  }
-
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const width = rect.width
-    const nextProgress = Math.max(0, Math.min(1, x / width))
-    setProgress(nextProgress)
-    requestSeek(nextProgress)
   }
 
   return (
@@ -122,28 +112,7 @@ const Player = () => {
         z-10
       ">
       {/* Full-width Progress Bar */}
-      <div
-        onClick={handleSeek}
-        className="
-          absolute 
-          -top-2
-          left-0 
-          w-full 
-          h-5
-          z-20
-          flex
-          items-center
-          cursor-pointer 
-          group/progress
-        ">
-        <div className="relative h-[3px] w-full bg-elevated">
-          <div style={{ width: `${progress * 100}%` }} className="relative h-full bg-neon shadow-neon-sm">
-            <div
-              className="absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 translate-x-1/2 rounded-full border-2 border-white bg-neon shadow-neon-sm transition-transform hover:scale-110"
-            />
-          </div>
-        </div>
-      </div>
+      <PlayerProgressBar />
 
       <div className="flex h-full items-center px-4 py-2">
         {song && songUrl ? (

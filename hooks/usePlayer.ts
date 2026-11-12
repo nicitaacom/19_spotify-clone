@@ -2,6 +2,8 @@ import { create } from "zustand"
 
 import { Song } from "@/types"
 
+import usePlayerProgress from "./usePlayerProgress"
+
 type RepeatMode = "next" | "one"
 
 interface PlayerStore {
@@ -11,7 +13,6 @@ interface PlayerStore {
   activeSong?: Song
   isLoading: boolean
   isPlaying: boolean
-  progress: number
   preloadedSongId?: string
   playbackCommand?: "play" | "pause"
   playbackCommandId: number
@@ -24,7 +25,6 @@ interface PlayerStore {
   setActiveSong: (song?: Song) => void
   setIsLoading: (isLoading: boolean) => void
   setIsPlaying: (isPlaying: boolean) => void
-  setProgress: (progress: number) => void
   setPreloadedSongId: (songId?: string) => void
   setRepeatMode: (mode: RepeatMode) => void
   setSavedPosition: (pos: number) => void
@@ -42,7 +42,6 @@ const usePlayer = create<PlayerStore>(set => ({
   activeSong: undefined,
   isLoading: false,
   isPlaying: false,
-  progress: 0,
   preloadedSongId: undefined,
   playbackCommand: undefined,
   playbackCommandId: 0,
@@ -51,7 +50,8 @@ const usePlayer = create<PlayerStore>(set => ({
   repeatMode: "next",
   savedPosition: 0,
   sourcePlaylistId: undefined,
-  startPlayback: (id: string, songs?: Song[], playlistId?: string) =>
+  startPlayback: (id: string, songs?: Song[], playlistId?: string) => {
+    usePlayerProgress.getState().setProgress(0)
     set(state => {
       const queue = songs ?? state.songs
       return {
@@ -61,18 +61,17 @@ const usePlayer = create<PlayerStore>(set => ({
         activeSong: queue.find(song => String(song.id) === id),
         isLoading: true,
         isPlaying: false,
-        progress: 0,
         savedPosition: 0,
         seek: undefined,
         playbackCommand: "play",
         playbackCommandId: state.playbackCommandId + 1,
         sourcePlaylistId: songs ? playlistId : state.sourcePlaylistId,
       }
-    }),
+    })
+  },
   setActiveSong: (song?: Song) => set({ activeSong: song }),
   setIsLoading: (isLoading: boolean) => set({ isLoading }),
   setIsPlaying: (isPlaying: boolean) => set({ isPlaying }),
-  setProgress: (progress: number) => set({ progress }),
   setPreloadedSongId: (preloadedSongId?: string) => set({ preloadedSongId }),
   setRepeatMode: (repeatMode: RepeatMode) => set({ repeatMode }),
   setSavedPosition: (savedPosition: number) => set({ savedPosition }),
@@ -98,7 +97,8 @@ const usePlayer = create<PlayerStore>(set => ({
       seek,
       seekId: state.seekId + 1,
     })),
-  reset: () =>
+  reset: () => {
+    usePlayerProgress.getState().setProgress(0)
     set({
       songs: [],
       ids: [],
@@ -106,7 +106,6 @@ const usePlayer = create<PlayerStore>(set => ({
       activeSong: undefined,
       isLoading: false,
       isPlaying: false,
-      progress: 0,
       preloadedSongId: undefined,
       playbackCommand: undefined,
       playbackCommandId: 0,
@@ -115,7 +114,8 @@ const usePlayer = create<PlayerStore>(set => ({
       repeatMode: "next",
       savedPosition: 0,
       sourcePlaylistId: undefined,
-    }),
+    })
+  },
 }))
 
 export default usePlayer

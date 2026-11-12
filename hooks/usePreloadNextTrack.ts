@@ -6,8 +6,9 @@ import { Song } from "@/types"
 import { useUser } from "@/hooks/useUser"
 import supabaseClient from "@/libs/supabaseClient"
 
-import useLoadSongUrl from "./useLoadSongUrl"
+import useSongPlayUrl from "./useSongPlayUrl"
 import usePlayer from "./usePlayer"
+import usePlayerProgress from "./usePlayerProgress"
 
 interface PlaybackSoundLike {
   duration: () => number
@@ -32,7 +33,6 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound, getPosition }: Use
     preloadedSongId,
     isPlaying: isPlayingInStore,
     setPreloadedSongId,
-    setProgress,
   } = usePlayer()
 
   const { user } = useUser()
@@ -44,7 +44,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound, getPosition }: Use
   const currentIndex = ids.findIndex(id => id === activeId)
   const nextSongId = currentIndex >= 0 ? ids[currentIndex + 1] : undefined
   const nextSong = nextSongId ? songs.find(song => song.id === nextSongId) : undefined
-  const { url: nextSongUrl } = useLoadSongUrl(preloadedSongId === nextSongId ? nextSong : undefined)
+  const { url: nextSongUrl } = useSongPlayUrl(preloadedSongId === nextSongId ? nextSong : undefined)
 
   const unloadPreloadedTrack = () => {
     const preloadedAudio = preloadAudioRef.current
@@ -60,10 +60,10 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound, getPosition }: Use
   }
 
   useEffect(() => {
-    setProgress(0)
+    usePlayerProgress.getState().setProgress(0)
     setPreloadedSongId(undefined)
     hasRecordedPlayRef.current = false
-  }, [currentSong.id, setPreloadedSongId, setProgress])
+  }, [currentSong.id, setPreloadedSongId])
 
   useEffect(() => {
     if (!nextSongId) {
@@ -96,7 +96,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound, getPosition }: Use
       }
 
       const nextProgress = Math.max(0, Math.min(1, safeSeek / duration))
-      setProgress(nextProgress)
+      usePlayerProgress.getState().setProgress(nextProgress)
 
       if (nextProgress >= PRELOAD_THRESHOLD && nextSongId && preloadedSongId !== nextSongId) {
         setPreloadedSongId(nextSongId)
@@ -115,7 +115,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound, getPosition }: Use
     return () => {
       window.clearInterval(intervalId)
     }
-  }, [currentSong.id, getPosition, isPlaying, isPlayingInStore, nextSongId, preloadedSongId, setPreloadedSongId, setProgress, sound, user])
+  }, [currentSong.id, getPosition, isPlaying, isPlayingInStore, nextSongId, preloadedSongId, setPreloadedSongId, sound, user])
 
   useEffect(() => {
     if (!nextSongId || !nextSongUrl || preloadedSongId !== nextSongId) {
@@ -128,6 +128,7 @@ const usePreloadNextTrack = ({ currentSong, isPlaying, sound, getPosition }: Use
 
     unloadPreloadedTrack()
 
+    console.log("[player] preloading next song", nextSongId)
     const preloadedAudio = new Audio()
     preloadedAudio.preload = "auto"
     preloadedAudio.src = nextSongUrl

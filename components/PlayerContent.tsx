@@ -10,6 +10,7 @@ import { Song } from "@/types"
 import { useHotkey } from "@/hooks/useHotkey"
 import usePlayOnPhone from "@/hooks/usePlayOnPhone"
 import usePlayer from "@/hooks/usePlayer"
+import usePlayerProgress from "@/hooks/usePlayerProgress"
 import usePreloadNextTrack from "@/hooks/usePreloadNextTrack"
 import useVolumeStore from "@/hooks/useVolumeStore"
 import { audioFailureDetail, probeAudioAddress, publicAudioAddress } from "@/libs/audioFailureText"
@@ -72,7 +73,6 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     startPlayback,
     setIsLoading,
     setIsPlaying: setIsPlayingInStore,
-    setProgress,
     setRepeatMode,
     setSavedPosition,
   } = usePlayer()
@@ -346,16 +346,17 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
 
   const playTrack = useCallback((id: string) => {
     const currentSound = soundRef.current
+    const progressStore = usePlayerProgress.getState()
     if (String(id) === String(activeId) && currentSound) {
       seekCurrentSound(0)
       setSavedPosition(0)
-      setProgress(0)
+      progressStore.setProgress(0)
       if (!currentSound.playing()) playSound()
       return
     }
 
     startPlayback(id)
-  }, [activeId, playSound, seekCurrentSound, setProgress, setSavedPosition, startPlayback])
+  }, [activeId, playSound, seekCurrentSound, setSavedPosition, startPlayback])
 
   const onPlayNext = useCallback(() => {
     const state = usePlayer.getState()
@@ -384,9 +385,9 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
     const position = Math.max(0, Math.min(duration, currentPosition + deltaSeconds))
     seekCurrentSound(position)
     setSavedPosition(position)
-    setProgress(position / duration)
+    usePlayerProgress.getState().setProgress(position / duration)
     postNowPlayingRef.current(isPlayingRef.current)
-  }, [seekCurrentSound, setProgress, setSavedPosition])
+  }, [seekCurrentSound, setSavedPosition])
 
   useHotkey({ hotkey: "ArrowRight", ignoreInputs: true, onKeyPressFn: () => seekBySeconds(SEEK_STEP_SECONDS) })
   useHotkey({ hotkey: "ArrowLeft", ignoreInputs: true, onKeyPressFn: () => seekBySeconds(-SEEK_STEP_SECONDS) })
@@ -624,8 +625,9 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
   }, [clearRecoveryTimer, detachNativeAudioListeners])
 
   useEffect(() => {
-    if (!sound) setProgress(0)
-  }, [sound, setProgress])
+    const progressStore = usePlayerProgress.getState()
+    if (!sound) progressStore.setProgress(0)
+  }, [sound])
 
   usePreloadNextTrack({ currentSong: song, isPlaying, sound, getPosition: seekCurrentSound })
 
@@ -740,7 +742,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       const position = Math.max(0, Math.min(duration, seekValue * duration))
       seekCurrentSound(position)
       setSavedPosition(position)
-      setProgress(position / duration)
+      usePlayerProgress.getState().setProgress(position / duration)
       postNowPlayingRef.current(isPlayingRef.current)
     }
     if (sound.duration() > 0) applySeek()
@@ -748,7 +750,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       sound.once("load", applySeek)
       return () => { sound.off("load", applySeek) }
     }
-  }, [activeId, seekCurrentSound, seekId, seekValue, sound, song.id, setProgress, setSavedPosition])
+  }, [activeId, seekCurrentSound, seekId, seekValue, sound, song.id, setSavedPosition])
 
   const handlePlay = () => {
     if (isLoading && !isPlayingRef.current) return

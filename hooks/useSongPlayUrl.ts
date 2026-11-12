@@ -5,7 +5,13 @@ import { errorText, httpErrorMessage } from "@/libs/errorText"
 
 type AudioUrlState = { key: string; url: string; error?: string; unlockSlug?: string; expiresAt?: number }
 
-const useLoadSongUrl = (song?: Song) => {
+// /play signs a new storage address on each request. The preload got one address, the player then asked again and got
+// another, so the preloaded bytes never served the player and the song downloaded twice. One address per song is
+// reused while it has REUSE_MIN_LEFT_MS left - a retry (attempt > 0) always asks /play for a fresh one.
+const REUSE_MIN_LEFT_MS = 10 * 60 * 1000
+const songUrlByUserSong = new Map<string, { url: string; expiresAt: number }>()
+
+const useSongPlayUrl = (song?: Song) => {
   const { user, isLoading } = useUser()
   const [attempt, setAttempt] = useState(0)
   const [state, setState] = useState<AudioUrlState>({ key: "", url: "" })
@@ -15,7 +21,19 @@ const useLoadSongUrl = (song?: Song) => {
 
   useEffect(() => {
     if (!id || isLoading) return
+    const userSongKey = `${user?.id ?? "guest"}:${id}`
+    const reusable = attempt === 0 ? songUrlByUserSong.get(userSongKey) : undefined
     const controller = new AbortController()
+    if (reusable && reusable.expiresAt - Date.now() > REUSE_MIN_LEFT_MS) {
+      // set after the effect, like the /play answer below - the expiry check needs Date.now(), so it has no place in render
+      void Promise.resolve().then(() => {
+        if (controller.signal.aborted) return
+        console.log("[player] song url reused", id)
+        setState({ key, url: reusable.url, expiresAt: reusable.expiresAt })
+      })
+      return () => controller.abort()
+    }
+    const startedAt = performance.now()
     fetch(`/api/songs/${id}/play`, { signal: controller.signal, cache: "no-store" })
       .then(async response => {
         const bodyText = await response.text()
@@ -43,6 +61,8 @@ const useLoadSongUrl = (song?: Song) => {
           return
         }
         const body = JSON.parse(bodyText) as { url: string; expires_at?: number }
+        console.log(`[player] song url for ${id} in ${Math.round(performance.now() - startedAt)}ms`)
+        if (body.expires_at) songUrlByUserSong.set(userSongKey, { url: body.url, expiresAt: body.expires_at })
         setState({ key, url: body.url, expiresAt: body.expires_at })
       })
       .catch(error => {
@@ -50,9 +70,9 @@ const useLoadSongUrl = (song?: Song) => {
         setState({ key, url: "", error: errorText(error) })
       })
     return () => controller.abort()
-  }, [id, key, isLoading])
+  }, [id, key, isLoading, attempt, user?.id])
 
   return { ...(state.key === key && !isLoading ? state : { key, url: "" }), retry }
 }
 
-export default useLoadSongUrl
+export default useSongPlayUrl

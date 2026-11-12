@@ -3,8 +3,10 @@
 ## Stack
 
 - **`useSound`** (Howler.js wrapper) — audio playback
-- **`usePlayer`** (Zustand store) — global player state: activeId, isPlaying, progress, playbackCommand, savedPosition, etc.
-- **`Player.tsx`** — renders the fixed bottom bar, progress bar, handles keyboard shortcuts, mounts `<PlayerContent key={song.id-songUrl} />`
+- **`usePlayer`** (Zustand store) — global player state: activeId, isPlaying, playbackCommand, savedPosition, etc.
+- **`usePlayerProgress`** (Zustand store) — `progress` only, apart from `usePlayer` so its 400ms change re-renders nothing but the bar
+- **`Player.tsx`** — renders the fixed bottom bar, handles keyboard shortcuts, mounts `<PlayerContent key={song.id-songUrl} />`
+- **`PlayerProgressBar.tsx`** — the clickable progress bar, the one component that reads `usePlayerProgress`
 - **`PlayerContent.tsx`** — owns the `useSound` instance, all Howler callbacks, play/pause/seek logic
 - **`usePreloadNextTrack.ts`** — polls `sound.seek()` on an interval to drive the progress bar, preloads the next track at 80% through
 
@@ -110,6 +112,18 @@ The progress bar is driven by a `setInterval` in `usePreloadNextTrack` polling t
 - Progress resets to 0 on song change (`currentSong.id` dep in the reset effect)
 - If the interval stops (e.g. `isPlaying` goes false), progress freezes at the last polled value — this is intentional while paused
 - `setProgress(0)` is also called in `PlayerContent` when `sound` becomes null during re-init
+- every writer calls `usePlayerProgress.getState().setProgress(...)` - a writer that called `usePlayerProgress()`
+  would subscribe and render every 400ms again. `progress` used to sit in `usePlayer`: every song row, `Sidebar`,
+  `Header` and `PlayerContent` (all read `usePlayer()` whole) rendered 2.5 times a second while a song played
+
+### One song address for the preload and the player
+
+`/api/songs/[id]/play` signs a new storage address on each request. `usePreloadNextTrack` asked for the next song at
+80%, downloaded it, and `Player.tsx` asked again when that song started - a different address, so the browser cache
+missed and the song downloaded a second time, after one more `/play` round trip. `useSongPlayUrl` keeps one address
+per user + song while it has 10+ minutes left, so the player starts from the preloaded bytes. A retry
+(`attempt > 0`, an expiring address or a failed one) always asks `/play` again. The console shows
+`[player] song url for <id> in <ms>ms`, `[player] song url reused <id>` and `[player] preloading next song <id>`.
 
 ### Seeking on self-hosted storage
 
