@@ -55,6 +55,13 @@ export default function EmbedClient() {
   const missingRef = useRef(false)
   const persistCloseRef = useRef(false)
 
+  // the host page sees only the iframe's box, never what is drawn inside - emptied, that box still covers the host's
+  // corner and takes every click there, so the host removes it on this message.
+  // DEPENDS ON: outreach-tool's useAutoUpdateMusicRecommendationShown.ts
+  useEffect(() => {
+    if (hidden && window.parent !== window) window.parent.postMessage({ type: "musicRecommendationHidden" }, "*")
+  }, [hidden])
+
   useEffect(() => {
     const controller = new AbortController()
     missingRef.current = false
