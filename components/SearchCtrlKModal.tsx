@@ -117,7 +117,9 @@ const SearchCtrlKModal = () => {
               <div className="flex flex-col gap-y-2">
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Songs</p>
                 {songs.map(song => (
-                  <div key={song.id} className="flex items-center gap-x-3">
+                  <div
+                    key={song.id}
+                    className="flex items-center gap-x-3 rounded-md border border-transparent transition hover:border-neon/40 hover:bg-elevated hover:shadow-neon-sm">
                     <div className="min-w-0 flex-1">
                       <MediaItem
                         onClick={id => onPlay(id)}
