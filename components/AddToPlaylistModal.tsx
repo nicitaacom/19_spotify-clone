@@ -104,7 +104,7 @@ const AddToPlaylistModal = () => {
 
       if (insertError) {
         if ((insertError as { code?: string }).code === "23505") {
-          toast.error("This song is already in that playlist.")
+          toast.error("This song is already in that playlist. Pick another playlist.")
           return
         }
 

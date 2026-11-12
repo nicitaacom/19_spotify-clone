@@ -29,6 +29,9 @@ const eslintConfig = defineConfig([
       "local-rules/no-void-only-jsx-handler": "error",
       "local-rules/no-inline-on-click": "warn",
       "local-rules/no-zustand-get-state-in-condition": "warn",
+      // "Failed to fetch file list (500)", "Audio failed for ... Error: 2" - a message has to name what failed,
+      // what the user lost and what to do now
+      "local-rules/no-vague-error-msg": "warn",
 
       // a leading _ is this project's marker for a parameter kept only to hold the shared call shape
       // (e.g. assertBackupAccess(_userId, _admin) in app/features/backup/backupConfig.ts)

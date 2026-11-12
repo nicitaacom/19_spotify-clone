@@ -11,6 +11,8 @@ module.exports = {
   ...require("./no-void-only-jsx-handler"),
   ...require("./no-inline-on-click"),
   ...require("./no-zustand-get-state-in-condition"),
+  // copied from outreach-tool, plus toast.error("...") - see the header of no-vague-error-msg.js
+  ...require("./no-vague-error-msg"),
   // runs on package.json through ./json-processor.js
   ...require("./no-unused-dependencies"),
 }

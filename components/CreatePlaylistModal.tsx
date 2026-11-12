@@ -110,7 +110,7 @@ const CreatePlaylistModal = () => {
 
         // If the duplicate is on the title column (unique per-user title constraint), bail early
         if (pgError.message?.includes("title")) {
-          toast.error("You already have a playlist with this name.")
+          toast.error("You already have a playlist with this name. Change the title.")
           setIsLoading(false)
           return
         }
