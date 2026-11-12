@@ -6,10 +6,11 @@ export function chunkStartSec(positionSec: number, chunkSec = PREVIEW_CHUNK_SEC)
   return Math.floor(positionSec / size) * size
 }
 
-// A 10s part that took 5s to encode starts the following part at 5s.
+// The following part starts encoding once half of this part has played - 5s into a 10s part, so 5, 15, 25s.
+// A part that took longer than that half to encode starts the following one earlier, so it is ready in time.
 export function nextEncodeAtSec(startSec: number, chunkSec: number, encodeMs: number): number {
   const encodeSec = Number.isFinite(encodeMs) && encodeMs > 0 ? encodeMs / 1000 : 0
-  const into = chunkSec - encodeSec
+  const into = Math.min(chunkSec / 2, chunkSec - encodeSec)
   return startSec + Math.max(0, into)
 }
 

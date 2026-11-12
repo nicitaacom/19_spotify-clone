@@ -418,6 +418,8 @@ export function useCompressFileEngine(): CompressFileEngine {
         : await transcodeMp3(sourceFile as File, chosen, metadataRef.current, onProgress)
 
       if (openGenerationRef.current !== generation) return
+      // Kept here for the "Download" button - never saved on its own. An auto-download opens a save dialog, and one
+      // Esc or one closed file-manager window on autopilot lost the file, so the whole compress started again.
       encodedMp3Ref.current = { key, mp3 }
       const currentKbps = choicesRef.current[kbpsIndexRef.current]
       const identityNow = identityRef.current
