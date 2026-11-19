@@ -68,7 +68,9 @@ const RankedPlaylistsContent: React.FC<RankedPlaylistsContentProps> = ({ playlis
             : "No playlists found. Try another search or filter."}
         </div>
       ) : (
-        <div className="grid grid-cols-2 min-[500px]:grid-cols-3 min-[1100px]:grid-cols-5 min-[1280px]:grid-cols-6 min-[1536px]:grid-cols-7 min-[1920px]:grid-cols-9 gap-3">
+        // a card is 150px+ wide and the row takes as many as fit - the window-width steps jumped from 9 to 7 bigger
+        // cards at 1919px (a browser window 1px under 1920)
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
           {filteredPlaylists.map(playlist => (
             <PlaylistCard key={playlist.id} playlist={playlist} />
           ))}

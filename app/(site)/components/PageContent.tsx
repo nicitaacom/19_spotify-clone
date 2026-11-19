@@ -18,8 +18,8 @@ const PageContent: React.FC<PageContentProps> = ({ songs }) => {
   }
 
   return (
-    <div
-      className="grid grid-cols-2 min-[500px]:grid-cols-3 min-[1100px]:grid-cols-5 min-[1280px]:grid-cols-6 min-[1536px]:grid-cols-7 min-[1920px]:grid-cols-9 gap-3 mt-4">
+    // the same card width as the playlists grid (RankedPlaylistsContent) - as many 150px+ cards as fit in the row
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3 mt-4">
       {songs.map((item, index) => (
         <SongItem
           onPlay={(id: string) => onPlay(id)}
