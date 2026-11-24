@@ -45,3 +45,17 @@ When the bitrate is unknown (a wav, or an MP3 with no bitrate), the step comes f
 If PCM at 44.1 kHz, stereo, 32-bit would go past 256 MB, an MP3 goes through `compress-file/lib/transcodeMp3.ts` (MPEG frames, no full decode). Shorter files are decoded, then `slow-and-reverb/lib/encodeMp3.ts` builds the MP3. The stored name ends in `.mp3` and the type is `audio/mpeg`.
 
 If the result is still over 50 MiB, Create stops. The error names the file, the bitrate, and both byte counts.
+
+## Silent audio after compression
+
+The 60-minute server-room recording is 48 kHz stereo. Fitting it under the cap selects 112 kbps, at which lamejs chooses 44.1 kHz. Its internal resampler can consume fractional input counts and corrupt its PCM state, producing an MP3 with valid frames and duration but entirely silent audio. Format-only tests did not catch this.
+
+Both `transcodeMp3.ts` and `encodeMp3.ts` now use `libs/mp3Encoder.ts`. It selects the encoder's output sample rate before encoding, resamples PCM with a windowed-sinc filter, and passes matching-rate PCM to lamejs. The streaming filter retains its position and history between chunks, so long recordings need no full PCM buffer. It also filters frequencies above the new Nyquist limit instead of aliasing them into the output.
+
+`libs/mp3Encoder.test.mjs` checks audible sample levels, stereo balance, duration, chunk boundaries, anti-aliasing, and matching encoder/frame rates across the upload bitrate ladder. `libs/songUpload.test.mjs` exercises an oversized 48 kHz MP3 through the actual streaming upload preparation and decodes the result to verify audible audio.
+
+Existing silent uploads must be replaced using the source file; the missing audio cannot be recovered from the silent MP3.
+
+Verified with the original 54,909,693-byte server-room recording: the prepared file is 50,420,663 bytes (48.1 MiB), 112 kbps, and 44.1 kHz stereo. FFmpeg decodes the entire result; Chromium reports 60:01.48 and measurable audio at 5, 1800, and 3580 seconds. A browser conversion of a source excerpt also retains audible audio. These are local conversion/playback checks, not a live storage replacement.
+
+Run the signal and upload regressions with `node --experimental-strip-types --test libs/mp3Encoder.test.mjs libs/songUpload.test.mjs libs/mp3Tags.test.mjs`.

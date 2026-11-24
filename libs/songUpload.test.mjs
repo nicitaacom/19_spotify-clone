@@ -4,6 +4,7 @@ import { registerHooks } from "node:module"
 import test from "node:test"
 import { Mp3Encoder } from "@breezystack/lamejs"
 import { parseBlob } from "music-metadata"
+import { MPEGDecoder } from "mpg123-decoder"
 
 import { MAX_SONG_UPLOAD_BYTES, prepareSongUpload, uploadBitrateKbps } from "./songUpload.ts"
 
@@ -12,6 +13,9 @@ const encoderUrl = new URL("../app/(site)/slow-and-reverb/lib/encodeMp3.ts", imp
 const transcodeUrl = new URL("../app/(site)/compress-file/lib/transcodeMp3.ts", import.meta.url)
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (specifier === "@/libs/mp3Encoder" || specifier === "@/libs/errorText") {
+      return nextResolve(new URL(`./${specifier.split("/").at(-1)}.ts`, import.meta.url).href, context)
+    }
     if (specifier === "@/app/(site)/slow-and-reverb/lib/encodeMp3") {
       return nextResolve(encoderUrl.href, context)
     }
@@ -54,6 +58,32 @@ function mp3File(kbps, type = "audio/mpeg") {
   const pcm = Int16Array.from(samples, value => Math.round(value * 32767))
   return new File([encoder.encodeBuffer(pcm), encoder.flush()], "song.mp3", { type })
 }
+
+test("a long 48 kHz upload compressed to 112 kbps retains audible audio", async t => {
+  const decode = mockDecoder(t)
+  const rate = 48000
+  const pcm = Int16Array.from({ length: rate * 2 }, (_, i) => i < rate / 4 ? 0 : Math.sin(i * 2 * Math.PI * 440 / rate) * 16384)
+  const encoder = new Mp3Encoder(2, rate, 128)
+  const source = new File([encoder.encodeBuffer(pcm, pcm), encoder.flush(), new Uint8Array(MAX_SONG_UPLOAD_BYTES)], "long-48khz.mp3", { type: "audio/mpeg" })
+  const result = await prepareSongUpload(source, 3600)
+  const metadata = await parseBlob(result)
+  assert.equal(decode.mock.callCount(), 0, "uses streaming decoding rather than a full Web Audio buffer")
+  assert.equal(metadata.format.bitrate, 112000)
+  assert.equal(metadata.format.sampleRate, 44100)
+  const decoder = new MPEGDecoder()
+  await decoder.ready
+  try {
+    const audio = decoder.decode(new Uint8Array(await result.arrayBuffer()))
+    for (const channel of audio.channelData) {
+      const audible = channel.subarray(44100, 44100 * 2)
+      const rms = Math.sqrt(audible.reduce((sum, sample) => sum + sample * sample, 0) / audible.length)
+      assert.ok(rms > 0.2, `compressed audio RMS ${rms} must preserve the source tone`)
+    }
+    assert.ok(Math.abs(metadata.format.duration - 2) < 0.1)
+  } finally {
+    decoder.free()
+  }
+})
 
 test("converts an M4A upload to real 128 kbps MP3 frames with the correct extension and MIME type", async t => {
   const decode = mockDecoder(t)

@@ -1,4 +1,4 @@
-import { Mp3Encoder } from "@breezystack/lamejs"
+import { StreamingMp3Encoder } from "@/libs/mp3Encoder"
 
 import type { Id3Metadata } from "./id3AlbumArt"
 import { buildId3Tag } from "./id3Writer"
@@ -12,7 +12,7 @@ export async function encodeMp3(
   const sampleRate = buffer.sampleRate
   const numChannels = Math.min(2, buffer.numberOfChannels)
 
-  const encoder = new Mp3Encoder(numChannels, sampleRate, kbps)
+  const encoder = new StreamingMp3Encoder(numChannels, sampleRate, kbps)
 
   const left = buffer.getChannelData(0)
   const right = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : left
@@ -23,16 +23,7 @@ export async function encodeMp3(
   const mp3Data: Uint8Array[] = []
 
   for (let i = 0; i < samples; i += chunkSize) {
-    const length = Math.min(chunkSize, samples - i)
-    const leftChunk = new Int16Array(length)
-    const rightChunk = numChannels > 1 ? new Int16Array(length) : leftChunk
-    for (let j = 0; j < length; j++) {
-      leftChunk[j] = Math.max(-32768, Math.min(32767, Math.round(left[i + j] * 32767)))
-      if (numChannels > 1) {
-        rightChunk[j] = Math.max(-32768, Math.min(32767, Math.round(right[i + j] * 32767)))
-      }
-    }
-    const mp3buf = encoder.encodeBuffer(leftChunk, rightChunk)
+    const mp3buf = encoder.encode(left.subarray(i, i + chunkSize), right.subarray(i, i + chunkSize))
     if (mp3buf.length > 0) {
       mp3Data.push(new Uint8Array(mp3buf))
     }
@@ -43,10 +34,7 @@ export async function encodeMp3(
     await new Promise((r) => setTimeout(r, 0))
   }
 
-  const mp3buf = encoder.flush()
-  if (mp3buf.length > 0) {
-    mp3Data.push(new Uint8Array(mp3buf))
-  }
+  mp3Data.push(...encoder.flush())
 
   if (onProgress) onProgress(100)
 

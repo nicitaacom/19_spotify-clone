@@ -1,4 +1,4 @@
-import { Mp3Encoder } from "@breezystack/lamejs"
+import { StreamingMp3Encoder } from "@/libs/mp3Encoder"
 import { MPEGDecoder, type MPEGDecodedAudio } from "mpg123-decoder"
 
 import type { Id3Metadata } from "../../slow-and-reverb/lib/id3AlbumArt"
@@ -13,15 +13,6 @@ function concatBytes(left: Uint8Array, right: Uint8Array): Uint8Array {
   joined.set(left, 0)
   joined.set(right, left.length)
   return joined
-}
-
-function toInt16(samples: Float32Array): Int16Array {
-  const pcm = new Int16Array(samples.length)
-  for (let index = 0; index < samples.length; index++) {
-    const scaled = Math.max(-1, Math.min(1, samples[index])) * 32767
-    pcm[index] = Math.round(scaled)
-  }
-  return pcm
 }
 
 export async function transcodeMp3(
@@ -43,7 +34,7 @@ export async function transcodeMp3(
   const decoder = new MPEGDecoder()
   await decoder.ready
   const encoded: Uint8Array[] = []
-  const state: { encoder: Mp3Encoder | null; samples: number; sampleRate: number } = {
+  const state: { encoder: StreamingMp3Encoder | null; samples: number; sampleRate: number } = {
     encoder: null,
     samples: 0,
     sampleRate: info.sampleRate,
@@ -57,9 +48,9 @@ export async function transcodeMp3(
     if (windowSamples > 0 && state.samples >= windowSamples) return
     const channels = Math.min(2, decoded.channelData.length)
     state.sampleRate = decoded.sampleRate
-    if (!state.encoder) state.encoder = new Mp3Encoder(channels, decoded.sampleRate, kbps)
-    let left = toInt16(decoded.channelData[0])
-    let right = channels > 1 ? toInt16(decoded.channelData[1]) : left
+    if (!state.encoder) state.encoder = new StreamingMp3Encoder(channels, decoded.sampleRate, kbps)
+    let left = decoded.channelData[0]
+    let right = channels > 1 ? decoded.channelData[1] : left
     if (windowSamples > 0) {
       const room = windowSamples - state.samples
       if (left.length > room) {
@@ -67,7 +58,7 @@ export async function transcodeMp3(
         right = right.subarray(0, room)
       }
     }
-    const packet = channels > 1 ? state.encoder.encodeBuffer(left, right) : state.encoder.encodeBuffer(left)
+    const packet = state.encoder.encode(left, right)
     if (packet.length > 0) encoded.push(new Uint8Array(packet))
     state.samples += left.length
   }
@@ -124,8 +115,7 @@ export async function transcodeMp3(
     )
   }
 
-  const tail = encoder.flush()
-  if (tail.length > 0) encoded.push(new Uint8Array(tail))
+  encoded.push(...encoder.flush())
   const id3 = metadata ? buildId3Tag(metadata) : new Uint8Array(0)
   const parts: BlobPart[] = id3.length > 0 ? [id3, ...encoded] : encoded
   onProgress?.(100)
