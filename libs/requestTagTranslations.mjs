@@ -1,4 +1,4 @@
-import { modelMessageText, translationsFromModel } from "./bilingualSongTags.mjs"
+import { modelMessageText, translationsFromModel } from "./bilingualSongTagUtils.mjs"
 
 export const TAG_TRANSLATION_MODEL = "gpt-6-luna"
 export const TAG_TRANSLATION_PROMPT = [

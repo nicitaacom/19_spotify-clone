@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { isOwnerId } from "@/libs/getOwnerIds"
 import { getSafeStoragePath } from "@/libs/helpers"
 import { errorText } from "@/libs/errorText"
-import { isStoredObjectPresent, lockIsStale, sameSongExistsMessage, uploadSlotPath } from "@/libs/songCreateGuard"
+import { isStoredObjectPresent, isUploadId, lockIsStale, sameSongExistsMessage, uploadSlotPath } from "@/libs/songCreateGuard"
 import { imageFileError } from "@/libs/imageFiles"
 import { parseSongTags, normalizeSongTags, inferPlaylistGenreTags } from "@/libs/songTags"
 import { selectDBLatestSongUpload } from "@/libs/songUploadRow"
@@ -19,6 +19,10 @@ export const maxDuration = 60 // max on Hobby plan Vercel 60s
 async function findSameSong(userId: string, title: string, author: string, size: number) {
   const latest = await selectDBLatestSongUpload(userId, title, author, size)
   return latest ? { id: latest.id } : null
+}
+
+function songConflict(id: number, title: string) {
+  return NextResponse.json({ error: sameSongExistsMessage(title), code: "song_exists", song: { id, title } }, { status: 409 })
 }
 
 async function claimUploadSlot(slotPath: string): Promise<"claimed" | "busy"> {
@@ -70,6 +74,13 @@ export async function POST(request: Request) {
   const author = formData.get("author") as string | null
   const playlistId = formData.get("playlistId") as string | null
   const isPaid = formData.get("isPaid") === "true"
+  const replaceValue = formData.get("replaceSongId")
+  const replaceSongId = replaceValue === null ? null : Number(replaceValue)
+  const uploadId = formData.get("uploadId")
+  if ((replaceValue !== null && (typeof replaceValue !== "string" || !Number.isSafeInteger(replaceSongId) || Number(replaceSongId) <= 0))
+      || (uploadId !== null && !isUploadId(uploadId))) {
+    return NextResponse.json({ error: "Invalid upload or replacement ID. Choose the song again." }, { status: 400 })
+  }
   let tags: string[]
   try { tags = parseSongTags(formData.get("tags")) }
   catch (error) { return NextResponse.json({ error: errorText(error) }, { status: 400 }) }
@@ -113,23 +124,34 @@ export async function POST(request: Request) {
 
   const songTitle = title.trim()
   const songAuthor = author.trim()
+  const { data: replacement, error: replacementError } = replaceSongId === null
+    ? { data: null, error: null }
+    : await supabaseAdmin.from("19_songs").select("id, song_path, image_path")
+      .eq("id", replaceSongId).eq("user_id", auth.userId).maybeSingle()
+  if (replacementError) throw replacementError
+  if (replaceSongId !== null && !replacement) {
+    return NextResponse.json({ error: "The song to replace was removed or belongs to another account. Upload with a new name instead." }, { status: 404 })
+  }
   const sameSong = await findSameSong(auth.userId, songTitle, songAuthor, songFile.size)
-  if (sameSong) {
-    return NextResponse.json({ error: sameSongExistsMessage(songTitle) }, { status: 409 })
+  if (sameSong && sameSong.id !== replaceSongId) {
+    return songConflict(sameSong.id, songTitle)
   }
 
-  const slotName = uploadSlotPath(auth.userId, songTitle, songAuthor, songFile.size)
+  const slotName = replacement ? `upload-lock/replace-${replacement.id}` : uploadSlotPath(auth.userId, songTitle, songAuthor, songFile.size)
   const slot = await claimUploadSlot(slotName)
   if (slot === "busy") {
+    if (replacement) {
+      return NextResponse.json({ error: "This song is already being replaced. Wait for that upload to finish, then try again." }, { status: 409 })
+    }
     const waited = await waitForSameSong(auth.userId, songTitle, songAuthor, songFile.size)
     if (!waited) {
       return NextResponse.json({ error: "This song is already uploading. Wait for it to finish." }, { status: 409 })
     }
-    return NextResponse.json({ error: sameSongExistsMessage(songTitle) }, { status: 409 })
+    return songConflict(waited.id, songTitle)
   }
   slotPath = slotName
 
-  const uniqueID = uniqid()
+  const uniqueID = isUploadId(uploadId) ? uploadId : uniqid()
   const songPath = getSafeStoragePath({
     prefix: "song",
     value: title,
@@ -166,12 +188,73 @@ export async function POST(request: Request) {
 
   // checked again after the files are stored: a 2nd request for this file that started before the 1st one inserted
   // its row (the browser re-sent the POST, or the lock went stale during a long upload) stops here
-  if (await findSameSong(auth.userId, songTitle, songAuthor, songFile.size)) {
+  const repeatedSong = await findSameSong(auth.userId, songTitle, songAuthor, songFile.size)
+  if (repeatedSong && repeatedSong.id !== replaceSongId) {
     await Promise.all([
       supabaseAdmin.storage.from("songs").remove([songPath]),
       supabaseAdmin.storage.from("images").remove([imagePath]),
     ])
-    return NextResponse.json({ error: sameSongExistsMessage(songTitle) }, { status: 409 })
+    return songConflict(repeatedSong.id, songTitle)
+  }
+
+  if (replacement) {
+    // Store the new files first and update the same row last. A failed replacement keeps the old audio playable.
+    let addedPlaylistLink = false
+    let accessChanged = false
+    let previousAccess: { is_paid: boolean } | null = null
+    try {
+      const [{ data: membership, error: membershipError }, access] = await Promise.all([
+        supabaseAdmin.from("19_playlist_songs").select("song_id").eq("playlist_id", playlistId).eq("song_id", replacement.id).maybeSingle(),
+        supabaseAdmin.from("19_song_access").select("is_paid").eq("playlist_id", playlistId).eq("song_id", replacement.id).maybeSingle(),
+      ])
+      if (membershipError || access.error) throw membershipError ?? access.error
+      previousAccess = access.data
+      if (!membership) {
+        const { data: positions, error: positionError } = await supabaseAdmin.from("19_playlist_songs")
+          .select("position").eq("playlist_id", playlistId).order("position", { ascending: false }).limit(1)
+        if (positionError) throw positionError
+        const { error: linkError } = await supabaseAdmin.from("19_playlist_songs").insert({
+          playlist_id: playlistId, song_id: replacement.id, position: (positions?.[0]?.position ?? -1) + 1,
+        })
+        if (linkError) throw linkError
+        addedPlaylistLink = true
+      }
+      const { error: accessError } = await supabaseAdmin.from("19_song_access").upsert({
+        playlist_id: playlistId, song_id: replacement.id, is_paid: isPaid,
+      }, { onConflict: "playlist_id,song_id" })
+      if (accessError) throw accessError
+      accessChanged = true
+      const update = supabaseAdmin.from("19_songs").update({
+        title: songTitle, author: songAuthor, song_path: songPath, image_path: imagePath, size_bytes: songFile.size, tags,
+      }).eq("id", replacement.id).eq("user_id", auth.userId)
+      const { data: updated, error: updateError } = await (replacement.song_path === null
+        ? update.is("song_path", null)
+        : update.eq("song_path", replacement.song_path)).select("id").maybeSingle()
+      if (updateError) throw updateError
+      if (!updated) throw new Error("The existing song changed during this upload. Review it, then choose Replace again.")
+    } catch (error) {
+      if (accessChanged) {
+        if (previousAccess) {
+          await supabaseAdmin.from("19_song_access").upsert({
+            playlist_id: playlistId, song_id: replacement.id, is_paid: previousAccess.is_paid,
+          }, { onConflict: "playlist_id,song_id" })
+        } else {
+          await supabaseAdmin.from("19_song_access").delete().eq("playlist_id", playlistId).eq("song_id", replacement.id)
+        }
+      }
+      if (addedPlaylistLink) await supabaseAdmin.from("19_playlist_songs").delete().eq("playlist_id", playlistId).eq("song_id", replacement.id)
+      await Promise.all([
+        supabaseAdmin.storage.from("songs").remove([songPath]),
+        supabaseAdmin.storage.from("images").remove([imagePath]),
+      ])
+      throw error
+    }
+    // Cleanup cannot turn a completed replacement into a reported upload failure.
+    await Promise.allSettled([
+      ...(replacement.song_path ? [supabaseAdmin.storage.from("songs").remove([replacement.song_path])] : []),
+      ...(replacement.image_path ? [supabaseAdmin.storage.from("images").remove([replacement.image_path])] : []),
+    ])
+    return NextResponse.json({ success: true, id: replacement.id, replaced: true })
   }
 
   const { data: songRecord, error: insertError } = await supabaseAdmin

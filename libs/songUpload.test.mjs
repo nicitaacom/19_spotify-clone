@@ -59,12 +59,18 @@ function mp3File(kbps, type = "audio/mpeg") {
   return new File([encoder.encodeBuffer(pcm), encoder.flush()], "song.mp3", { type })
 }
 
-test("a long 48 kHz upload compressed to 112 kbps retains audible audio", async t => {
+test("a long 48 kHz upload with large metadata compresses to 112 kbps and retains audible audio", async t => {
   const decode = mockDecoder(t)
   const rate = 48000
   const pcm = Int16Array.from({ length: rate * 2 }, (_, i) => i < rate / 4 ? 0 : Math.sin(i * 2 * Math.PI * 440 / rate) * 16384)
   const encoder = new Mp3Encoder(2, rate, 128)
-  const source = new File([encoder.encodeBuffer(pcm, pcm), encoder.flush(), new Uint8Array(MAX_SONG_UPLOAD_BYTES)], "long-48khz.mp3", { type: "audio/mpeg" })
+  const id3 = new Uint8Array(10 + 1024 * 1024)
+  id3.set([0x49, 0x44, 0x33, 3, 0, 0, 0, 0x40, 0, 0]) // ID3v2.3 with 1 MiB of padding
+  const source = new File(
+    [id3, encoder.encodeBuffer(pcm, pcm), encoder.flush(), new Uint8Array(MAX_SONG_UPLOAD_BYTES)],
+    "long-48khz.mp3",
+    { type: "audio/mpeg" },
+  )
   const result = await prepareSongUpload(source, 3600)
   const metadata = await parseBlob(result)
   assert.equal(decode.mock.callCount(), 0, "uses streaming decoding rather than a full Web Audio buffer")
@@ -83,6 +89,21 @@ test("a long 48 kHz upload compressed to 112 kbps retains audible audio", async 
   } finally {
     decoder.free()
   }
+})
+
+test("streaming compression explains unreadable and truncated MP3s", async () => {
+  const { transcodeMp3 } = await import(transcodeUrl.href)
+  const truncatedTag = new Uint8Array([0x49, 0x44, 0x33, 3, 0, 0, 0, 0x40, 0, 0])
+  const truncated = new File([truncatedTag], "truncated.mp3")
+  const unreadable = new File([new Uint8Array(16)], "unreadable.mp3")
+  await assert.rejects(
+    transcodeMp3(truncated, 112, null),
+    /Could not compress "truncated\.mp3"\. The file ends before the MP3 audio begins\. Download a complete copy/,
+  )
+  await assert.rejects(
+    transcodeMp3(unreadable, 112, null),
+    /Could not compress "unreadable\.mp3"\. No readable MP3 audio was found near the start of the file\. If the file plays in another app, export a new MP3/,
+  )
 })
 
 test("converts an M4A upload to real 128 kbps MP3 frames with the correct extension and MIME type", async t => {

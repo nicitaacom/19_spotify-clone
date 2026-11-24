@@ -1,5 +1,32 @@
 export const RECENT_UPLOAD_MS = 3 * 60 * 1000
 
+export type SongUploadConflict = { id: number; title: string }
+
+export class SongUploadConflictError extends Error {
+  song: SongUploadConflict
+
+  constructor(song: SongUploadConflict) {
+    super(sameSongExistsMessage(song.title))
+    this.name = "SongUploadConflictError"
+    this.song = song
+  }
+}
+
+export function readSongUploadConflict(bodyText: string): SongUploadConflict | null {
+  try {
+    const body = JSON.parse(bodyText)
+    const song = body?.song
+    return body?.code === "song_exists" && Number.isSafeInteger(song?.id) && song.id > 0 && typeof song.title === "string"
+      ? { id: song.id, title: song.title }
+      : null
+  } catch {
+    return null
+  }
+}
+
+export const isUploadId = (value: unknown): value is string =>
+  typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+
 export function sameSongExistsMessage(songName: string) {
   return `same song ${songName} already exists`
 }

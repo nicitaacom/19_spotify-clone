@@ -4,7 +4,7 @@ import { MPEGDecoder, type MPEGDecodedAudio } from "mpg123-decoder"
 import type { Id3Metadata } from "../../slow-and-reverb/lib/id3AlbumArt"
 import { buildId3Tag } from "../../slow-and-reverb/lib/id3Writer"
 import { namedError } from "./describeError"
-import { readFrameHeader, readMp3Info } from "./mp3Info"
+import { id3AudioStart, readFrameHeader, readMp3Frames } from "./mp3Info"
 
 function concatBytes(left: Uint8Array, right: Uint8Array): Uint8Array {
   if (left.length === 0) return right
@@ -22,12 +22,20 @@ export async function transcodeMp3(
   onProgress?: (pct: number) => void,
   windowSec?: { startSec: number; seconds: number },
 ): Promise<Blob> {
-  const head = new Uint8Array(await file.slice(0, Math.min(file.size, 1024 * 1024)).arrayBuffer())
-  const info = readMp3Info(head, file.size)
-  if (!info) {
+  const tagEnd = id3AudioStart(new Uint8Array(await file.slice(0, 10).arrayBuffer()))
+  if (tagEnd > 0 && tagEnd >= file.size) {
     throw namedError(
       "EncodingError",
-      `readMp3Info found no MPEG frame in the first ${head.length} bytes of "${file.name}" (${file.size} bytes).`,
+      `Could not compress "${file.name}". The file ends before the MP3 audio begins. Download a complete copy or export a new MP3.`,
+    )
+  }
+  const head = new Uint8Array(await file.slice(tagEnd, tagEnd + 1024 * 1024).arrayBuffer())
+  const info = readMp3Frames(head, file.size, tagEnd)
+  if (!info) {
+    const location = tagEnd > 0 ? "after the embedded metadata" : "near the start of the file"
+    throw namedError(
+      "EncodingError",
+      `Could not compress "${file.name}". No readable MP3 audio was found ${location}. If the file plays in another app, export a new MP3. Otherwise, download a fresh copy.`,
     )
   }
 

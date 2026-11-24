@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { mergeBilingualTags, modelMessageText, translationsFromModel } from "./bilingualSongTags.mjs"
+import { mergeBilingualTags, modelMessageText, translationsFromModel } from "./bilingualSongTagUtils.mjs"
 import { MAX_SONG_TAGS, normalizeSongTags } from "./songTags.ts"
 
 const acceptTag = item => {

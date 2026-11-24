@@ -8,11 +8,27 @@
 
 Upload progress is drawn inside the Create button. The button is `relative overflow-hidden`. A fill behind the label uses `absolute inset-y-0 left-0 bg-black/15` and its width is the percent. The button stays the same height before, during, and after the upload, so the modal does not jump.
 
-While the file is read the label is `Reading audio… 0%`. While it is encoded the label is `Converting 52.0 MB -> 45.5 MB… 45%`, and that number stays at 99 or below. The percent starts again at 0 for the send. While the bytes are sending it is `Uploading… 45% · 4.9 MB/s · about 12s left`, and the fill stops at 90 when the last byte has been sent. The label then reads `Storing the song… 94% · about 8s left`. When that estimate passes, it reads `Storing the song… 99% · still working`. The fill stays under 100 for the whole open request. The button returns to Create when the song row exists.
+While the file is read the label is `Reading audio… 0%`. While it is encoded the label is `Converting 52.0 MB -> 45.5 MB… 45%`, and that number stays at 99 or below. The percent starts again at 0 for the send. While the bytes are sending it is `Uploading… 45% · 4.9 MB/s · about 12s left`, and the fill stops at 90 when the last byte has been sent. The label then reads `Inserting song in DB… 94% · about 8s left`. When that estimate passes, it reads `Inserting song in DB… 99% · still working`. The fill stays under 100 for the whole open request. The button returns to Create when the song row exists.
 
-While `Storing the song…` shows, the modal asks `GET /api/songs/upload-status` every 5 seconds (`STORED_CHECK_MS`). It returns the song id once the row and its `19_song_access` row exist - the last row the POST inserts. That id ends the wait even when the POST answer never arrives. Before this, a lost answer kept the button disabled at 100% until the wait limit, and `Send it again` stored the same song a 2nd time.
+While `Inserting song in DB…` shows, the modal asks `GET /api/songs/upload-status` every 5 seconds (`STORED_CHECK_MS`). It returns the song id once the row and its `19_song_access` row exist - the last row the POST inserts. That id ends the wait even when the POST answer never arrives. Before this, a lost answer kept the button disabled at 100% until the wait limit, and `Send it again` stored the same song a 2nd time.
 
 `Song created.` stays in the modal header until the next edit. A failure stays in that same header. Neither result uses a toast.
+
+## Duplicate uploads
+
+A duplicate (same account, title, author, and prepared MP3 byte size) opens `components/DuplicateSongModal.tsx` with three choices:
+
+- **Upload with new name:** edit the suggested `<title> (copy)` and upload a separate song. Empty or unchanged titles stay in the dialog with an explanation.
+- **Replace existing song:** upload the selected audio, cover, and details into the existing song row. Its ID, likes, and playlist positions stay intact. The selected playlist's paid setting is applied; other playlists keep their access settings. If needed, the song is also added to the selected playlist.
+- **Don’t upload:** close the choice dialog without another request. The original upload form stays filled in. Escape and the dialog's close button do the same.
+
+`POST /api/songs` returns a structured `song_exists` conflict with the existing song ID. A replacement explicitly sends `replaceSongId`; the server verifies ownership, stores new files, then updates the existing row. Update failures restore playlist/access changes and remove the new files. Old audio and cover files are removed only after the row update succeeds. A replacement lock and a comparison against the original audio path prevent a stale upload from overwriting a newer replacement.
+
+The modal caches prepared audio for the current file so either upload choice avoids converting it again. Each request sends a fresh `uploadId`; the server uses it in the stored file names. Upload-status checks match that ID against the stored audio path, so an older copy cannot count as this upload completing, including when a replacement preserves `created_at`.
+
+After replacement, the player's cached signed URL for that song is invalidated so playback opens the newly stored audio.
+
+Regression checks: `node --experimental-strip-types --test tests/songUploadConflict.test.mjs tests/songCreateGuard.test.mjs tests/uploadProgress.test.mjs libs/songUpload.test.mjs`.
 
 ## Accepted audio and conversion
 

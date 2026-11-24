@@ -10,6 +10,14 @@ type AudioUrlState = { key: string; url: string; error?: string; unlockSlug?: st
 // reused while it has REUSE_MIN_LEFT_MS left - a retry (attempt > 0) always asks /play for a fresh one.
 const REUSE_MIN_LEFT_MS = 10 * 60 * 1000
 const songUrlByUserSong = new Map<string, { url: string; expiresAt: number }>()
+const SONG_AUDIO_REPLACED_EVENT = "song-audio-replaced"
+
+export function invalidateSongPlayUrl(songId: string) {
+  for (const key of Array.from(songUrlByUserSong.keys())) {
+    if (key.endsWith(`:${songId}`)) songUrlByUserSong.delete(key)
+  }
+  window.dispatchEvent(new CustomEvent(SONG_AUDIO_REPLACED_EVENT, { detail: songId }))
+}
 
 const useSongPlayUrl = (song?: Song) => {
   const { user, isLoading } = useUser()
@@ -18,6 +26,14 @@ const useSongPlayUrl = (song?: Song) => {
   const id = song?.id
   const key = `${user?.id ?? "guest"}:${id ?? ""}:${attempt}`
   const retry = useCallback(() => setAttempt(n => n + 1), [])
+
+  useEffect(() => {
+    const onReplaced = (event: Event) => {
+      if ((event as CustomEvent<string>).detail === id) retry()
+    }
+    window.addEventListener(SONG_AUDIO_REPLACED_EVENT, onReplaced)
+    return () => window.removeEventListener(SONG_AUDIO_REPLACED_EVENT, onReplaced)
+  }, [id, retry])
 
   useEffect(() => {
     if (!id || isLoading) return

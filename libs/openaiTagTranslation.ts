@@ -1,5 +1,5 @@
 import { mergeBilingualTags } from "./bilingualSongTags"
-import { requestTagTranslations } from "./openaiTagTranslation.mjs"
+import { requestTagTranslations } from "./requestTagTranslations.mjs"
 import { normalizeSongTags } from "./songTags"
 
 export async function bilingualSongTags(tags: string[]): Promise<string[]> {

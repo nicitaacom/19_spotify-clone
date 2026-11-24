@@ -13,6 +13,9 @@ const nextConfig = {
     ],
   },
   experimental: {
+    // A lost dev WebSocket can leave React waiting for debug data before hydration,
+    // so the saved session never loads and the server-rendered login button is inert.
+    reactDebugChannel: false,
     // Next's proxy buffers request bodies before app route handlers can parse them. The upload UI
     // permits a 50 MiB MP3 plus a cover image, so leave sufficient multipart overhead.
     proxyClientMaxBodySize: "55mb",

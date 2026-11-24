@@ -18,7 +18,7 @@ It is re-encoded when any of these is true:
 - the file is over 50 MiB
 - the source bitrate is over the chosen step (a 320 kbps MP3 under the cap becomes 128 kbps)
 
-A second Create during that work does not insert another song. `songCreateBusy` stays set for the whole prepare-and-send, including a second modal instance, and the form is cleared before the button enables again. Held Ctrl+Enter does not submit on each key repeat. The upload route rejects another create with the same user, title, author, and byte size, however long ago the first one was stored - before it stores the files, and once more right before it inserts the row, so a re-sent POST or a stale upload lock removes its own files instead of adding a 2nd song. The error is `same song <title> already exists`.
+A second Create during that work does not insert another song. `songCreateBusy` stays set for the whole prepare-and-send, including a second modal instance, and the form is cleared before the button enables again. Held Ctrl+Enter does not submit on each key repeat. The upload route rejects another create with the same user, title, author, and byte size, however long ago the first one was stored - before it stores the files, and once more right before it inserts the row, so a re-sent POST or a stale upload lock removes its own files instead of adding a 2nd song. The resulting choice dialog offers **Upload with new name**, **Replace existing song**, and **Don’t upload**. The prepared audio is reused when choosing a new name or replacement; see `dev_readme-add-song.md`.
 
 ## Bitrate step
 
@@ -54,7 +54,7 @@ Both `transcodeMp3.ts` and `encodeMp3.ts` now use `libs/mp3Encoder.ts`. It selec
 
 `libs/mp3Encoder.test.mjs` checks audible sample levels, stereo balance, duration, chunk boundaries, anti-aliasing, and matching encoder/frame rates across the upload bitrate ladder. `libs/songUpload.test.mjs` exercises an oversized 48 kHz MP3 through the actual streaming upload preparation and decodes the result to verify audible audio.
 
-Existing silent uploads must be replaced using the source file; the missing audio cannot be recovered from the silent MP3.
+Existing silent uploads must be replaced using the source file; the missing audio cannot be recovered from the silent MP3. Successful replacement invalidates the player's cached audio URL and reloads the currently selected song's address.
 
 Verified with the original 54,909,693-byte server-room recording: the prepared file is 50,420,663 bytes (48.1 MiB), 112 kbps, and 44.1 kHz stereo. FFmpeg decodes the entire result; Chromium reports 60:01.48 and measurable audio at 5, 1800, and 3580 seconds. A browser conversion of a source excerpt also retains audible audio. These are local conversion/playback checks, not a live storage replacement.
 

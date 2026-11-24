@@ -68,7 +68,7 @@ test("the button names the phase and keeps 100 off the label", () => {
     percent: 94,
     speed: "4.9 MB/s",
     timeLeft: "about 8s",
-  }), "Storing the song… 94% · about 8s left")
+  }), "Inserting song in DB… 94% · about 8s left")
   assert.equal(uploadButtonLabel({
     preparing: false,
     compressSizes: null,
@@ -76,5 +76,5 @@ test("the button names the phase and keeps 100 off the label", () => {
     percent: 100,
     speed: "",
     timeLeft: "",
-  }), "Storing the song… 99% · still working")
+  }), "Inserting song in DB… 99% · still working")
 })

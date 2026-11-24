@@ -105,6 +105,10 @@ onpause: () => {
 
 ---
 
+### Replaced audio
+
+`invalidateSongPlayUrl(songId)` clears cached signed URLs after an upload replaces a song. Mounted `useSongPlayUrl` instances request the new address, which remounts the active Howl through its existing URL key. This prevents the player and preloader from reusing an address for the removed audio file.
+
 ## Progress bar
 
 The progress bar is driven by a `setInterval` in `usePreloadNextTrack` polling the active sound ID through `seekCurrentSound() / sound.duration()` every 400ms. It is **not** event-driven. Only this interval updates ongoing progress; a second interval used to overwrite the position after a seek. This means:

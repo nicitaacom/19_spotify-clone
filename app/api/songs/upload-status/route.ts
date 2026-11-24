@@ -3,10 +3,11 @@ import { NextResponse } from "next/server"
 import { supabaseAdmin } from "@/libs/supabaseAdmin"
 import { errorText } from "@/libs/errorText"
 import { selectDBLatestSongUpload } from "@/libs/songUploadRow"
+import { isUploadId } from "@/libs/songCreateGuard"
 
 import { requireUser } from "../../backup/requireUser"
 
-// AddASongModal asks this every 5 s while "Storing the song…" shows. The POST response sometimes never arrived after
+// AddASongModal asks this every 5 s while "Inserting song in DB…" shows. The POST response sometimes never arrived after
 // the song was stored - the button stayed disabled at 100%, then "Send it again" stored the same song a 2nd time.
 // The song counts as stored once its 19_song_access row exists - the last row POST /api/songs inserts.
 export async function GET(request: Request) {
@@ -20,6 +21,10 @@ export async function GET(request: Request) {
     const size = Number(params.get("size"))
     const playlistId = params.get("playlistId") ?? ""
     const sinceMs = Number(params.get("since"))
+    const uploadId = params.get("uploadId")
+    if (uploadId !== null && !isUploadId(uploadId)) {
+      return NextResponse.json({ error: "Invalid upload ID. Send the song again." }, { status: 400 })
+    }
     if (!title || !author || !playlistId || !(size > 0) || !Number.isFinite(sinceMs)) {
       return NextResponse.json({ error: "Missing title, author, size, playlistId or since." }, { status: 400 })
     }
@@ -27,7 +32,10 @@ export async function GET(request: Request) {
     const latest = await selectDBLatestSongUpload(auth.userId, title, author, size)
     const createdMs = latest?.createdAt ? Date.parse(latest.createdAt) : Number.NaN
     // a row from an earlier upload of the same file is not this one - 1 minute of slack for the server clock
-    if (!latest || !(createdMs >= sinceMs - 60_000)) return NextResponse.json({ id: null })
+    const matchesUpload = uploadId
+      ? latest?.songPath?.endsWith(`-${uploadId}.mp3`)
+      : createdMs >= sinceMs - 60_000
+    if (!latest || !matchesUpload) return NextResponse.json({ id: null })
 
     const { data: access, error } = await supabaseAdmin
       .from("19_song_access")

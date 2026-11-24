@@ -1,4 +1,4 @@
-import { mergeBilingualTags as mergeRaw } from "./bilingualSongTags.mjs"
+import { mergeBilingualTags as mergeRaw } from "./bilingualSongTagUtils.mjs"
 import { MAX_SONG_TAGS, normalizeSongTags } from "./songTags"
 
 function acceptTag(item: string): string {

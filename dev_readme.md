@@ -24,6 +24,14 @@ How to implement this pattern elsewhere:
 2. If iframe mode is active, use a real link or shared auth util to open the production app in a new tab.
 3. If iframe mode is not active, keep the normal `authModal.onOpen()` flow.
 
+# Development sign-in and unresponsive buttons
+
+`pnpm dev` runs `next dev`. Adding `--webpack` was a mistake for the login issue and also broke song-tag translation by resolving the wrong module.
+
+`next.config.js` disables `experimental.reactDebugChannel`. In Next.js 16.2.9, losing the development HMR WebSocket can leave the initial React response waiting for debug data. The page still shows server-rendered HTML, including the initial Log in button, but React has not mounted: the saved session is never read and button handlers do not run. This is a startup failure, not a signed-out session. See the [Next.js hydration regression](https://github.com/vercel/next.js/issues/94075).
+
+Verified in an isolated Next.js 16.2.9 app with the HMR connection blocked: the default setting leaves Log in inert and prevents a saved-session fixture from restoring. With the debug channel disabled, hydration completes, the saved-session fixture shows Logout, and a guest's Log in button opens the authentication dialog. The application's authentication and cookie handling are unchanged.
+
 # Playing on the phone through outreach-tool's music panel (?playOnPhone=1)
 
 outreach-tool's `/dialer` holds this site in a 24rem iframe (`https://music.jokik.fi?playOnPhone=1&is_iframe=true`) and plays what the iframe plays on the GSM phone paired to it, so the song comes out of the Bluetooth headphones paired to the phone - the same ears that hear the call. Confirmed working 2026-11-02.

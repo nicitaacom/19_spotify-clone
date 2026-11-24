@@ -53,7 +53,7 @@ export function uploadButtonLabel(input: {
   if (input.preparing) return `Reading audio… ${percent}%`
   if (input.storing) {
     const tail = input.timeLeft ? `${input.timeLeft} left` : "still working"
-    return `Storing the song… ${percent}% · ${tail}`
+    return `Inserting song in DB… ${percent}% · ${tail}`
   }
   const parts = [`Uploading… ${percent}%`]
   if (input.speed) parts.push(input.speed)

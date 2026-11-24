@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/libs/supabaseAdmin"
 export async function selectDBLatestSongUpload(userId: string, title: string, author: string, size: number) {
   const { data, error } = await supabaseAdmin
     .from("19_songs")
-    .select("id, created_at")
+    .select("id, created_at, song_path")
     .eq("user_id", userId)
     .eq("title", title)
     .eq("author", author)
@@ -14,5 +14,5 @@ export async function selectDBLatestSongUpload(userId: string, title: string, au
     .limit(1)
     .maybeSingle()
   if (error) throw error
-  return data?.id ? { id: Number(data.id), createdAt: data.created_at as string | null } : null
+  return data?.id ? { id: Number(data.id), createdAt: data.created_at as string | null, songPath: data.song_path } : null
 }

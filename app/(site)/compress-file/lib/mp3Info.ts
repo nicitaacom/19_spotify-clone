@@ -71,19 +71,23 @@ function xingFrameCount(bytes: Uint8Array, offset: number, header: FrameHeader):
 
 export function readMp3Info(bytes: Uint8Array, fileBytes: number): Mp3Info | null {
   const tagEnd = id3AudioStart(bytes)
-  if (tagEnd > bytes.length) return null
-  const scanEnd = Math.min(bytes.length - 4, tagEnd + 65536)
-  for (let offset = tagEnd; offset <= scanEnd; offset++) {
+  return readMp3Frames(bytes.subarray(tagEnd), fileBytes, tagEnd)
+}
+
+export function readMp3Frames(bytes: Uint8Array, fileBytes: number, fileOffset: number): Mp3Info | null {
+  const scanEnd = Math.min(bytes.length - 4, 65536)
+  for (let offset = 0; offset <= scanEnd; offset++) {
     const header = readFrameHeader(bytes, offset)
     if (!header) continue
     const frames = xingFrameCount(bytes, offset, header)
-    const audioBytes = Math.max(0, fileBytes - offset)
+    const audioStart = fileOffset + offset
+    const audioBytes = Math.max(0, fileBytes - audioStart)
     const durationSec = frames
       ? (frames * header.samplesPerFrame) / header.sampleRate
       : (audioBytes * 8) / header.bitrateBps
     const bitrateBps = frames ? (audioBytes * 8) / durationSec : header.bitrateBps
     if (!Number.isFinite(durationSec) || durationSec <= 0 || !Number.isFinite(bitrateBps) || bitrateBps <= 0) return null
-    return { ...header, bitrateBps, durationSec, audioStart: offset }
+    return { ...header, bitrateBps, durationSec, audioStart }
   }
   return null
 }

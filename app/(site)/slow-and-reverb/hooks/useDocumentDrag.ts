@@ -13,16 +13,15 @@ export function useDocumentDrag(onFiles?: (files: File[]) => void) {
   })
 
   useEffect(() => {
-    const capture = { capture: true }
     let dragDepth = 0
     let idleTimer: number | undefined
-    const hasFiles = (event: DragEvent) => Boolean(
-      event.dataTransfer && (
-        Array.from(event.dataTransfer.types).includes("Files")
-        || Array.from(event.dataTransfer.items).some(item => item.kind === "file")
-        || event.dataTransfer.files.length > 0
-      ),
-    )
+    const hasFiles = (event: DragEvent) =>
+      Boolean(
+        event.dataTransfer &&
+        (Array.from(event.dataTransfer.types).includes("Files") ||
+          Array.from(event.dataTransfer.items).some(item => item.kind === "file") ||
+          event.dataTransfer.files.length > 0),
+      )
 
     const reset = () => {
       window.clearTimeout(idleTimer)
@@ -46,8 +45,8 @@ export function useDocumentDrag(onFiles?: (files: File[]) => void) {
 
     const handleDragLeave = (event: DragEvent) => {
       dragDepth = Math.max(0, dragDepth - 1)
-      const leftWindow = event.relatedTarget === null
-        && (event.target === document || event.target === document.documentElement)
+      const leftWindow =
+        event.relatedTarget === null && (event.target === document || event.target === document.documentElement)
       if (dragDepth === 0 || leftWindow) reset()
     }
 
@@ -60,47 +59,32 @@ export function useDocumentDrag(onFiles?: (files: File[]) => void) {
     }
 
     const handleDrop = (event: DragEvent) => {
-      if (!hasFiles(event)) {
-        reset()
-        return
-      }
+      reset()
+      if (!hasFiles(event)) return
       // Cancel navigation before a child input or modal can stop the event bubbling.
       event.preventDefault()
       const files = Array.from(event.dataTransfer?.files ?? [])
-      if (onFilesRef.current) {
-        reset()
-        if (files.length) {
-          event.stopPropagation()
-          onFilesRef.current(files)
-        }
-      } else {
-        // Leave scoped React drop targets mounted until their onDrop has received this event.
-        window.clearTimeout(idleTimer)
-        idleTimer = window.setTimeout(reset, 0)
+      if (onFilesRef.current && files.length) {
+        event.stopPropagation()
+        onFilesRef.current(files)
       }
     }
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return
-      const wasDragging = dragDepth > 0
-      reset()
-      if (wasDragging) {
-        event.preventDefault()
-        event.stopPropagation()
-      }
+      if (event.key === "Escape") reset()
     }
     const handleVisibilityChange = () => {
       if (document.hidden) reset()
     }
 
-    window.addEventListener("dragenter", handleDragEnter, capture)
-    window.addEventListener("dragleave", handleDragLeave, capture)
-    window.addEventListener("dragover", handleDragOver, capture)
-    window.addEventListener("drop", handleDrop, capture)
-    window.addEventListener("dragend", reset, capture)
-    window.addEventListener("keydown", handleEscape, capture)
-    window.addEventListener("pointerdown", reset, capture)
-    window.addEventListener("pointermove", reset, capture)
+    window.addEventListener("dragenter", handleDragEnter, true)
+    window.addEventListener("dragleave", handleDragLeave, true)
+    window.addEventListener("dragover", handleDragOver, true)
+    window.addEventListener("drop", handleDrop, true)
+    window.addEventListener("dragend", reset, true)
+    window.addEventListener("keydown", handleEscape, true)
+    window.addEventListener("pointerdown", reset, true)
+    window.addEventListener("pointermove", reset, true)
     window.addEventListener("blur", reset)
     window.addEventListener("focus", reset)
     window.addEventListener("pagehide", reset)
@@ -108,14 +92,14 @@ export function useDocumentDrag(onFiles?: (files: File[]) => void) {
 
     return () => {
       window.clearTimeout(idleTimer)
-      window.removeEventListener("dragenter", handleDragEnter, capture)
-      window.removeEventListener("dragleave", handleDragLeave, capture)
-      window.removeEventListener("dragover", handleDragOver, capture)
-      window.removeEventListener("drop", handleDrop, capture)
-      window.removeEventListener("dragend", reset, capture)
-      window.removeEventListener("keydown", handleEscape, capture)
-      window.removeEventListener("pointerdown", reset, capture)
-      window.removeEventListener("pointermove", reset, capture)
+      window.removeEventListener("dragenter", handleDragEnter, true)
+      window.removeEventListener("dragleave", handleDragLeave, true)
+      window.removeEventListener("dragover", handleDragOver, true)
+      window.removeEventListener("drop", handleDrop, true)
+      window.removeEventListener("dragend", reset, true)
+      window.removeEventListener("keydown", handleEscape, true)
+      window.removeEventListener("pointerdown", reset, true)
+      window.removeEventListener("pointermove", reset, true)
       window.removeEventListener("blur", reset)
       window.removeEventListener("focus", reset)
       window.removeEventListener("pagehide", reset)

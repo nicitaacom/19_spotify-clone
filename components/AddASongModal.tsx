@@ -9,6 +9,7 @@ import Image from "next/image"
 import { FiEdit2, FiPlus, FiCheck, FiX, FiCornerDownLeft } from "react-icons/fi"
 
 import useUploadModal from "@/hooks/useUploadModal"
+import { invalidateSongPlayUrl } from "@/hooks/useSongPlayUrl"
 import useCreatePlaylistModal from "@/hooks/useCreatePlaylistModal"
 import { useAutoFocus } from "@/hooks/useAutoFocus"
 import { useHotkey } from "@/hooks/useHotkey"
@@ -18,7 +19,7 @@ import { verifyTurnstileTokenFn } from "@/app/utils/verifyTurnstileToken"
 import { PlaylistOption } from "@/types"
 import supabaseClient from "@/libs/supabaseClient"
 import { errorText, httpErrorMessage } from "@/libs/errorText"
-import { isSameSongExistsMessage, sameSongErrorText } from "@/libs/songCreateGuard"
+import { isSameSongExistsMessage, readSongUploadConflict, sameSongErrorText, SongUploadConflictError, type SongUploadConflict } from "@/libs/songCreateGuard"
 import {
   byteSendPercent,
   formatTimeLeft,
@@ -34,6 +35,7 @@ import { getPlaylistSlug, getPlaylistSlugPreservingCase } from "@/libs/helpers"
 import Modal from "./Modal"
 import Input from "./Input"
 import Button from "./Button"
+import DuplicateSongModal from "./DuplicateSongModal"
 import TurnstileChallenge from "./turnstile/TurnstileChallenge"
 import { SongTagsInput } from "./SongTagsInput"
 import { inferPlaylistGenreTags, songTagsWithDraft } from "@/libs/songTags"
@@ -92,6 +94,7 @@ const AddASongModal = () => {
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   const [uploadError, setUploadErrorValue] = useState("")
   const [uploadNotice, setUploadNotice] = useState("")
+  const [duplicateSong, setDuplicateSong] = useState<SongUploadConflict | null>(null)
   const setUploadError = (message: string) => {
     setUploadErrorValue(message)
     setUploadNotice("")
@@ -106,6 +109,7 @@ const AddASongModal = () => {
   const metadataRequest = useRef(0)
   const formRef = useRef<HTMLFormElement>(null)
   const submitGuard = useRef(false)
+  const preparedAudio = useRef<{ source: File; prepared: File } | null>(null)
 
   useAutoFocus(playlistSlugInputRef, editingPlaylistId !== null, 50)
 
@@ -132,12 +136,12 @@ const AddASongModal = () => {
   })
   const isCreateBlocked = isLoading || (requiresChallenge && isHumanGateEnabled && !isVerified)
 
-  const { register, handleSubmit, reset, resetField, control, getValues } = useForm<FieldValues>({
+  const { register, handleSubmit, reset, resetField, control, getValues, setValue } = useForm<FieldValues>({
     defaultValues: { author: "", title: "", song: null, image: null, isPaid: false },
   })
   const playlistQuery = playlistSearch.trim().toLocaleLowerCase()
   const filteredPlaylists = playlists.filter(playlist => playlist.title.toLocaleLowerCase().includes(playlistQuery))
-  const isCreateDisabled = isCreateBlocked || readingMetadata || !selectedPlaylist
+  const isCreateDisabled = isCreateBlocked || readingMetadata || !selectedPlaylist || duplicateSong !== null
 
   useHotkey({
     hotkey: "Enter",
@@ -317,6 +321,8 @@ const AddASongModal = () => {
 
   const resetSongForm = () => {
     reset()
+    preparedAudio.current = null
+    setDuplicateSong(null)
     setTags([])
     setUploadProgress(0)
     setUploadSpeed("")
@@ -364,7 +370,7 @@ const AddASongModal = () => {
   }
 
   const onChange = (open: boolean) => {
-    if (open || isLoading || editingPlaylistId !== null || confirmDiscard) return
+    if (open || isLoading || editingPlaylistId !== null || confirmDiscard || duplicateSong) return
     if (hasUnsavedSongChanges()) {
       setConfirmDiscard(true)
       return
@@ -528,6 +534,7 @@ const AddASongModal = () => {
   }
 
   const handleSongChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    preparedAudio.current = null
     const file = event.target.files?.[0]
     if (file) {
       const message = songInputError(file.name, file.type)
@@ -538,6 +545,13 @@ const AddASongModal = () => {
       }
     }
     songInput.onChange(event)
+    if (file && !String(getValues("title") ?? "").trim()) {
+      const titleFromFile = file.name
+        .replace(/\.[^.]+$/, "")
+        .replace(/[._]+/g, " ")
+        .trim()
+      if (titleFromFile) setValue("title", titleFromFile, { shouldDirty: true, shouldValidate: true })
+    }
     readSongMetadata(file)
     setUploadError("")
   }
@@ -733,6 +747,11 @@ const AddASongModal = () => {
           }
           return
         }
+        const conflict = xhr.status === 409 ? readSongUploadConflict(xhr.responseText) : null
+        if (conflict) {
+          finish(() => reject(new SongUploadConflictError(conflict)))
+          return
+        }
         const sameSongError = sameSongErrorText(xhr.responseText)
         finish(() => reject(new Error(sameSongError || httpErrorMessage({
           action: `Upload of "${songName}"`,
@@ -762,12 +781,12 @@ const AddASongModal = () => {
     })
   }
 
-  const onSubmit: SubmitHandler<FieldValues> = async (values, event) => {
+  const uploadSong = async (values: FieldValues, replaceSongId?: number) => {
     if (songCreateBusy || submitGuard.current) return
     songCreateBusy = true
     submitGuard.current = true
     try {
-      const form = event?.target instanceof HTMLFormElement ? event.target : null
+      const form = formRef.current
       const typedTags = songTagsWithDraft(visibleTags, form?.querySelector<HTMLInputElement>("[data-song-tags-input]")?.value ?? "")
       setIsLoading(true)
       setUploadError("")
@@ -851,14 +870,21 @@ const AddASongModal = () => {
         }
       }
 
-      setIsPreparingAudio(true)
-      const { prepareSongUpload } = await import("@/libs/songUpload")
-      songFile = await prepareSongUpload(
-        songFile,
-        duration,
-        percent => setUploadProgress(Math.min(99, Math.max(0, percent))),
-        (fromBytes, toBytes) => setCompressSizes({ fromBytes, toBytes }),
-      )
+      const cachedAudio = preparedAudio.current
+      if (cachedAudio && cachedAudio.source === songFile) {
+        songFile = cachedAudio.prepared
+      } else {
+        setIsPreparingAudio(true)
+        const { prepareSongUpload } = await import("@/libs/songUpload")
+        const source = songFile
+        songFile = await prepareSongUpload(
+          songFile,
+          duration,
+          percent => setUploadProgress(Math.min(99, Math.max(0, percent))),
+          (fromBytes, toBytes) => setCompressSizes({ fromBytes, toBytes }),
+        )
+        preparedAudio.current = { source, prepared: songFile }
+      }
       setIsPreparingAudio(false)
       setCompressSizes(null)
       // the compress percent ends at 99 - the upload counts its own bytes from 0, not on top of that 99
@@ -869,6 +895,9 @@ const AddASongModal = () => {
       setTagsCustomized(true)
 
       const formData = new FormData()
+      const uploadId = crypto.randomUUID()
+      formData.append("uploadId", uploadId)
+      if (replaceSongId !== undefined) formData.append("replaceSongId", String(replaceSongId))
       formData.append("song", songFile)
       formData.append("image", imageFile)
       formData.append("title", values.title)
@@ -887,11 +916,14 @@ const AddASongModal = () => {
         author: String(values.author ?? "").trim(),
         size: String(songFile.size),
         playlistId: selectedPlaylist?.id ?? "",
+        uploadId,
       })
-      await uploadViaApi(formData, songFile.name, [songFile, imageFile], storedQuery)
+      const uploaded = await uploadViaApi(formData, songFile.name, [songFile, imageFile], storedQuery)
+      if (replaceSongId !== undefined) invalidateSongPlayUrl(String(uploaded.id))
 
       router.refresh()
       reset()
+      preparedAudio.current = null
       setTags([])
       setTagsCustomized(false)
       setAppliedSuggestionKey("")
@@ -903,14 +935,19 @@ const AddASongModal = () => {
       setCoverPreviewFile(null)
       setReadingMetadata(false)
       setUploadError("")
-      setUploadNotice("Song created.")
+      setUploadNotice(replaceSongId === undefined ? "Song created." : "Song replaced.")
       setLastUploadedPlaylistSlug(selectedPlaylist?.slug ?? null)
       setUploadCount(count => count + 1)
       resetTurnstileFn()
       window.setTimeout(() => document.getElementById("title")?.focus(), 0)
     } catch (error) {
-      const message = error instanceof Error ? error.message : ""
-      setUploadError(isSameSongExistsMessage(message) ? message : errorText(error))
+      if (error instanceof SongUploadConflictError) {
+        setUploadError("")
+        setDuplicateSong(error.song)
+      } else {
+        const message = error instanceof Error ? error.message : ""
+        setUploadError(isSameSongExistsMessage(message) ? message : errorText(error))
+      }
     } finally {
       songCreateBusy = false
       submitGuard.current = false
@@ -920,6 +957,27 @@ const AddASongModal = () => {
       setUploadTimeLeft("")
       setIsLoading(false)
     }
+  }
+
+  const onSubmit: SubmitHandler<FieldValues> = values => uploadSong(values)
+
+  const uploadWithNewName = (title: string) => {
+    setValue("title", title, { shouldDirty: true })
+    setDuplicateSong(null)
+    void handleSubmit(onSubmit)()
+  }
+
+  const replaceExistingSong = () => {
+    if (!duplicateSong) return
+    const songId = duplicateSong.id
+    setDuplicateSong(null)
+    void handleSubmit(values => uploadSong(values, songId))()
+  }
+
+  const cancelDuplicateUpload = () => {
+    setDuplicateSong(null)
+    setUploadError("")
+    setUploadNotice("Upload canceled. No song was uploaded.")
   }
 
   return (
@@ -952,10 +1010,10 @@ const AddASongModal = () => {
       isShowCloseButton={!confirmDiscard}
       onEscapeKeyDown={handleEscapeKeyDown}>
       <>
-      <SongScreenDrop disabled={isLoading || confirmDiscard} onFiles={applyDroppedFiles} />
+      <SongScreenDrop disabled={isLoading || confirmDiscard || duplicateSong !== null} onFiles={applyDroppedFiles} />
       <form
         ref={formRef}
-        inert={confirmDiscard || undefined}
+        inert={confirmDiscard || duplicateSong !== null || undefined}
         onPaste={onPaste}
         onSubmit={handleSubmit(onSubmit, errors => {
           if (errors.title) setUploadError("Song title is required.")
@@ -1217,6 +1275,14 @@ const AddASongModal = () => {
           </Button>
         </div>
       </form>
+      {duplicateSong && (
+        <DuplicateSongModal
+          song={duplicateSong}
+          onRename={uploadWithNewName}
+          onReplace={replaceExistingSong}
+          onCancel={cancelDuplicateUpload}
+        />
+      )}
       {confirmDiscard && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 p-4">
           <div
