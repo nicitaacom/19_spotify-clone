@@ -58,26 +58,9 @@ function SongScreenDrop({
   disabled: boolean
   onFiles: (files: File[]) => void
 }) {
-  const { isDragging } = useDocumentDrag()
-  const onFilesRef = useRef(onFiles)
-  const disabledRef = useRef(disabled)
-  // after each render, not during it - a ref written during render can hold a value from a render React threw away
-  useEffect(() => {
-    onFilesRef.current = onFiles
-    disabledRef.current = disabled
+  const { isDragging } = useDocumentDrag(files => {
+    if (!disabled) onFiles(files)
   })
-
-  useEffect(() => {
-    const onDrop = (event: DragEvent) => {
-      const list = event.dataTransfer?.files
-      if (!list?.length) return
-      event.preventDefault()
-      if (disabledRef.current) return
-      onFilesRef.current(Array.from(list))
-    }
-    document.addEventListener("drop", onDrop)
-    return () => document.removeEventListener("drop", onDrop)
-  }, [])
 
   if (!isDragging || disabled) return null
   return createPortal(
