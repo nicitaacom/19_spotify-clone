@@ -6,7 +6,7 @@
 - **`usePlayer`** (Zustand store) — global player state: activeId, isPlaying, playbackCommand, savedPosition, etc.
 - **`usePlayerProgress`** (Zustand store) — `progress` only, apart from `usePlayer` so its 400ms change re-renders nothing but the bar
 - **`Player.tsx`** — renders the fixed bottom bar, handles keyboard shortcuts, mounts `<PlayerContent key={song.id-songUrl} />`
-- **`PlayerProgressBar.tsx`** — the clickable progress bar, the one component that reads `usePlayerProgress`
+- **`PlayerProgressBar.tsx`** — the progress bar, a click or a drag seeks (1 `requestSeek` on release), the one component that reads `usePlayerProgress`
 - **`PlayerContent.tsx`** — owns the `useSound` instance, all Howler callbacks, play/pause/seek logic
 - **`usePreloadNextTrack.ts`** — polls `sound.seek()` on an interval to drive the progress bar, preloads the next track at 80% through
 
