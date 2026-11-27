@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { FiEdit2 } from "react-icons/fi"
+import { FiEdit2, FiList, FiUser } from "react-icons/fi"
 import { twMerge } from "tailwind-merge"
 
 import useLoadImage from "@/hooks/useLoadImage"
@@ -21,9 +21,10 @@ interface MediaItemProps {
   matchedTags?: string[]
   songHref?: string
   onEdit?: () => void
+  showMetadataIcons?: boolean
 }
 
-const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleClassName, playlists = [], onPlaylistClick, matchedTags = [], songHref = "", onEdit }) => {
+const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleClassName, playlists = [], onPlaylistClick, matchedTags = [], songHref = "", onEdit, showMetadataIcons = false }) => {
   const player = usePlayer()
   const imageUrl = useLoadImage(data)
   const lockedPaid = data.is_paid === true && data.can_play === false
@@ -96,8 +97,9 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleCl
           <p className={titleClass}>{data.title}</p>
         )}
         <div className="flex w-full min-w-0 items-center gap-x-2 text-sm">
-          <p className="min-w-0 shrink truncate text-neutral-400">
-            {lockedPaid ? "Paid track" : `${data.author}${data.access_unavailable ? " · Unavailable" : data.can_play === false ? " · Locked" : ""}`}
+          <p className="flex min-w-0 shrink items-center gap-1 text-neutral-400">
+            {showMetadataIcons && <FiUser aria-hidden="true" className="shrink-0" />}
+            <span className="truncate">{lockedPaid ? "Paid track" : `${data.author}${data.access_unavailable ? " · Unavailable" : data.can_play === false ? " · Locked" : ""}`}</span>
           </p>
           {matchedTags.map(tag => (
             <span key={tag} title={tag} className="max-w-28 shrink-0 truncate rounded-full border border-neon/40 bg-neon/10 px-1.5 text-[11px] leading-5 text-neon">
@@ -114,8 +116,9 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleCl
                 event.stopPropagation()
                 onPlaylistClick?.()
               }}
-              className="max-w-64 shrink-0 truncate text-neon hover:underline">
-              {playlist.title}
+              className="flex min-w-0 max-w-64 shrink items-center gap-1 text-neon hover:underline">
+              {showMetadataIcons && <FiList aria-hidden="true" className="shrink-0" />}
+              <span className="truncate">{playlist.title}</span>
             </Link>
           ))}
         </div>

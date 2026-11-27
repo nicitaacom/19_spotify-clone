@@ -8,6 +8,7 @@ import useSearchModal from "@/hooks/useSearchModal"
 import useDebounce from "@/hooks/useDebounce"
 import useOnPlay from "@/hooks/useOnPlay"
 import useOwnerStore from "@/hooks/useOwnerStore"
+import useEditSongModal from "@/hooks/useEditSongModal"
 import searchSongsAndPlaylistsAction from "@/actions/searchSongsAndPlaylistsAction"
 import { errorText } from "@/libs/errorText"
 import { matchedSongTags } from "@/libs/songTags"
@@ -29,6 +30,7 @@ const SearchCtrlKModal = () => {
   const [errorMessage, setErrorMessage] = useState("")
   const onPlay = useOnPlay(songs)
   const { isOwner } = useOwnerStore()
+  const editSongModal = useEditSongModal()
 
   const resetKey = `${isOpen}:${debouncedSearchValue}`
   const [prevResetKey, setPrevResetKey] = useState(resetKey)
@@ -119,7 +121,7 @@ const SearchCtrlKModal = () => {
                 {songs.map(song => (
                   <div
                     key={song.id}
-                    className="flex items-center gap-x-3 rounded-md border border-transparent transition hover:border-neon/40 hover:bg-elevated hover:shadow-neon-sm">
+                    className="flex items-center rounded-md border border-transparent pr-2 transition hover:border-neon/40 hover:bg-elevated hover:shadow-neon-sm">
                     <div className="min-w-0 flex-1">
                       <MediaItem
                         onClick={id => onPlay(id)}
@@ -127,10 +129,12 @@ const SearchCtrlKModal = () => {
                         playlists={songPlaylists[String(song.id)] ?? []}
                         matchedTags={matchedSongTags(song.tags, debouncedSearchValue)}
                         onPlaylistClick={() => onChange(false)}
+                        showMetadataIcons
+                        onEdit={isOwner ? () => editSongModal.onOpen(song, updated => setSongs(prev => prev.map(item => item.id === updated.id ? updated : item))) : undefined}
                       />
                     </div>
                     {isOwner && (
-                      <DeleteSongButton song={song} onDeleted={() => setSongs(prev => prev.filter(item => item.id !== song.id))} />
+                      <DeleteSongButton className="shrink-0 p-2" song={song} onDeleted={() => setSongs(prev => prev.filter(item => item.id !== song.id))} />
                     )}
                   </div>
                 ))}
