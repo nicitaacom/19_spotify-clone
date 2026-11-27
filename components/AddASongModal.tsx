@@ -38,7 +38,7 @@ import Button from "./Button"
 import DuplicateSongModal from "./DuplicateSongModal"
 import TurnstileChallenge from "./turnstile/TurnstileChallenge"
 import { SongTagsInput } from "./SongTagsInput"
-import { inferPlaylistGenreTags, songTagsWithDraft } from "@/libs/songTags"
+import { songTagsWithDraft } from "@/libs/songTags"
 import { fetchBilingualSongTags } from "@/libs/fetchBilingualSongTags"
 import { usePlaylistRecentTags } from "@/hooks/usePlaylistRecentTags"
 import { useDocumentDrag } from "@/app/(site)/slow-and-reverb/hooks/useDocumentDrag"
@@ -103,6 +103,7 @@ const AddASongModal = () => {
   const [embeddedImage, setEmbeddedImage] = useState<File | null>(null)
   const [readingMetadata, setReadingMetadata] = useState(false)
   const [tags, setTags] = useState<string[]>([])
+  const [dismissedPlaylistTags, setDismissedPlaylistTags] = useState<string[]>([])
   const playlistSlugInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const songInputRef = useRef<HTMLInputElement>(null)
@@ -165,13 +166,15 @@ const AddASongModal = () => {
   if (selectedPlaylistId !== tagsPlaylistId) {
     setTagsPlaylistId(selectedPlaylistId)
     setAppliedSuggestionKey("")
+    setDismissedPlaylistTags([])
     if (!selectedPlaylistId) setTagsCustomized(false)
     if (!selectedPlaylistId || !tagsCustomized) setTags([])
   }
-  const genreTags = selectedPlaylist ? inferPlaylistGenreTags(selectedPlaylist.title, selectedPlaylist.slug) : []
   const playlistReady = playlistRecentTags.ready && playlistRecentTags.playlistId === selectedPlaylistId
-  const playlistSuggestionTags = playlistReady ? Array.from(new Set([...playlistRecentTags.top, ...genreTags])) : []
-  const tagsToApply = !playlistReady ? [] : playlistRecentTags.autofill.length ? playlistRecentTags.autofill : genreTags
+  const playlistSuggestionTags = playlistReady
+    ? playlistRecentTags.top.filter(tag => !dismissedPlaylistTags.includes(tag))
+    : []
+  const tagsToApply = playlistReady ? playlistRecentTags.autofill : []
   const suggestionKey = playlistReady ? `${selectedPlaylistId}:${tagsToApply.join("\0")}` : ""
   const applyingSuggestion = !tagsCustomized && Boolean(suggestionKey) && suggestionKey !== appliedSuggestionKey
   if (applyingSuggestion) {
@@ -184,7 +187,7 @@ const AddASongModal = () => {
     ? ""
     : playlistRecentTags.autofill.length
       ? `Filled from your most used tags on ${selectedPlaylist.title}.`
-      : `Filled from the ${selectedPlaylist.title} playlist name.`
+      : ""
   const playlistLabel = !playlistReady || !selectedPlaylist || playlistSuggestionTags.length === 0
     ? ""
     : playlistRecentTags.top.length
@@ -325,6 +328,7 @@ const AddASongModal = () => {
     preparedAudio.current = null
     setDuplicateSong(null)
     setTags([])
+    setDismissedPlaylistTags([])
     setUploadProgress(0)
     setUploadSpeed("")
     setUploadTimeLeft("")
@@ -1096,9 +1100,15 @@ const AddASongModal = () => {
           <SongTagsInput
             key={uploadModal.isOpen ? `open-${uploadCount}` : "closed"}
             value={visibleTags}
-            onChange={nextTags => { setTagsCustomized(true); setTags(nextTags) }}
+            onChange={nextTags => {
+              const removedSuggestions = visibleTags.filter(tag => !nextTags.includes(tag) && playlistSuggestionTags.includes(tag))
+              if (removedSuggestions.length) setDismissedPlaylistTags(current => Array.from(new Set([...current, ...removedSuggestions])))
+              setTagsCustomized(true)
+              setTags(nextTags)
+            }}
             disabled={isLoading}
             playlistTags={playlistSuggestionTags}
+            excludedTags={dismissedPlaylistTags}
             playlistLabel={playlistLabel}
             playlistNote={playlistNote}
             onUsePlaylistTags={tagsToApply.length > 0 && !tagsMatchApplied ? () => { setTagsCustomized(true); setTags(tagsToApply) } : undefined}

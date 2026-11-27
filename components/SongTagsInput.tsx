@@ -4,12 +4,13 @@ import { FiChevronRight, FiPlus, FiX } from "react-icons/fi"
 import { errorText } from "@/libs/errorText"
 import { normalizeSongTags, MAX_SONG_TAGS, MAX_SONG_TAG_LENGTH, SONG_TAG_SUGGESTIONS } from "@/libs/songTags"
 
-export function SongTagsInput({ value, onChange, disabled = false, id = "song-tags", playlistTags = [], playlistLabel = "", onUsePlaylistTags, playlistNote = "" }: {
+export function SongTagsInput({ value, onChange, disabled = false, id = "song-tags", playlistTags = [], excludedTags = [], playlistLabel = "", onUsePlaylistTags, playlistNote = "" }: {
   value: string[]
   onChange: (tags: string[]) => void
   disabled?: boolean
   id?: string
   playlistTags?: string[]
+  excludedTags?: string[]
   playlistLabel?: string
   onUsePlaylistTags?: () => void
   playlistNote?: string
@@ -19,7 +20,7 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
   const dragRef = useRef<{ pointerId: number; startX: number; startScrollLeft: number; moved: boolean } | null>(null)
   const suppressClickRef = useRef(false)
   const playlistSuggestions = playlistTags.filter(tag => !value.includes(tag))
-  const suggestions = SONG_TAG_SUGGESTIONS.filter(tag => !value.includes(tag) && !playlistTags.includes(tag))
+  const suggestions = SONG_TAG_SUGGESTIONS.filter(tag => !value.includes(tag) && !playlistTags.includes(tag) && !excludedTags.includes(tag))
 
   const showMoreSuggestions = () => {
     const suggestionsElement = suggestionsRef.current

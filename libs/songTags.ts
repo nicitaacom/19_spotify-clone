@@ -20,17 +20,15 @@ export function songTagsWithDraft(tags: string[], draft: string): string[] {
   return normalizeSongTags([...tags, ...draft.split(",").filter(tag => tag.trim())])
 }
 
-const RECENT_PLAYLIST_SONGS = 8
 const TOP_PLAYLIST_TAGS = 2
 
 export type RecentPlaylistSong = { addedAt: string; tags: string[] }
 
-/** The two most used tags on the last 8 songs, and which of those appear on at least two songs. */
-export function recentPlaylistTags(entries: RecentPlaylistSong[]): { autofill: string[]; top: string[] } {
+/** The two most used tags across a playlist, and which appear on at least two songs. */
+export function popularPlaylistTags(entries: RecentPlaylistSong[]): { autofill: string[]; top: string[] } {
   const songs = entries
     .filter(entry => entry.addedAt)
     .sort((earlier, later) => later.addedAt.localeCompare(earlier.addedAt))
-    .slice(0, RECENT_PLAYLIST_SONGS)
   const stats = new Map<string, { count: number; newestIndex: number; order: number }>()
   let order = 0
 
@@ -58,6 +56,9 @@ export function recentPlaylistTags(entries: RecentPlaylistSong[]): { autofill: s
     autofill: topRanked.filter(([, stat]) => stat.count >= 2).map(([tag]) => tag),
   }
 }
+
+// Retained for callers that still use the previous helper name.
+export const recentPlaylistTags = popularPlaylistTags
 
 const MAX_MATCHED_SONG_TAGS = 3
 

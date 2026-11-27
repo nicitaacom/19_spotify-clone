@@ -14,7 +14,7 @@ test("malformed or oversized tags are rejected before song upload or update", ()
   assert.deepEqual(normalizeSongTags(Array.from({ length: 32 }, (_, i) => `tag${i}`)),
     Array.from({ length: 32 }, (_, i) => `tag${i}`))
 })
-test("recent playlist tags fill the labels shared by the latest songs", () => {
+test("playlist tags fill the labels shared by its songs", () => {
   const result = recentPlaylistTags([
     { addedAt: "2026-10-03T00:00:00.000Z", tags: ["motivation", "film", "epic", "one-off"] },
     { addedAt: "2026-10-02T00:00:00.000Z", tags: ["motivation", "film", "epic"] },
@@ -22,6 +22,24 @@ test("recent playlist tags fill the labels shared by the latest songs", () => {
   ])
   assert.deepEqual(result.autofill, ["motivation", "film"])
   assert.deepEqual(result.top, ["motivation", "film"])
+})
+
+test("playlist popularity includes songs older than the latest eight", () => {
+  const result = recentPlaylistTags([
+    { addedAt: "2026-10-10T00:00:00.000Z", tags: ["newest"] },
+    { addedAt: "2026-10-09T00:00:00.000Z", tags: ["second"] },
+    { addedAt: "2026-10-08T00:00:00.000Z", tags: ["third"] },
+    { addedAt: "2026-10-07T00:00:00.000Z", tags: ["fourth"] },
+    { addedAt: "2026-10-06T00:00:00.000Z", tags: ["fifth"] },
+    { addedAt: "2026-10-05T00:00:00.000Z", tags: ["sixth"] },
+    { addedAt: "2026-10-04T00:00:00.000Z", tags: ["seventh"] },
+    { addedAt: "2026-10-03T00:00:00.000Z", tags: ["eighth"] },
+    { addedAt: "2026-10-02T00:00:00.000Z", tags: ["chill"] },
+    { addedAt: "2026-10-01T00:00:00.000Z", tags: ["chill"] },
+    { addedAt: "2026-09-30T00:00:00.000Z", tags: ["chill"] },
+  ])
+  assert.deepEqual(result.top, ["chill", "newest"])
+  assert.deepEqual(result.autofill, ["chill"])
 })
 
 test("a playlist with one tagged song does not autofill tags used once", () => {
