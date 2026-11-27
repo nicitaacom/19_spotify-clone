@@ -38,7 +38,7 @@ import Button from "./Button"
 import DuplicateSongModal from "./DuplicateSongModal"
 import TurnstileChallenge from "./turnstile/TurnstileChallenge"
 import { SongTagsInput } from "./SongTagsInput"
-import { songTagsWithDraft } from "@/libs/songTags"
+import { filterDismissedPlaylistTags, removedPlaylistTags, songTagsWithDraft } from "@/libs/songTags"
 import { fetchBilingualSongTags } from "@/libs/fetchBilingualSongTags"
 import { usePlaylistRecentTags } from "@/hooks/usePlaylistRecentTags"
 import { useDocumentDrag } from "@/app/(site)/slow-and-reverb/hooks/useDocumentDrag"
@@ -172,10 +172,10 @@ const AddASongModal = () => {
   }
   const playlistReady = playlistRecentTags.ready && playlistRecentTags.playlistId === selectedPlaylistId
   const playlistSuggestionTags = playlistReady
-    ? playlistRecentTags.top.filter(tag => !dismissedPlaylistTags.includes(tag))
+    ? filterDismissedPlaylistTags(playlistRecentTags.top, dismissedPlaylistTags)
     : []
   const tagsToApply = playlistReady
-    ? playlistRecentTags.autofill.filter(tag => !dismissedPlaylistTags.includes(tag))
+    ? filterDismissedPlaylistTags(playlistRecentTags.autofill, dismissedPlaylistTags)
     : []
   const suggestionKey = playlistReady ? `${selectedPlaylistId}:${tagsToApply.join("\0")}` : ""
   const applyingSuggestion = !tagsCustomized && Boolean(suggestionKey) && suggestionKey !== appliedSuggestionKey
@@ -1103,7 +1103,7 @@ const AddASongModal = () => {
             key={uploadModal.isOpen ? `open-${uploadCount}` : "closed"}
             value={visibleTags}
             onChange={nextTags => {
-              const removedSuggestions = visibleTags.filter(tag => !nextTags.includes(tag) && playlistSuggestionTags.includes(tag))
+              const removedSuggestions = removedPlaylistTags(visibleTags, nextTags, playlistSuggestionTags)
               if (removedSuggestions.length) setDismissedPlaylistTags(current => Array.from(new Set([...current, ...removedSuggestions])))
               setTagsCustomized(true)
               setTags(nextTags)

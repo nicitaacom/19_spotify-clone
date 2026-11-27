@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { matchedSongTags, normalizeSongTags, parseSongTags, recentPlaylistTags, songTagSearchValues, songTagsWithDraft } from "./songTags.ts"
+import { filterDismissedPlaylistTags, matchedSongTags, normalizeSongTags, parseSongTags, recentPlaylistTags, removedPlaylistTags, songTagSearchValues, songTagsWithDraft } from "./songTags.ts"
 
 test("song tags survive an API payload with normalized case, Unicode, spacing, and duplicates", () => {
   assert.deepEqual(parseSongTags(JSON.stringify([" HAPPY ", "happy", "lo-fi", " Sa\u0303o  Paulo ", "", "slow"])),
@@ -40,6 +40,16 @@ test("playlist popularity includes songs older than the latest eight", () => {
   ])
   assert.deepEqual(result.top, ["chill", "newest"])
   assert.deepEqual(result.autofill, ["chill"])
+})
+
+test("a removed playlist tag stays out of both suggestions and autofill after upload", () => {
+  const removed = removedPlaylistTags(["chill", "focus"], ["focus"], ["chill", "focus"])
+  assert.deepEqual(removed, ["chill"])
+
+  // Upload success clears the form and recalculates suggestions from the playlist.
+  // The removed tag must stay excluded from both lists after that reset.
+  assert.deepEqual(filterDismissedPlaylistTags(["chill", "focus"], removed), ["focus"])
+  assert.deepEqual(filterDismissedPlaylistTags(["chill"], removed), [])
 })
 
 test("a playlist with one tagged song does not autofill tags used once", () => {

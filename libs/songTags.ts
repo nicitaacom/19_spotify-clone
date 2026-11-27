@@ -60,6 +60,17 @@ export function popularPlaylistTags(entries: RecentPlaylistSong[]): { autofill: 
 // Retained for callers that still use the previous helper name.
 export const recentPlaylistTags = popularPlaylistTags
 
+export function filterDismissedPlaylistTags(tags: string[], dismissedTags: string[]): string[] {
+  const dismissed = new Set(dismissedTags)
+  return tags.filter(tag => !dismissed.has(tag))
+}
+
+export function removedPlaylistTags(previousTags: string[], nextTags: string[], suggestedTags: string[]): string[] {
+  const next = new Set(nextTags)
+  const suggested = new Set(suggestedTags)
+  return previousTags.filter(tag => !next.has(tag) && suggested.has(tag))
+}
+
 const MAX_MATCHED_SONG_TAGS = 3
 
 /** Tag values to match in search: the canonical label, plus the typed text when it differs. */
