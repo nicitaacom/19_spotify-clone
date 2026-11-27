@@ -22,9 +22,10 @@ interface MediaItemProps {
   songHref?: string
   onEdit?: () => void
   showMetadataIcons?: boolean
+  editIconSize?: number
 }
 
-const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleClassName, playlists = [], onPlaylistClick, matchedTags = [], songHref = "", onEdit, showMetadataIcons = false }) => {
+const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleClassName, playlists = [], onPlaylistClick, matchedTags = [], songHref = "", onEdit, showMetadataIcons = false, editIconSize = 22 }) => {
   const player = usePlayer()
   const imageUrl = useLoadImage(data)
   const lockedPaid = data.is_paid === true && data.can_play === false
@@ -132,7 +133,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleCl
             event.stopPropagation()
             onEdit()
           }}>
-          <FiEdit2 size={22} />
+          <FiEdit2 size={editIconSize} />
         </button>
       )}
     </div>

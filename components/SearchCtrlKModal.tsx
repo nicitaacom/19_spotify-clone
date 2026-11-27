@@ -130,6 +130,7 @@ const SearchCtrlKModal = () => {
                         matchedTags={matchedSongTags(song.tags, debouncedSearchValue)}
                         onPlaylistClick={() => onChange(false)}
                         showMetadataIcons
+                        editIconSize={15}
                         onEdit={isOwner ? () => editSongModal.onOpen(song, updated => setSongs(prev => prev.map(item => item.id === updated.id ? updated : item))) : undefined}
                       />
                     </div>
