@@ -174,7 +174,9 @@ const AddASongModal = () => {
   const playlistSuggestionTags = playlistReady
     ? playlistRecentTags.top.filter(tag => !dismissedPlaylistTags.includes(tag))
     : []
-  const tagsToApply = playlistReady ? playlistRecentTags.autofill : []
+  const tagsToApply = playlistReady
+    ? playlistRecentTags.autofill.filter(tag => !dismissedPlaylistTags.includes(tag))
+    : []
   const suggestionKey = playlistReady ? `${selectedPlaylistId}:${tagsToApply.join("\0")}` : ""
   const applyingSuggestion = !tagsCustomized && Boolean(suggestionKey) && suggestionKey !== appliedSuggestionKey
   if (applyingSuggestion) {
