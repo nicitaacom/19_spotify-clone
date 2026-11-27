@@ -20,6 +20,7 @@ import { PlaylistOption } from "@/types"
 import supabaseClient from "@/libs/supabaseClient"
 import { errorText, httpErrorMessage } from "@/libs/errorText"
 import { isSameSongExistsMessage, readSongUploadConflict, sameSongErrorText, SongUploadConflictError, type SongUploadConflict } from "@/libs/songCreateGuard"
+import { playlistTagDismissalKey, readDismissedPlaylistTags, writeDismissedPlaylistTags } from "@/libs/playlistTagDismissals"
 import {
   byteSendPercent,
   formatTimeLeft,
@@ -103,7 +104,6 @@ const AddASongModal = () => {
   const [embeddedImage, setEmbeddedImage] = useState<File | null>(null)
   const [readingMetadata, setReadingMetadata] = useState(false)
   const [tags, setTags] = useState<string[]>([])
-  const [dismissedPlaylistTags, setDismissedPlaylistTags] = useState<string[]>([])
   const playlistSlugInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const songInputRef = useRef<HTMLInputElement>(null)
@@ -157,6 +157,21 @@ const AddASongModal = () => {
   })
 
   const selectedPlaylistId = selectedPlaylist?.id ?? ""
+  const tagDismissalKey = user?.id && selectedPlaylistId ? playlistTagDismissalKey(user.id, selectedPlaylistId) : ""
+  const [dismissedPlaylistTagsState, setDismissedPlaylistTagsState] = useState<{ key: string; tags: string[] }>({ key: "", tags: [] })
+  useEffect(() => {
+    if (!tagDismissalKey) {
+      setDismissedPlaylistTagsState({ key: "", tags: [] })
+      return
+    }
+    let tags: string[] = []
+    try {
+      if (typeof window !== "undefined") tags = readDismissedPlaylistTags(window.localStorage, tagDismissalKey)
+    } catch { /* Storage may be disabled by the browser. */ }
+    setDismissedPlaylistTagsState({ key: tagDismissalKey, tags })
+  }, [tagDismissalKey])
+  const tagDismissalsReady = !tagDismissalKey || dismissedPlaylistTagsState.key === tagDismissalKey
+  const dismissedPlaylistTags = dismissedPlaylistTagsState.key === tagDismissalKey ? dismissedPlaylistTagsState.tags : []
   const [uploadCount, setUploadCount] = useState(0)
   const [lastUploadedPlaylistSlug, setLastUploadedPlaylistSlug] = useState<string | null>(null)
   const playlistRecentTags = usePlaylistRecentTags(selectedPlaylistId, uploadModal.isOpen && Boolean(user), uploadCount)
@@ -166,11 +181,10 @@ const AddASongModal = () => {
   if (selectedPlaylistId !== tagsPlaylistId) {
     setTagsPlaylistId(selectedPlaylistId)
     setAppliedSuggestionKey("")
-    setDismissedPlaylistTags([])
     if (!selectedPlaylistId) setTagsCustomized(false)
     if (!selectedPlaylistId || !tagsCustomized) setTags([])
   }
-  const playlistReady = playlistRecentTags.ready && playlistRecentTags.playlistId === selectedPlaylistId
+  const playlistReady = tagDismissalsReady && playlistRecentTags.ready && playlistRecentTags.playlistId === selectedPlaylistId
   const playlistSuggestionTags = playlistReady
     ? filterDismissedPlaylistTags(playlistRecentTags.top, dismissedPlaylistTags)
     : []
@@ -330,7 +344,6 @@ const AddASongModal = () => {
     preparedAudio.current = null
     setDuplicateSong(null)
     setTags([])
-    setDismissedPlaylistTags([])
     setUploadProgress(0)
     setUploadSpeed("")
     setUploadTimeLeft("")
@@ -970,6 +983,19 @@ const AddASongModal = () => {
 
   const onSubmit: SubmitHandler<FieldValues> = values => uploadSong(values)
 
+  const handleSongTagsChange = (nextTags: string[]) => {
+    const removedSuggestions = removedPlaylistTags(visibleTags, nextTags, playlistSuggestionTags)
+    if (removedSuggestions.length) {
+      const dismissed = Array.from(new Set([...dismissedPlaylistTags, ...removedSuggestions]))
+      setDismissedPlaylistTagsState({ key: tagDismissalKey, tags: dismissed })
+      try {
+        if (tagDismissalKey && typeof window !== "undefined") writeDismissedPlaylistTags(window.localStorage, tagDismissalKey, dismissed)
+      } catch { /* Keep the dismissal in memory when storage is unavailable. */ }
+    }
+    setTagsCustomized(true)
+    setTags(nextTags)
+  }
+
   const uploadWithNewName = (title: string) => {
     setValue("title", title, { shouldDirty: true })
     setDuplicateSong(null)
@@ -1102,12 +1128,7 @@ const AddASongModal = () => {
           <SongTagsInput
             key={uploadModal.isOpen ? `open-${uploadCount}` : "closed"}
             value={visibleTags}
-            onChange={nextTags => {
-              const removedSuggestions = removedPlaylistTags(visibleTags, nextTags, playlistSuggestionTags)
-              if (removedSuggestions.length) setDismissedPlaylistTags(current => Array.from(new Set([...current, ...removedSuggestions])))
-              setTagsCustomized(true)
-              setTags(nextTags)
-            }}
+            onChange={handleSongTagsChange}
             disabled={isLoading}
             playlistTags={playlistSuggestionTags}
             excludedTags={dismissedPlaylistTags}
