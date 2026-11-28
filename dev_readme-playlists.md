@@ -10,4 +10,6 @@ A playlist cover is `19_playlists.cover_image_path` when that column is set. Oth
 
 ## Playback
 
+On phones, playlist track actions wrap onto a second row so that the title and artist retain room.
+
 Play on a row passes the on-screen songs into the player queue. The advance control then plays the following row when a song finishes, or the same song when the control shows This song repeats. Reordering or removing a row in the playlist that is playing rewrites that queue to the on-screen order.

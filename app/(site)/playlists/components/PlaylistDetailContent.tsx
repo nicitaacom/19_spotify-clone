@@ -9,6 +9,8 @@ import useOnPlay from "@/hooks/useOnPlay"
 import usePlayer from "@/hooks/usePlayer"
 import useEditSongModal from "@/hooks/useEditSongModal"
 import useSuggestSongModal from "@/hooks/useSuggestSongModal"
+import useOwnerStore from "@/hooks/useOwnerStore"
+import useDeletedSongs from "@/hooks/useDeletedSongs"
 import MediaItem from "@/components/MediaItem"
 import LikeButton from "@/components/LikeButton"
 import AddToPlaylistButton from "@/components/AddToPlaylistButton"
@@ -18,6 +20,7 @@ import Input from "@/components/Input"
 import Modal from "@/components/Modal"
 import EmbedSnippet from "@/components/EmbedSnippet"
 import SupportLink from "@/components/SupportLink"
+import DeleteSongButton from "@/components/DeleteSongButton"
 import { formatPlaylistPrice } from "@/libs/commerceRules"
 import { errorText, httpErrorMessage } from "@/libs/errorText"
 import PlaylistEditor from "./PlaylistEditor"
@@ -26,18 +29,18 @@ import PlaylistPurchasePanel from "./PlaylistPurchasePanel"
 type DragPreview = { songId: string; destination: number }
 type ActiveDrag = { songId: string; source: number; pointerId: number; startY: number; moved: boolean; initialOrder: PlaylistSongWithSong[] }
 
-const iconButtonClass = "grid h-8 w-8 place-items-center rounded text-neutral-400 focus-visible:outline-neon"
+const iconButtonClass = "grid h-10 w-10 place-items-center rounded text-neutral-400 focus-visible:outline-neon sm:h-8 sm:w-8"
 
 function trackColumns(canManage: boolean) {
   return canManage
-    ? "grid grid-cols-[2rem_minmax(0,1fr)_auto_8.75rem] items-center gap-x-2 px-1 sm:grid-cols-[2rem_1.5rem_minmax(0,1fr)_auto_11rem] sm:gap-x-3 sm:px-3"
-    : "grid grid-cols-[minmax(0,1fr)_auto_4.25rem] items-center gap-x-2 px-1 sm:grid-cols-[1.5rem_minmax(0,1fr)_auto_6.5rem] sm:gap-x-3 sm:px-3"
+    ? "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-x-1 px-1 sm:grid-cols-[2rem_1.5rem_minmax(0,1fr)_auto_11rem] sm:gap-x-3 sm:px-3"
+    : "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-1 px-1 sm:grid-cols-[1.5rem_minmax(0,1fr)_auto_6.5rem] sm:gap-x-3 sm:px-3"
 }
 
 const actionColumnClass = (canManage: boolean) =>
   canManage
-    ? "flex w-[8.75rem] items-center justify-center gap-1 sm:w-[11rem]"
-    : "flex w-[4.25rem] items-center justify-center gap-1 sm:w-[6.5rem]"
+    ? "col-span-2 col-start-2 row-start-2 flex flex-wrap items-center justify-start sm:col-auto sm:row-auto sm:w-[11rem] sm:flex-nowrap sm:justify-center sm:gap-1"
+    : "col-span-2 col-start-1 row-start-2 flex flex-wrap items-center justify-start sm:col-auto sm:row-auto sm:w-[6.5rem] sm:flex-nowrap sm:justify-center sm:gap-1"
 
 function isAdminUnlocked(song: Song, canManage: boolean) {
   return canManage && song.is_paid === true && song.can_play !== false && !song.access_unavailable
@@ -76,12 +79,13 @@ function AccessBadge({ song, canManage }: { song: Song; canManage: boolean }) {
   )
 }
 
-function PlaylistTrackRow({ item, index, playlistTitle, playlistSlug, canManage, canEditSong, canReorder, removing, dropEdge, isDragging, onPlay, onEdit, onSuggest, onRemove, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onMove }: {
+function PlaylistTrackRow({ item, index, playlistTitle, playlistSlug, canManage, canDeleteSong, canEditSong, canReorder, removing, dropEdge, isDragging, onPlay, onEdit, onSuggest, onRemove, onDeleted, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onMove }: {
   item: PlaylistSongWithSong
   index: number
   playlistTitle: string
   playlistSlug: string
   canManage: boolean
+  canDeleteSong: boolean
   canEditSong: boolean
   canReorder: boolean
   removing: boolean
@@ -91,6 +95,7 @@ function PlaylistTrackRow({ item, index, playlistTitle, playlistSlug, canManage,
   onEdit: (song: Song) => void
   onSuggest?: (song: Song) => void
   onRemove: (song: Song) => void
+  onDeleted: (songId: string) => void
   onPointerDown: (event: PointerEvent<HTMLButtonElement>, songId: string) => void
   onPointerMove: (event: PointerEvent<HTMLButtonElement>) => void
   onPointerUp: (event: PointerEvent<HTMLButtonElement>) => void
@@ -143,7 +148,11 @@ function PlaylistTrackRow({ item, index, playlistTitle, playlistSlug, canManage,
             <FiEdit2 size={16} />
           </button>
         )}
-        {canManage && (
+        {canManage && canDeleteSong && (
+          <DeleteSongButton song={item.song} disabled={removing} onDeleted={onDeleted}
+            size={16} className={`${iconButtonClass} hover:text-red-400 disabled:opacity-40`} />
+        )}
+        {canManage && !canDeleteSong && (
           <button type="button" disabled={removing} onClick={() => onRemove(item.song)}
             aria-label={`Remove ${item.song.title} from playlist`} title="Remove from playlist"
             className={`${iconButtonClass} hover:text-red-400 disabled:opacity-40`}>
@@ -151,7 +160,7 @@ function PlaylistTrackRow({ item, index, playlistTitle, playlistSlug, canManage,
           </button>
         )}
         <LikeButton songId={item.song.id} size={16} className={iconButtonClass} />
-        <div className="hidden sm:grid sm:h-8 sm:w-8 sm:place-items-center">
+        <div className="grid h-10 w-10 place-items-center sm:h-8 sm:w-8">
           <AddToPlaylistButton song={item.song} size={16} className={iconButtonClass} />
         </div>
         <DownloadSongButton song={item.song} playlistTitle={playlistTitle} iconSize={16} className={`${iconButtonClass} hover:text-neon disabled:cursor-not-allowed disabled:opacity-40`} />
@@ -172,6 +181,8 @@ export default function PlaylistDetailContent({
   songId?: string
 }) {
   const router = useRouter()
+  const { isOwner } = useOwnerStore()
+  const deletedIds = useDeletedSongs(state => state.ids)
   const editSongModal = useEditSongModal()
   const suggestSongModal = useSuggestSongModal()
   const [editing, setEditing] = useState(false)
@@ -211,10 +222,10 @@ export default function PlaylistDetailContent({
   }
   useEffect(() => { orderRef.current = orderedSongs }, [orderedSongs])
   const queue = useMemo(() => {
-    const songs = orderedSongs.map(item => item.song)
+    const songs = orderedSongs.filter(item => !deletedIds.has(String(item.song_id))).map(item => item.song)
     if (!shuffle) return songs
     return [...songs].sort((a, b) => shuffleSeed.indexOf(a.id) - shuffleSeed.indexOf(b.id))
-  }, [orderedSongs, shuffle, shuffleSeed])
+  }, [orderedSongs, shuffle, shuffleSeed, deletedIds])
   const commerce = playlist.commerce
   const handleLockedSong = (id: string) => {
     const song = queue.find(item => item.id === id)
@@ -241,7 +252,7 @@ export default function PlaylistDetailContent({
   }, [activeId, playlist.id, queue, sourcePlaylistId])
   useEffect(() => {
     const id = songId.trim()
-    if (!id) return
+    if (!id || deletedIds.has(id)) return
     const player = usePlayer.getState()
     const queryIsActive = String(player.activeId ?? "") === id && player.sourcePlaylistId === playlist.id
     if (queryIsActive) {
@@ -266,13 +277,13 @@ export default function PlaylistDetailContent({
       return
     }
     void onPlay(id)
-  }, [activeId, onPlay, playlist.id, queue, songId])
+  }, [activeId, deletedIds, onPlay, playlist.id, queue, songId])
   const playable = queue.filter(song => song.can_play)
   const hasAccess = Boolean(commerce?.purchased || commerce?.can_manage)
   const showPurchase =
     commerce?.ready !== false && Boolean(commerce?.purchased || (commerce?.sales_enabled && !commerce?.can_manage))
   const filtered = orderedSongs.filter(item =>
-    `${item.song.title} ${item.song.author}`.toLowerCase().includes(query.toLowerCase().trim())
+    !deletedIds.has(String(item.song_id)) && `${item.song.title} ${item.song.author}`.toLowerCase().includes(query.toLowerCase().trim())
   )
   const dropMarker = useMemo(() => {
     if (!dragPreview) return null
@@ -391,6 +402,11 @@ export default function PlaylistDetailContent({
       setOrderedSongs(next)
     }, playlist.id)
   }
+  const handleDeletedSong = (deletedId: string) => {
+    const next = orderRef.current.filter(item => String(item.song_id) !== deletedId)
+    orderRef.current = next
+    setOrderedSongs(next)
+  }
   const removeSong = async (song: Song) => {
     if (savingOrderRef.current || removingSongId) return
     if (!window.confirm(`Remove "${song.title}" from this playlist? The uploaded song will remain in My Songs.`)) return
@@ -508,12 +524,12 @@ export default function PlaylistDetailContent({
           <div ref={listRef}>
             {filtered.map(item => (
               <PlaylistTrackRow key={item.song_id} item={item} index={orderedSongs.indexOf(item)} playlistTitle={playlist.title} playlistSlug={playlist.slug}
-                canManage={canManage} canEditSong={canManage && (item.song.user_id === viewerId || Boolean(commerce?.can_manage))}
+                canManage={canManage} canDeleteSong={isOwner} canEditSong={canManage && (item.song.user_id === viewerId || Boolean(commerce?.can_manage))}
                 canReorder={canManage && !savingOrder && !query.trim()}
                 removing={savingOrder || removingSongId !== null}
                 isDragging={dragPreview?.songId === item.song_id}
                 dropEdge={dropMarker?.songId === item.song_id ? dropMarker.edge : null}
-                onPlay={onPlay} onEdit={editSong} onSuggest={viewerId ? song => suggestSongModal.onOpen(song) : undefined} onRemove={removeSong}
+                onPlay={onPlay} onEdit={editSong} onSuggest={viewerId ? song => suggestSongModal.onOpen(song) : undefined} onRemove={removeSong} onDeleted={handleDeletedSong}
                 onPointerDown={startDrag} onPointerMove={updateDrag} onPointerUp={stopDrag} onPointerCancel={cancelDrag}
                 onMove={moveSong} />
             ))}

@@ -15,6 +15,7 @@ import useLoadImage from "@/hooks/useLoadImage"
 import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
 import useEditSongModal from "@/hooks/useEditSongModal"
 import useUploadModal from "@/hooks/useUploadModal"
+import useDeletedSongs from "@/hooks/useDeletedSongs"
 import Button from "@/components/Button"
 import CoverImage from "@/components/CoverImage"
 import Input from "@/components/Input"
@@ -48,6 +49,7 @@ function SongRow({ song, playlists, onDelete, onUpdate }: {
       const response = await fetch(`/api/songs/${song.id}/delete`, { method: "DELETE" })
       if (!response.ok) throw new Error(await readHttpError(response, `Delete song ${song.id}`))
 
+      useDeletedSongs.getState().markDeleted(String(song.id))
       toast.success(`"${song.title}" deleted.`)
       onDelete(song.id)
     } catch (error) {
@@ -179,7 +181,9 @@ const MySongsContent: React.FC<MySongsContentProps> = ({ songs: initialSongs, pl
   const { isLoading, user } = useUser()
   const uploadModal = useUploadModal()
   const [sourceSongs, setSourceSongs] = useState(initialSongs)
-  const [songs, setSongs] = useState<Song[]>(initialSongs)
+  const [songState, setSongs] = useState<Song[]>(initialSongs)
+  const deletedIds = useDeletedSongs(state => state.ids)
+  const songs = useMemo(() => songState.filter(song => !deletedIds.has(String(song.id))), [songState, deletedIds])
   const [search, setSearch] = useState("")
   const [uploadRange, setUploadRange] = useState<UploadRange>("all")
   const [uploadCutoff, setUploadCutoff] = useState<number | null>(null)

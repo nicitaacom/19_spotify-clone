@@ -8,6 +8,7 @@ import useIsIframeAuth from "@/hooks/useIsIframeAuth"
 import useUploadModal from "@/hooks/useUploadModal"
 import useEditSongModal from "@/hooks/useEditSongModal"
 import useOwnerStore from "@/hooks/useOwnerStore"
+import useDeletedSongs from "@/hooks/useDeletedSongs"
 import { Song } from "@/types"
 import AddToPlaylistButton from "./AddToPlaylistButton"
 import MediaItem from "./MediaItem"
@@ -25,8 +26,10 @@ const Library = ({ songs }: LibraryProps) => {
   const { user } = useUser()
   const isIframe = useIsIframeAuth()
   const { isOwner } = useOwnerStore()
+  const deletedIds = useDeletedSongs(state => state.ids)
+  const visibleSongs = songs.filter(song => !deletedIds.has(String(song.id)))
 
-  const onPlay = useOnPlay(songs)
+  const onPlay = useOnPlay(visibleSongs)
 
   const onClick = () => {
     if (!user) {
@@ -55,7 +58,7 @@ const Library = ({ songs }: LibraryProps) => {
         {`Best songs from the last ${new Date().getFullYear() - 2022} years of listening to music`}
       </div>
       <div className="mt-3 flex flex-col gap-y-2 px-3">
-        {songs.map(song => (
+        {visibleSongs.map(song => (
           <div key={song.id} className="flex items-center gap-x-3">
             <div className="flex-1 min-w-0">
               <MediaItem onClick={(id: string) => onPlay(id)} data={song} />

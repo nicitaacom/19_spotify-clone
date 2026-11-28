@@ -26,13 +26,21 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (fetchError) return NextResponse.json({ error: errorText(fetchError) }, { status: 500 })
   if (!song) return NextResponse.json({ error: "Song not found" }, { status: 404 })
 
-  const { error: deleteError } = await supabaseAdmin.from("19_songs").delete().eq("id", songId)
-  if (deleteError) {
-    return NextResponse.json({ error: errorText(deleteError) }, { status: 400 })
+  const files = [
+    ...(song.song_path ? [{ bucket: "songs", path: song.song_path }] : []),
+    ...(song.image_path ? [{ bucket: "images", path: song.image_path }] : []),
+  ]
+  for (const file of files) {
+    const { error } = await supabaseAdmin.storage.from(file.bucket).remove([file.path])
+    if (error) {
+      return NextResponse.json({ error: `Could not delete the ${file.bucket === "songs" ? "audio" : "cover"} file. Other files may already have been removed. Retry deleting the song. ${errorText(error)}` }, { status: 502 })
+    }
   }
 
-  if (song.song_path) await supabaseAdmin.storage.from("songs").remove([song.song_path])
-  if (song.image_path) await supabaseAdmin.storage.from("images").remove([song.image_path])
+  const { error: deleteError } = await supabaseAdmin.from("19_songs").delete().eq("id", songId)
+  if (deleteError) {
+    return NextResponse.json({ error: `Files were removed, but the song record could not be deleted. Retry deleting it. ${errorText(deleteError)}` }, { status: 400 })
+  }
 
   return NextResponse.json({ success: true })
 }

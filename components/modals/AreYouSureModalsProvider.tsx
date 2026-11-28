@@ -37,7 +37,7 @@ export function AreYouSureModalsProvider() {
           message={
             <>
               This permanently deletes{" "}
-              <span className="font-semibold text-white">{modalData.areYouSureDeleteSong?.title}</span> and its files. This
+              <span className="font-semibold text-white">{modalData.areYouSureDeleteSong?.title}</span> from the library, all playlists, and storage. This
               cannot be undone.
             </>
           }

@@ -32,6 +32,7 @@ interface PlayerStore {
   stopPlayback: () => void
   requestPlaybackCommand: (command: "play" | "pause") => void
   requestSeek: (seek: number) => void
+  removeSong: (id: string) => void
   reset: () => void
 }
 
@@ -97,6 +98,19 @@ const usePlayer = create<PlayerStore>(set => ({
       seek,
       seekId: state.seekId + 1,
     })),
+  removeSong: id => {
+    const songId = String(id)
+    const player = usePlayer.getState()
+    const isActive = String(player.activeId ?? "") === songId
+    const progress = usePlayerProgress.getState()
+    if (isActive) progress.setProgress(0)
+    set(state => ({
+      songs: state.songs.filter(song => String(song.id) !== songId),
+      ids: state.ids.filter(queuedId => String(queuedId) !== songId),
+      preloadedSongId: state.preloadedSongId === songId ? undefined : state.preloadedSongId,
+      ...(isActive ? { activeId: undefined, activeSong: undefined, isLoading: false, isPlaying: false, savedPosition: 0, seek: undefined, playbackCommand: undefined } : {}),
+    }))
+  },
   reset: () => {
     usePlayerProgress.getState().setProgress(0)
     set({

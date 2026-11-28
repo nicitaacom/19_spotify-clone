@@ -9,6 +9,7 @@ import useDebounce from "@/hooks/useDebounce"
 import useOnPlay from "@/hooks/useOnPlay"
 import useOwnerStore from "@/hooks/useOwnerStore"
 import useEditSongModal from "@/hooks/useEditSongModal"
+import useDeletedSongs from "@/hooks/useDeletedSongs"
 import searchSongsAndPlaylistsAction from "@/actions/searchSongsAndPlaylistsAction"
 import { errorText } from "@/libs/errorText"
 import { matchedSongTags } from "@/libs/songTags"
@@ -28,7 +29,9 @@ const SearchCtrlKModal = () => {
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [songPlaylists, setSongPlaylists] = useState<Record<string, Pick<PlaylistOption, "id" | "slug" | "title">[]>>({})
   const [errorMessage, setErrorMessage] = useState("")
-  const onPlay = useOnPlay(songs)
+  const deletedIds = useDeletedSongs(state => state.ids)
+  const visibleSongs = songs.filter(song => !deletedIds.has(String(song.id)))
+  const onPlay = useOnPlay(visibleSongs)
   const { isOwner } = useOwnerStore()
   const editSongModal = useEditSongModal()
 
@@ -84,8 +87,8 @@ const SearchCtrlKModal = () => {
     if (!open) onClose()
   }
 
-  const showEmptyState = Boolean(debouncedSearchValue) && !errorMessage && songs.length === 0 && playlists.length === 0
-  const showResultList = songs.length > 0 || playlists.length > 0 || showEmptyState
+  const showEmptyState = Boolean(debouncedSearchValue) && !errorMessage && visibleSongs.length === 0 && playlists.length === 0
+  const showResultList = visibleSongs.length > 0 || playlists.length > 0 || showEmptyState
 
   return (
     <Modal
@@ -115,10 +118,10 @@ const SearchCtrlKModal = () => {
 
         {showResultList && (
           <div className="scrollbar flex min-h-0 flex-1 flex-col gap-y-4 overflow-x-hidden overflow-y-auto overscroll-contain pr-1">
-            {songs.length > 0 && (
+            {visibleSongs.length > 0 && (
               <div className="flex flex-col gap-y-2">
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Songs</p>
-                {songs.map(song => (
+                {visibleSongs.map(song => (
                   <div
                     key={song.id}
                     className="flex items-center rounded-md border border-transparent pr-2 transition hover:border-neon/40 hover:bg-elevated hover:shadow-neon-sm">
