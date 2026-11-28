@@ -10,13 +10,12 @@ The upload route accepts one `audio/mpeg` file up to 50 MiB (`MAX_SONG_UPLOAD_BY
 
 `components/AddASongModal.tsx` calls `prepareSongUpload` before the POST. The Create button reads `Reading audio… N%` until the bitrate step is picked, then `Converting 52.0 MB -> 45.5 MB… N%` while the encoder runs (the source size, then the estimate for the picked step). When the file is sent unchanged, no `Converting` label shows. The upload percent starts again at 0 after that.
 
-The file is sent unchanged when it is already an MP3, at or under 128 kbps, and at or under 50 MiB.
+MP3 and M4A files at or under 50 MiB are sent with their original audio bytes, regardless of bitrate. Their MIME type is normalized if necessary.
 
 It is re-encoded when any of these is true:
 
-- the extension is not mp3 (m4a, wav, flac, ogg, oga, opus, aac, webm, aif, aiff)
+- the extension is neither MP3 nor M4A (wav, flac, ogg, oga, opus, aac, webm, aif, aiff); the bucket and player support MP3 and M4A
 - the file is over 50 MiB
-- the source bitrate is over the chosen step (a 320 kbps MP3 under the cap becomes 128 kbps)
 
 A second Create during that work does not insert another song. `songCreateBusy` stays set for the whole prepare-and-send, including a second modal instance, and the form is cleared before the button enables again. Held Ctrl+Enter does not submit on each key repeat. The upload route rejects another create with the same user, title, author, and byte size, however long ago the first one was stored - before it stores the files, and once more right before it inserts the row, so a re-sent POST or a stale upload lock removes its own files instead of adding a 2nd song. The resulting choice dialog offers **Upload with new name**, **Replace existing song**, and **Don’t upload**. The prepared audio is reused when choosing a new name or replacement; see `dev_readme-add-song.md`.
 
@@ -26,7 +25,7 @@ The ladder, highest first: 128, 112, 96, 80, 64, 56, 48, 40, 32, 24, 16, 8 kbps.
 
 For an MP3, `music-metadata` supplies `format.bitrate`. A missing or zero number falls back to file bytes × 8 / duration.
 
-When the file is already at or under 50 MiB, the step is 128 kbps. A file at or under 128 kbps is kept. A higher bitrate is encoded at 128.
+MP3 and M4A files already at or under 50 MiB skip the bitrate selection and encoding entirely.
 
 When the file is over 50 MiB, the ladder starts higher: 320, 256, 224, 192, 160, then the steps above. A step over the source bitrate is skipped. The estimate for a step is `file bytes × (step × 1000) / source bitrate`. The highest step whose estimate is at or under 49 MiB is the one used - only as much compression as the cap needs.
 

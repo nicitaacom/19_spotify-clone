@@ -25,6 +25,8 @@ test("non-administrators cannot create songs or change tags, before storage/cata
   const common = { "next/server":{NextResponse}, "@/libs/songTags":tags, "@/libs/getOwnerIds":{isOwnerId:()=>false},
     "@/libs/helpers":{getSafeStoragePath:()=>"unused"} }
   const create = await load("../app/api/songs/route.ts", {...common, uniqid:()=>"unused",
+    "@/libs/errorText": { errorText: error => String(error) },
+    "@/libs/songCreateGuard": {}, "@/libs/imageFiles": {}, "@/libs/songUploadRow": {},
     "@/libs/supabaseAdmin":{supabaseAdmin:deniedDatabase}, "../backup/requireUser":{requireUser:async()=>({userId:"listener",email:"listener@example.invalid"})} })
   assert.equal((await create.POST(new Request("https://music.jokik.fi/api/songs",{method:"POST"}))).status,403)
   const edit = await load("../app/api/songs/[id]/route.ts", {...common, "@/libs/commerceAdmin":{commerceAdmin:deniedDatabase},

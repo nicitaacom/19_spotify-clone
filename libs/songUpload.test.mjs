@@ -106,10 +106,10 @@ test("streaming compression explains unreadable and truncated MP3s", async () =>
   )
 })
 
-test("converts an M4A upload to real 128 kbps MP3 frames with the correct extension and MIME type", async t => {
+test("converts an oversized M4A upload to real MP3 frames", async t => {
   const decode = mockDecoder(t)
   const progress = []
-  const source = new File([m4aBytes], "song.M4A", { type: "audio/x-m4a" })
+  const source = new File([m4aBytes, new Uint8Array(MAX_SONG_UPLOAD_BYTES)], "song.M4A", { type: "audio/x-m4a" })
   const result = await prepareSongUpload(source, 1, value => progress.push(value))
   const metadata = await parseBlob(result)
   assert.equal(result.name, "song.mp3")
@@ -119,32 +119,34 @@ test("converts an M4A upload to real 128 kbps MP3 frames with the correct extens
   assert.equal(metadata.format.numberOfChannels, 2)
   assert.ok(Math.abs(metadata.format.duration - 1) < 0.1)
   assert.equal(decode.mock.callCount(), 1)
-  assert.deepEqual(new Uint8Array(decode.mock.calls[0].arguments[0]), new Uint8Array(m4aBytes))
+  assert.equal(decode.mock.calls[0].arguments[0].byteLength, source.size)
   assert.equal(progress[0], 0)
   assert.equal(progress.at(-1), 100)
 })
 
-test("compresses a 320 kbps MP3 even when the original is below 50 MB", async t => {
-  mockDecoder(t)
-  const source = mp3File(320)
-  const result = await prepareSongUpload(source, 1)
-  assert.equal((await parseBlob(result)).format.bitrate, 128000)
-  assert.ok(result.size < source.size / 2)
-})
-
-test("preserves the bytes of 128 kbps and lower bitrate MP3s without decoding them", async t => {
+test("preserves MP3 and M4A files up to the size limit without converting", async t => {
   const decode = mockDecoder(t)
-  for (const kbps of [96, 128]) {
+  const conversions = []
+  for (const kbps of [96, 128, 320]) {
     const source = mp3File(kbps)
-    const result = await prepareSongUpload(source, 1)
+    const result = await prepareSongUpload(source, 1, undefined, (...args) => conversions.push(args))
     assert.equal(result, source)
     assert.deepEqual(await result.arrayBuffer(), await source.arrayBuffer())
   }
+  const atLimit = new File([new Uint8Array(MAX_SONG_UPLOAD_BYTES)], "limit.mp3", { type: "audio/mpeg" })
+  assert.equal(await prepareSongUpload(atLimit, 1, undefined, (...args) => conversions.push(args)), atLimit)
+  const m4a = new File([m4aBytes], "song.M4A", { type: "audio/mp4" })
+  assert.equal(await prepareSongUpload(m4a, 1, undefined, (...args) => conversions.push(args)), m4a)
+  const mislabeledM4a = new File([m4aBytes], "song.m4a", { type: "audio/x-m4a" })
+  const normalizedM4a = await prepareSongUpload(mislabeledM4a, 1)
+  assert.equal(normalizedM4a.type, "audio/mp4")
+  assert.deepEqual(await normalizedM4a.arrayBuffer(), await mislabeledM4a.arrayBuffer())
   const mislabeled = mp3File(128, "audio/mp3")
   const normalized = await prepareSongUpload(mislabeled, 1)
   assert.equal(normalized.type, "audio/mpeg")
   assert.deepEqual(await normalized.arrayBuffer(), await mislabeled.arrayBuffer())
   assert.equal(decode.mock.callCount(), 0)
+  assert.deepEqual(conversions, [])
 })
 
 test("allows an original larger than 50 MB when its compressed result fits", async t => {
@@ -188,10 +190,10 @@ test("a file just over the cap drops one bitrate step, not down to half", () => 
 
 test("reports unreadable audio and invalid duration instead of uploading the original M4A", async t => {
   mockDecoder(t, async () => { throw new Error("EncodingError") })
-  const source = new File([m4aBytes], "broken.m4a")
-  await assert.rejects(prepareSongUpload(source, 1), /Could not convert "broken\.m4a"\. Error: EncodingError/)
+  const source = new File([m4aBytes], "broken.wav")
+  await assert.rejects(prepareSongUpload(source, 1), /Could not convert "broken\.wav"\. Error: EncodingError/)
   for (const duration of [0, -1, NaN, Infinity]) {
-    await assert.rejects(prepareSongUpload(source, duration), /Could not determine the duration of "broken\.m4a"/)
+    await assert.rejects(prepareSongUpload(source, duration), /Could not determine the duration of "broken\.wav"/)
   }
   await assert.rejects(prepareSongUpload(new File([m4aBytes], "cover.jpg", { type: "image/jpeg" }), 1), /cover\.jpg" is not an audio file/)
 })

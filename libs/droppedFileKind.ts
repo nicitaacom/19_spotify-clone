@@ -43,10 +43,10 @@ export const isSongFile = (name: string, mime: string) => {
 
 export const songInputError = (name: string, mime: string) => {
   if (isImageNameOrType(name, mime)) {
-    return `"${name}" is an image. Choose it in Select an image. The song file is audio, and it is stored as MP3.`
+    return `"${name}" is an image. Choose it in Select an image. The song file must be audio.`
   }
   if (!isSongFile(name, mime)) {
-    return `"${name}" is not an audio file. Pick an MP3, WAV, M4A, FLAC, or OGG file. It is stored as MP3.`
+    return `"${name}" is not an audio file. Pick an MP3, WAV, M4A, FLAC, or OGG file.`
   }
   return ""
 }

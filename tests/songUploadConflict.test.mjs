@@ -98,8 +98,8 @@ async function setup({ fail = () => null, membership = true, owner = "admin", co
   const admin = {
     from,
     storage: { from: bucket => ({
-      upload: async (path, file) => {
-        events.push({ bucket, operation: "upload", path })
+      upload: async (path, file, options) => {
+        events.push({ bucket, operation: "upload", path, options })
         const error = fail({ bucket, operation: "upload", path })
         if (error) return { error: { message: error } }
         files[bucket].set(path, file)
@@ -130,9 +130,9 @@ async function setup({ fail = () => null, membership = true, owner = "admin", co
   }
   const route = await load("../app/api/songs/route.ts", dependencies)
   const status = await load("../app/api/songs/upload-status/route.ts", dependencies)
-  async function post({ replaceSongId, title = "Server room", size = 5 } = {}) {
+  async function post({ replaceSongId, title = "Server room", size = 5, name = "audio.mp3", type = "audio/mpeg" } = {}) {
     const data = new FormData()
-    data.set("song", new File([new Uint8Array(size)], "audio.mp3", { type: "audio/mpeg" }))
+    data.set("song", new File([new Uint8Array(size)], name, { type }))
     data.set("image", new File(["cover"], "cover.png", { type: "image/png" }))
     data.set("title", title)
     data.set("author", "unknown")
@@ -148,6 +148,24 @@ async function setup({ fail = () => null, membership = true, owner = "admin", co
   }
   return { post, poll, tables, files, events }
 }
+
+test("stores an M4A with its original extension and content type", async () => {
+  const state = await setup()
+  const response = await state.post({ title: "M4A song", name: "audio.m4a", type: "audio/mp4" })
+  assert.equal(response.status, 200)
+  const path = `song-${uploadId}.m4a`
+  assert.equal(state.files.songs.get(path).type, "audio/mp4")
+  assert.equal(state.events.find(event => event.bucket === "songs" && event.path === path).options.contentType, "audio/mp4")
+})
+
+test("rejects unsupported formats and mismatched audio content types", async () => {
+  for (const [name, type] of [["audio.m4a", "audio/mpeg"], ["audio.mp3", "audio/mp4"], ["audio.wav", "audio/wav"]]) {
+    const state = await setup()
+    const response = await state.post({ title: "Invalid audio", name, type })
+    assert.equal(response.status, 400)
+    assert.equal(state.events.some(event => event.operation === "upload"), false)
+  }
+})
 
 test("a duplicate returns the existing song ID for the choice dialog, without writing files or rows", async () => {
   const state = await setup()

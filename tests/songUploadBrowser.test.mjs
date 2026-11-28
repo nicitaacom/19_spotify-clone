@@ -31,6 +31,8 @@ window.runUploadTest = async () => {
       nativeDecoded = (await context.decodeAudioData(bytes.slice(0))).duration;
     }
     class CheckedFile extends File {
+      // Exercise oversized-file conversion using the small audio fixture.
+      get size() { return Math.max(super.size, 50 * 1024 * 1024 + 1); }
       arrayBuffer() { throw new Error('whole-file read'); }
       slice(start, end, type) {
         if (end - start > 256 * 1024) throw new Error('oversized read');
@@ -46,7 +48,7 @@ window.runUploadTest = async () => {
     const response = await fetch('/output.mp3', {method:'POST', body:form});
     if (!response.ok) throw new Error('upload failed');
     let truncated;
-    try { await Upload.prepareSongUpload(new File([bytes.slice(0, 32)], 'broken.m4a'), 3601); } catch (error) { truncated = String(error); }
+    try { await Upload.prepareSongUpload(new CheckedFile([bytes.slice(0, 32)], 'broken.m4a'), 3601); } catch (error) { truncated = String(error); }
     const realDecoder = window.AudioDecoder;
     delete window.AudioDecoder;
     let unsupported;

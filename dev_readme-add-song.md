@@ -16,7 +16,7 @@ While `Inserting song in DB…` shows, the modal asks `GET /api/songs/upload-sta
 
 ## Duplicate uploads
 
-A duplicate (same account, title, author, and prepared MP3 byte size) opens `components/DuplicateSongModal.tsx` with three choices:
+A duplicate (same account, title, author, and prepared audio byte size) opens `components/DuplicateSongModal.tsx` with three choices:
 
 - **Upload with new name:** edit the suggested `<title> (copy)` and upload a separate song. Empty or unchanged titles stay in the dialog with an explanation.
 - **Replace existing song:** upload the selected audio, cover, and details into the existing song row. Its ID, likes, and playlist positions stay intact. The selected playlist's paid setting is applied; other playlists keep their access settings. If needed, the song is also added to the selected playlist.
@@ -34,7 +34,7 @@ Regression checks: `node --experimental-strip-types --test tests/songUploadConfl
 
 The song picker uses `accept="audio/*"`. That hint is not a check. The change handler refuses a file when its type does not start with `audio/` and its extension is not one of mp3, m4a, wav, flac, ogg, oga, opus, aac, webm, aif, or aiff. The input is cleared and the message names the file.
 
-`libs/songUpload.ts` accepts that same list. A short file is stored at 128 kbps. A file over 50 MiB is stored at the highest bitrate whose estimated size is at or under 49 MiB (down to 8 kbps), using the source bitrate when it is known. See `dev_readme-compress.md`. The stored name always ends in `.mp3`. When the browser fails to decode the file, the error names the file and the browser error (`Error: …`). The upload route accepts only `.mp3` with `audio/mpeg`, because the browser converts before sending.
+`libs/songUpload.ts` accepts that same list. MP3 and M4A files up to 50 MiB keep their original audio bytes and format. Other formats and oversized files are converted to MP3; the bitrate aims for at most 49 MiB (down to 8 kbps), using the source bitrate when it is known. See `dev_readme-compress.md`. When the browser fails to decode a file, the error names the file and the browser error (`Error: …`). The upload route accepts `.mp3` with `audio/mpeg` and `.m4a` with `audio/mp4`.
 
 ## After an upload
 

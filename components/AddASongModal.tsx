@@ -45,7 +45,6 @@ import { usePlaylistRecentTags } from "@/hooks/usePlaylistRecentTags"
 import { useDocumentDrag } from "@/app/(site)/slow-and-reverb/hooks/useDocumentDrag"
 import { IMAGE_MIME_BY_EXTENSION } from "@/libs/imageFiles"
 import { SONG_FILE_ACCEPT, coverTypeToStamp, isCoverImageFile, songInputError, splitDroppedFiles } from "@/libs/droppedFileKind"
-import { MAX_SONG_UPLOAD_BYTES } from "@/libs/songUpload"
 
 // Show Turnstile challenge on ~10% of uploads
 const TURNSTILE_PROBABILITY = 0.1
@@ -891,11 +890,9 @@ const AddASongModal = () => {
       }
 
       const cachedAudio = preparedAudio.current
-      const mp3WithinLimit = songFile.name.split(".").pop()?.toLowerCase() === "mp3" && songFile.size <= MAX_SONG_UPLOAD_BYTES
       if (cachedAudio && cachedAudio.source === songFile) {
         songFile = cachedAudio.prepared
-      } else if (!mp3WithinLimit) {
-        // An MP3 that already fits the storage cap needs no bitrate conversion.
+      } else {
         setIsPreparingAudio(true)
         const { prepareSongUpload } = await import("@/libs/songUpload")
         const source = songFile

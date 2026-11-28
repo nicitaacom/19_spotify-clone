@@ -23,7 +23,7 @@ export function uploadBitrateKbps(durationSec: number, sourceBytes = 0, sourceBi
   return 8
 }
 
-/** Prepare the actual MP3 bytes before sending them to storage. */
+/** Keep supported files that fit; otherwise prepare MP3 bytes for storage. */
 export async function prepareSongUpload(
   file: File,
   duration: number,
@@ -39,8 +39,12 @@ export async function prepareSongUpload(
   }
 
   onProgress?.(0)
+  if ((extension === "mp3" || extension === "m4a") && file.size <= MAX_SONG_UPLOAD_BYTES) {
+    const type = extension === "mp3" ? "audio/mpeg" : "audio/mp4"
+    onProgress?.(100)
+    return file.type === type ? file : new File([file], file.name, { type, lastModified: file.lastModified })
+  }
   let sourceBitrate = 0
-  let needsEncoding = extension !== "mp3" || file.size > MAX_SONG_UPLOAD_BYTES
   if (extension === "mp3") {
     const { parseBlob } = await import("music-metadata")
     const metadata = await parseBlob(file, { skipCovers: true })
@@ -48,17 +52,6 @@ export async function prepareSongUpload(
     sourceBitrate = reportedBitrate && reportedBitrate > 0 ? reportedBitrate : file.size * 8 / duration
   }
   const kbps = uploadBitrateKbps(duration, extension === "mp3" ? file.size : 0, sourceBitrate)
-  if (sourceBitrate > 0 && Math.round(sourceBitrate) > kbps * 1000) needsEncoding = true
-
-  if (!needsEncoding && kbps === PREFERRED_KBPS) {
-    onProgress?.(100)
-    return file.type === "audio/mpeg" ? file : new File([file], file.name, { type: "audio/mpeg" })
-  }
-  if (!needsEncoding && sourceBitrate > 0 && sourceBitrate <= kbps * 1000 && file.size <= MAX_SONG_UPLOAD_BYTES) {
-    onProgress?.(100)
-    return file.type === "audio/mpeg" ? file : new File([file], file.name, { type: "audio/mpeg" })
-  }
-
   onCompress?.(file.size, sourceBitrate > 0 ? file.size * kbps * 1000 / sourceBitrate : duration * kbps * 1000 / 8)
   const baseName = file.name.replace(/\.[^.]+$/, "") || "song"
   const tooLargeToDecode = duration * 44100 * 2 * 4 > MAX_PCM_BYTES
