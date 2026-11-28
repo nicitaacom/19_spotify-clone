@@ -20,6 +20,28 @@ interface LikeButtonProps {
   onToggle?: (isLiked: boolean) => void
 }
 
+function useLikedSong(songId: string, userId: string | undefined, setIsLiked: React.Dispatch<React.SetStateAction<boolean>>) {
+  useEffect(() => {
+    if (!userId) return
+
+    const fetchData = async () => {
+      const { data, error } = await supabaseClient
+        .from("19_liked_songs")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("song_id", Number(songId))
+        .maybeSingle()
+
+      if (error) console.log("select liked song error in LikeButton - ", error.message)
+      if (data) {
+        setIsLiked(true)
+      }
+    }
+
+    fetchData()
+  }, [songId, userId, setIsLiked])
+}
+
 const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassName, size = 25, onToggle }) => {
   const router = useRouter()
 
@@ -36,25 +58,7 @@ const LikeButton: React.FC<LikeButtonProps> = ({ songId, className, iconClassNam
     if (!user?.id) setIsLiked(false)
   }
 
-  useEffect(() => {
-    if (!user?.id) return
-
-    const fetchData = async () => {
-      const { data, error } = await supabaseClient
-        .from("19_liked_songs")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("song_id", Number(songId))
-        .maybeSingle()
-
-      if (error) console.log("select liked song error in LikeButton - ", error.message)
-      if (data) {
-        setIsLiked(true)
-      }
-    }
-
-    fetchData()
-  }, [songId, user?.id])
+  useLikedSong(songId, user?.id, setIsLiked)
 
   const Icon = isLiked ? AiFillHeart : AiOutlineHeart
 

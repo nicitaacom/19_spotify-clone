@@ -13,36 +13,12 @@ import { formatPlaylistPrice } from "@/libs/commerceRules"
 import { errorText, httpErrorMessage } from "@/libs/errorText"
 import Button from "@/components/Button"
 
-export default function PlaylistPurchasePanel({
-  playlist,
-  showAnchor = true,
-  onOpenCheckout,
-}: {
-  playlist: PlaylistDetail
-  showAnchor?: boolean
-  onOpenCheckout?: () => void
-}) {
-  const router = useRouter()
-  const params = useSearchParams()
-  const { user, isLoading } = useUser()
-  const isIframe = useIsIframeAuth()
-  const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState("")
-  const [retry, setRetry] = useState(0)
-  const commerce = playlist.commerce
-  const owned = Boolean(commerce?.purchased || commerce?.can_manage)
-  const sessionId = params.get("session_id")
-  const checkoutState = params.get("checkout")
-  const visibleMessage =
-    message ||
-    (checkoutState === "cancelled"
-      ? "Checkout cancelled. You haven’t been charged."
-      : checkoutState === "success" && !commerce?.purchased
-      ? "Confirming your payment…"
-      : "")
-
+function useConfirmPlaylistPurchase(
+  checkoutState: string | null, sessionId: string | null, userId: string | undefined, purchased: boolean | undefined,
+  playlistId: string, router: ReturnType<typeof useRouter>, retry: number, setMessage: React.Dispatch<React.SetStateAction<string>>,
+) {
   useEffect(() => {
-    if (checkoutState !== "success" || !sessionId || !user?.id || commerce?.purchased) return
+    if (checkoutState !== "success" || !sessionId || !userId || purchased) return
     let stopped = false
     let timer: ReturnType<typeof setTimeout>
     let attempts = 0
@@ -51,7 +27,7 @@ export default function PlaylistPurchasePanel({
         const response = await fetch("/api/playlists/purchase-status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ session_id: sessionId, playlist_id: playlist.id }),
+          body: JSON.stringify({ session_id: sessionId, playlist_id: playlistId }),
         })
         const bodyText = await response.text()
         if (stopped) return
@@ -87,7 +63,38 @@ export default function PlaylistPurchasePanel({
       stopped = true
       clearTimeout(timer)
     }
-  }, [user?.id, commerce?.purchased, playlist.id, router, retry, sessionId, checkoutState])
+  }, [userId, purchased, playlistId, router, retry, sessionId, checkoutState, setMessage])
+}
+
+export default function PlaylistPurchasePanel({
+  playlist,
+  showAnchor = true,
+  onOpenCheckout,
+}: {
+  playlist: PlaylistDetail
+  showAnchor?: boolean
+  onOpenCheckout?: () => void
+}) {
+  const router = useRouter()
+  const params = useSearchParams()
+  const { user, isLoading } = useUser()
+  const isIframe = useIsIframeAuth()
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState("")
+  const [retry, setRetry] = useState(0)
+  const commerce = playlist.commerce
+  const owned = Boolean(commerce?.purchased || commerce?.can_manage)
+  const sessionId = params.get("session_id")
+  const checkoutState = params.get("checkout")
+  const visibleMessage =
+    message ||
+    (checkoutState === "cancelled"
+      ? "Checkout cancelled. You haven’t been charged."
+      : checkoutState === "success" && !commerce?.purchased
+      ? "Confirming your payment…"
+      : "")
+
+  useConfirmPlaylistPurchase(checkoutState, sessionId, user?.id, commerce?.purchased, playlist.id, router, retry, setMessage)
 
   const checkout = async () => {
     if (!user) {

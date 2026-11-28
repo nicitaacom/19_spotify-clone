@@ -45,6 +45,7 @@ import { usePlaylistRecentTags } from "@/hooks/usePlaylistRecentTags"
 import { useDocumentDrag } from "@/app/(site)/slow-and-reverb/hooks/useDocumentDrag"
 import { IMAGE_MIME_BY_EXTENSION } from "@/libs/imageFiles"
 import { SONG_FILE_ACCEPT, coverTypeToStamp, isCoverImageFile, songInputError, splitDroppedFiles } from "@/libs/droppedFileKind"
+import { useWarnBeforeUnload } from "@/hooks/useWarnBeforeUnload"
 
 // Show Turnstile challenge on ~10% of uploads
 const TURNSTILE_PROBABILITY = 0.1
@@ -74,6 +75,63 @@ function SongScreenDrop({
     </div>,
     document.body,
   )
+}
+
+function useDismissedPlaylistTags(tagDismissalKey: string, setDismissedPlaylistTagsState: React.Dispatch<React.SetStateAction<{ key: string; tags: string[] }>>) {
+  useEffect(() => {
+    if (!tagDismissalKey) {
+      setDismissedPlaylistTagsState({ key: "", tags: [] })
+      return
+    }
+    let tags: string[] = []
+    try {
+      if (typeof window !== "undefined") tags = readDismissedPlaylistTags(window.localStorage, tagDismissalKey)
+    } catch { /* Storage may be disabled by the browser. */ }
+    setDismissedPlaylistTagsState({ key: tagDismissalKey, tags })
+  }, [tagDismissalKey, setDismissedPlaylistTagsState])
+}
+
+function useChallengeRoll(isOpen: boolean, uploadCount: number, setRequiresChallenge: React.Dispatch<React.SetStateAction<boolean>>) {
+  useEffect(() => {
+    if (!isOpen) return
+    let isCancelled = false
+    const rollChallenge = async () => {
+      await Promise.resolve()
+      if (!isCancelled) setRequiresChallenge(Math.random() < TURNSTILE_PROBABILITY)
+    }
+    rollChallenge()
+    return () => {
+      isCancelled = true
+    }
+  }, [isOpen, uploadCount, setRequiresChallenge])
+}
+
+function useSelectCreatedPlaylist(
+  isOpen: boolean,
+  fetchPlaylists: () => Promise<PlaylistOption[]>,
+  setSelectedPlaylist: React.Dispatch<React.SetStateAction<PlaylistOption | null>>,
+  setPlaylistSearch: React.Dispatch<React.SetStateAction<string>>,
+) {
+  // Re-fetch playlists when create modal closes (user may have just created one)
+  const createModalWasOpen = useRef(false)
+  useEffect(() => {
+    const createPlaylistStore = useCreatePlaylistModal.getState()
+    const createdId = createPlaylistStore.createdPlaylistId
+    if (isOpen) {
+      createModalWasOpen.current = true
+    } else if (createModalWasOpen.current) {
+      createModalWasOpen.current = false
+      void fetchPlaylists().then(mapped => {
+        if (!createdId || !mapped) return
+        const created = mapped.find(playlist => playlist.id === createdId)
+        if (created) {
+          setSelectedPlaylist(created)
+          setPlaylistSearch("")
+        }
+        createPlaylistStore.setCreatedPlaylistId(null)
+      })
+    }
+  }, [isOpen, fetchPlaylists, setSelectedPlaylist, setPlaylistSearch])
 }
 
 const AddASongModal = () => {
@@ -114,14 +172,7 @@ const AddASongModal = () => {
 
   useAutoFocus(playlistSlugInputRef, editingPlaylistId !== null, 50)
 
-  useEffect(() => {
-    if (!isLoading) return
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-    }
-    window.addEventListener("beforeunload", handler)
-    return () => window.removeEventListener("beforeunload", handler)
-  }, [isLoading])
+  useWarnBeforeUnload(isLoading)
 
   const uploadModal = useUploadModal()
   const createPlaylistModal = useCreatePlaylistModal()
@@ -158,17 +209,7 @@ const AddASongModal = () => {
   const selectedPlaylistId = selectedPlaylist?.id ?? ""
   const tagDismissalKey = user?.id && selectedPlaylistId ? playlistTagDismissalKey(user.id, selectedPlaylistId) : ""
   const [dismissedPlaylistTagsState, setDismissedPlaylistTagsState] = useState<{ key: string; tags: string[] }>({ key: "", tags: [] })
-  useEffect(() => {
-    if (!tagDismissalKey) {
-      setDismissedPlaylistTagsState({ key: "", tags: [] })
-      return
-    }
-    let tags: string[] = []
-    try {
-      if (typeof window !== "undefined") tags = readDismissedPlaylistTags(window.localStorage, tagDismissalKey)
-    } catch { /* Storage may be disabled by the browser. */ }
-    setDismissedPlaylistTagsState({ key: tagDismissalKey, tags })
-  }, [tagDismissalKey])
+  useDismissedPlaylistTags(tagDismissalKey, setDismissedPlaylistTagsState)
   const tagDismissalsReady = !tagDismissalKey || dismissedPlaylistTagsState.key === tagDismissalKey
   const dismissedPlaylistTags = dismissedPlaylistTagsState.key === tagDismissalKey ? dismissedPlaylistTagsState.tags : []
   const [uploadCount, setUploadCount] = useState(0)
@@ -258,18 +299,7 @@ const AddASongModal = () => {
     }
   }
 
-  useEffect(() => {
-    if (!uploadModal.isOpen) return
-    let isCancelled = false
-    const rollChallenge = async () => {
-      await Promise.resolve()
-      if (!isCancelled) setRequiresChallenge(Math.random() < TURNSTILE_PROBABILITY)
-    }
-    rollChallenge()
-    return () => {
-      isCancelled = true
-    }
-  }, [uploadModal.isOpen, uploadCount])
+  useChallengeRoll(uploadModal.isOpen, uploadCount, setRequiresChallenge)
 
   const fetchPlaylists = useCallback(async () => {
     if (!user) return []
@@ -317,26 +347,7 @@ const AddASongModal = () => {
     runFetchPlaylists()
   }, [uploadModal.isOpen, user, fetchPlaylists])
 
-  // Re-fetch playlists when create modal closes (user may have just created one)
-  const createModalWasOpen = useRef(false)
-  useEffect(() => {
-    const createPlaylistStore = useCreatePlaylistModal.getState()
-    const createdId = createPlaylistStore.createdPlaylistId
-    if (createPlaylistModal.isOpen) {
-      createModalWasOpen.current = true
-    } else if (createModalWasOpen.current) {
-      createModalWasOpen.current = false
-      void fetchPlaylists().then(mapped => {
-        if (!createdId || !mapped) return
-        const created = mapped.find(playlist => playlist.id === createdId)
-        if (created) {
-          setSelectedPlaylist(created)
-          setPlaylistSearch("")
-        }
-        createPlaylistStore.setCreatedPlaylistId(null)
-      })
-    }
-  }, [createPlaylistModal.isOpen, fetchPlaylists])
+  useSelectCreatedPlaylist(createPlaylistModal.isOpen, fetchPlaylists, setSelectedPlaylist, setPlaylistSearch)
 
   const resetSongForm = () => {
     reset()

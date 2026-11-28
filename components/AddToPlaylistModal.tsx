@@ -14,26 +14,19 @@ import supabaseClient from "@/libs/supabaseClient"
 import Button from "./Button"
 import Modal from "./Modal"
 
-const AddToPlaylistModal = () => {
-  const router = useRouter()
-  const addToPlaylistModal = useAddToPlaylistModal()
-  const createPlaylistModal = useCreatePlaylistModal()
-
-  const { user } = useUser()
-
+function useModalPlaylists(isOpen: boolean, user: ReturnType<typeof useUser>["user"]) {
   const [playlists, setPlaylists] = useState<PlaylistOption[]>([])
   const [isLoading, setIsLoading] = useState(false)
-  const [loadingPlaylistId, setLoadingPlaylistId] = useState<string>()
 
-  const resetKey = `${addToPlaylistModal.isOpen}:${user?.id ?? ""}`
+  const resetKey = `${isOpen}:${user?.id ?? ""}`
   const [prevResetKey, setPrevResetKey] = useState(resetKey)
   if (resetKey !== prevResetKey) {
     setPrevResetKey(resetKey)
-    if (!addToPlaylistModal.isOpen || !user) setPlaylists([])
+    if (!isOpen || !user) setPlaylists([])
   }
 
   useEffect(() => {
-    if (!addToPlaylistModal.isOpen || !user) return
+    if (!isOpen || !user) return
 
     const fetchPlaylists = async () => {
       setIsLoading(true)
@@ -62,7 +55,19 @@ const AddToPlaylistModal = () => {
     }
 
     fetchPlaylists()
-  }, [addToPlaylistModal.isOpen, user])
+  }, [isOpen, user])
+  return { playlists, isLoading }
+}
+
+const AddToPlaylistModal = () => {
+  const router = useRouter()
+  const addToPlaylistModal = useAddToPlaylistModal()
+  const createPlaylistModal = useCreatePlaylistModal()
+
+  const { user } = useUser()
+
+  const { playlists, isLoading } = useModalPlaylists(addToPlaylistModal.isOpen, user)
+  const [loadingPlaylistId, setLoadingPlaylistId] = useState<string>()
 
   const onChange = (open: boolean) => {
     if (!open) {

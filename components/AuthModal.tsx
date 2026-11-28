@@ -36,6 +36,27 @@ const statusStyles = {
   success: "border-neon/20 bg-neon/10 text-neon/90",
 } as const
 
+function useAuthErrorNotice(
+  onOpen: () => void,
+  pathname: ReturnType<typeof usePathname>,
+  router: ReturnType<typeof useRouter>,
+  searchParams: ReturnType<typeof useSearchParams>,
+  setAuthMessage: (message: string) => void,
+  setAuthStatus: (status: "error") => void,
+) {
+  useEffect(() => {
+    const authError = searchParams.get("auth_error")
+    if (!authError) return
+    const nextSearchParams = new URLSearchParams(searchParams.toString())
+    nextSearchParams.delete("auth_error")
+    setAuthStatus("error")
+    setAuthMessage(authError)
+    toast.error(authError)
+    onOpen()
+    router.replace(nextSearchParams.toString() ? `${pathname}?${nextSearchParams.toString()}` : pathname)
+  }, [onOpen, pathname, router, searchParams, setAuthMessage, setAuthStatus])
+}
+
 const AuthModal = () => {
   const { session } = useUser()
   const router = useRouter()
@@ -65,17 +86,7 @@ const AuthModal = () => {
     onClose()
   }, [onClose, resetAuthState, router, session])
 
-  useEffect(() => {
-    const authError = searchParams.get("auth_error")
-    if (!authError) return
-    const nextSearchParams = new URLSearchParams(searchParams.toString())
-    nextSearchParams.delete("auth_error")
-    setAuthStatus("error")
-    setAuthMessage(authError)
-    toast.error(authError)
-    onOpen()
-    router.replace(nextSearchParams.toString() ? `${pathname}?${nextSearchParams.toString()}` : pathname)
-  }, [onOpen, pathname, router, searchParams, setAuthMessage, setAuthStatus])
+  useAuthErrorNotice(onOpen, pathname, router, searchParams, setAuthMessage, setAuthStatus)
 
   const syncCurrentUserFn = async (provider: string): Promise<true | string> => {
     const response = await fetch("/api/auth/sync-user", {

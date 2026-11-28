@@ -15,6 +15,7 @@ import { useHotkey } from "@/hooks/useHotkey"
 import { errorText, httpErrorMessage, readJsonBody } from "@/libs/errorText"
 import { fetchBilingualSongTags } from "@/libs/fetchBilingualSongTags"
 import { normalizeSongTags, songTagsWithDraft } from "@/libs/songTags"
+import type { Song } from "@/types"
 
 import Modal from "./Modal"
 import Input from "./Input"
@@ -22,6 +23,42 @@ import Button from "./Button"
 import { SongTagsInput } from "./SongTagsInput"
 
 const SAVE_SONG_HOTKEY_MODIFIERS: Array<"ctrl"> = ["ctrl"]
+
+function useSongDetails(
+  isOpen: boolean,
+  isOwner: boolean,
+  canEditTags: boolean,
+  song: Song | null,
+  playlistNonce: number,
+  setSongPlaylistRows: React.Dispatch<React.SetStateAction<{ songId: string; items: { id: string; slug: string; title: string }[] } | null>>,
+  setTagDraft: React.Dispatch<React.SetStateAction<{ songId: string; tags: string[] } | null>>,
+) {
+  useEffect(() => {
+    if (!isOpen || !song || !isOwner) return
+    let ignore = false
+    const songId = song.id
+    void getSongPlaylists(songId).then(items => {
+      if (!ignore) setSongPlaylistRows({ songId, items })
+    })
+    return () => { ignore = true }
+  }, [isOpen, isOwner, song, playlistNonce, setSongPlaylistRows])
+
+  useEffect(() => {
+    if (!isOpen || !song || !canEditTags) return
+    let ignore = false
+    const songId = song.id
+    void fetch(`/api/songs/${songId}`)
+      .then(response => (response.ok ? readJsonBody<unknown>(response, `Song ${songId} tags`) : null))
+      .then(body => {
+        if (ignore || !body || typeof body !== "object" || !("song" in body)) return
+        const storedTags = (body as { song?: { tags?: unknown } }).song?.tags
+        const nextTags = Array.isArray(storedTags) ? normalizeSongTags(storedTags) : []
+        setTagDraft(current => (current && current.songId === songId ? current : { songId, tags: nextTags }))
+      })
+      .catch(() => undefined)
+    return () => { ignore = true }
+  }, [isOpen, canEditTags, song, setTagDraft])
+}
 
 const EditSongModal = () => {
   const { isOpen, song, playlistId, onUpdate, onClose } = useEditSongModal()
@@ -64,31 +101,7 @@ const EditSongModal = () => {
     if (song) reset({ title: song.title, author: song.author, image: null, isPaid: Boolean(song.is_paid) })
   }, [song, reset])
 
-  useEffect(() => {
-    if (!isOpen || !song || !isOwner) return
-    let ignore = false
-    const songId = song.id
-    void getSongPlaylists(songId).then(items => {
-      if (!ignore) setSongPlaylistRows({ songId, items })
-    })
-    return () => { ignore = true }
-  }, [isOpen, isOwner, song, playlistNonce])
-
-  useEffect(() => {
-    if (!isOpen || !song || !canEditTags) return
-    let ignore = false
-    const songId = song.id
-    void fetch(`/api/songs/${songId}`)
-      .then(response => (response.ok ? readJsonBody<unknown>(response, `Song ${songId} tags`) : null))
-      .then(body => {
-        if (ignore || !body || typeof body !== "object" || !("song" in body)) return
-        const storedTags = (body as { song?: { tags?: unknown } }).song?.tags
-        const nextTags = Array.isArray(storedTags) ? normalizeSongTags(storedTags) : []
-        setTagDraft(current => (current && current.songId === songId ? current : { songId, tags: nextTags }))
-      })
-      .catch(() => undefined)
-    return () => { ignore = true }
-  }, [isOpen, canEditTags, song])
+  useSongDetails(isOpen, isOwner, canEditTags, song, playlistNonce, setSongPlaylistRows, setTagDraft)
 
   const onChange = (open: boolean) => {
     if (!open) onClose()

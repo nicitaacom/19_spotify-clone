@@ -39,29 +39,12 @@ function dismissRecommendation() {
   hiddenListeners.forEach(listener => listener())
 }
 
-export default function EmbedClient() {
-  const searchParams = useSearchParams()
-  const requestedSongId = searchParams.get("songId")?.trim() ?? ""
-  const tags = searchParams.get("tags")?.trim() ?? ""
-  const hidden = useSyncExternalStore(subscribeHidden, readHidden, () => false)
-  const [songId, setSongId] = useState(requestedSongId)
-  const [track, setTrack] = useState(requestedSongId ? "Song" : "Music recommendation")
-  const [trackHref, setTrackHref] = useState("")
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [leaving, setLeaving] = useState(false)
-  const [playError, setPlayError] = useState("")
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const streamUrlRef = useRef("")
-  const missingRef = useRef(false)
-  const persistCloseRef = useRef(false)
-
-  // the host page sees only the iframe's box, never what is drawn inside - emptied, that box still covers the host's
-  // corner and takes every click there, so the host removes it on this message.
-  // DEPENDS ON: outreach-tool's useAutoUpdateMusicRecommendationShown.ts
-  useEffect(() => {
-    if (hidden && window.parent !== window) window.parent.postMessage({ type: "musicRecommendationHidden" }, "*")
-  }, [hidden])
-
+function useEmbedSong(
+  requestedSongId: string, tags: string,
+  streamUrlRef: React.RefObject<string>, missingRef: React.RefObject<boolean>,
+  setSongId: React.Dispatch<React.SetStateAction<string>>, setTrack: React.Dispatch<React.SetStateAction<string>>,
+  setTrackHref: React.Dispatch<React.SetStateAction<string>>, setPlayError: React.Dispatch<React.SetStateAction<string>>,
+) {
   useEffect(() => {
     const controller = new AbortController()
     missingRef.current = false
@@ -176,7 +159,33 @@ export default function EmbedClient() {
         fail(error)
       })
     return () => controller.abort()
-  }, [requestedSongId, tags])
+  }, [requestedSongId, tags, streamUrlRef, missingRef, setSongId, setTrack, setTrackHref, setPlayError])
+}
+
+export default function EmbedClient() {
+  const searchParams = useSearchParams()
+  const requestedSongId = searchParams.get("songId")?.trim() ?? ""
+  const tags = searchParams.get("tags")?.trim() ?? ""
+  const hidden = useSyncExternalStore(subscribeHidden, readHidden, () => false)
+  const [songId, setSongId] = useState(requestedSongId)
+  const [track, setTrack] = useState(requestedSongId ? "Song" : "Music recommendation")
+  const [trackHref, setTrackHref] = useState("")
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [leaving, setLeaving] = useState(false)
+  const [playError, setPlayError] = useState("")
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const streamUrlRef = useRef("")
+  const missingRef = useRef(false)
+  const persistCloseRef = useRef(false)
+
+  // the host page sees only the iframe's box, never what is drawn inside - emptied, that box still covers the host's
+  // corner and takes every click there, so the host removes it on this message.
+  // DEPENDS ON: outreach-tool's useAutoUpdateMusicRecommendationShown.ts
+  useEffect(() => {
+    if (hidden && window.parent !== window) window.parent.postMessage({ type: "musicRecommendationHidden" }, "*")
+  }, [hidden])
+
+  useEmbedSong(requestedSongId, tags, streamUrlRef, missingRef, setSongId, setTrack, setTrackHref, setPlayError)
 
   const togglePlay = () => {
     if (missingRef.current) return

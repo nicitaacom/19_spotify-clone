@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect } from "react"
 import { FaPause, FaPlay } from "react-icons/fa"
 import { IoMdDownload } from "react-icons/io"
 import { twMerge } from "tailwind-merge"
 
 import { useExclusivePlaybackSource } from "@/app/providers/PlaybackSyncProvider"
+import { useWarnBeforeUnload } from "@/hooks/useWarnBeforeUnload"
+import { useSpacebarPlayback } from "@/hooks/useSpacebarPlayback"
 import AlbumArt from "../../slow-and-reverb/components/AlbumArt"
 import EffectSliderRow from "../../slow-and-reverb/components/EffectSliderRow"
 import FileDropZone from "../../slow-and-reverb/components/FileDropZone"
@@ -51,14 +52,7 @@ const CompressFileEditor = () => {
 
   const { isDragging } = useDocumentDrag()
 
-  useEffect(() => {
-    if (!isRendering) return
-    const handler = (event: BeforeUnloadEvent) => {
-      event.preventDefault()
-    }
-    window.addEventListener("beforeunload", handler)
-    return () => window.removeEventListener("beforeunload", handler)
-  }, [isRendering])
+  useWarnBeforeUnload(isRendering)
 
   const chosenKbps = choices[kbpsIndex]
   const estimate = chosenKbps == null ? null : estimateMp3Bytes(duration, chosenKbps)
@@ -95,20 +89,7 @@ const CompressFileEditor = () => {
     },
   })
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.code !== "Space" && event.key !== " ") return
-      const el = document.activeElement as HTMLElement | null
-      const tag = el?.tagName
-      if (tag === "INPUT" || tag === "TEXTAREA" || el?.isContentEditable) return
-      if (isEmpty) return
-      event.preventDefault()
-      el?.blur()
-      togglePreview()
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [isEmpty, togglePreview])
+  useSpacebarPlayback(!isEmpty, togglePreview)
 
   if (isEmpty) {
     return (

@@ -162,6 +162,80 @@ function PlaylistTrackRow({ item, index, playlistTitle, playlistSlug, canManage,
   )
 }
 
+function usePlaylistOrderSync(orderedSongs: PlaylistSongWithSong[], playlistId: string) {
+  const playlistOrderKey = orderedSongs.map(item => item.song_id).join("\0")
+  const seenPlaylistOrderKey = useRef(playlistOrderKey)
+  useEffect(() => {
+    if (seenPlaylistOrderKey.current === playlistOrderKey) return
+    seenPlaylistOrderKey.current = playlistOrderKey
+    const player = usePlayer.getState()
+    if (player.sourcePlaylistId !== playlistId) return
+    const songsById = new Map(player.songs.map(song => [String(song.id), song]))
+    const nextSongs: Song[] = []
+    for (const item of orderedSongs) {
+      const song = songsById.get(String(item.song_id))
+      if (song) nextSongs.push(song)
+    }
+    const nextIds = nextSongs.map(song => String(song.id))
+    const sameOrder = nextIds.length === player.ids.length && nextIds.every((id, index) => id === player.ids[index])
+    if (!sameOrder) usePlayer.setState({ songs: nextSongs, ids: nextIds })
+  }, [orderedSongs, playlistId, playlistOrderKey])
+}
+
+function usePlaylistSongQuery(
+  activeId: string | undefined,
+  sourcePlaylistId: string | undefined,
+  playlistId: string,
+  queue: Song[],
+  songId: string,
+  deletedIds: ReadonlySet<string>,
+  onPlay: (id: string) => Promise<void>,
+) {
+  const playedQueryId = useRef("")
+  const queryPlaybackStarted = useRef(false)
+  useEffect(() => {
+    if (sourcePlaylistId !== playlistId) return
+    const id = String(activeId ?? "")
+    if (!id || !queue.some(song => String(song.id) === id)) return
+    playedQueryId.current = id
+    const url = new URL(window.location.href)
+    if (url.searchParams.get("songId") === id) return
+    url.searchParams.set("songId", id)
+    const next = `${url.pathname}${url.search}${url.hash}`
+    // Next wraps history.replaceState and fetches the page again. The prototype call only updates the address bar.
+    History.prototype.replaceState.call(window.history, window.history.state, "", next)
+  }, [activeId, playlistId, queue, sourcePlaylistId])
+  useEffect(() => {
+    const id = songId.trim()
+    if (!id || deletedIds.has(id)) return
+    const player = usePlayer.getState()
+    const currentId = String(player.activeId ?? "")
+    const queryIsActive = currentId === id && player.sourcePlaylistId === playlistId
+    if (queryIsActive) {
+      playedQueryId.current = id
+      queryPlaybackStarted.current = true
+      return
+    }
+    if (player.activeId && player.sourcePlaylistId === playlistId) {
+      playedQueryId.current = id
+      return
+    }
+    if (playedQueryId.current === id && !queryPlaybackStarted.current) return
+    if (queryPlaybackStarted.current && !player.activeId) {
+      queryPlaybackStarted.current = false
+      playedQueryId.current = ""
+    }
+    if (playedQueryId.current === id) return
+    playedQueryId.current = id
+    const inPlaylist = queue.some(song => String(song.id) === id)
+    if (!inPlaylist) {
+      toast.error(`Song ${id} is not in this playlist.`)
+      return
+    }
+    void onPlay(id)
+  }, [activeId, deletedIds, onPlay, playlistId, queue, songId])
+}
+
 export default function PlaylistDetailContent({
   canManage,
   viewerId,
@@ -192,23 +266,7 @@ export default function PlaylistDetailContent({
   const listRef = useRef<HTMLDivElement>(null)
   const activeDrag = useRef<ActiveDrag | null>(null)
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null)
-  const playlistOrderKey = orderedSongs.map(item => item.song_id).join("\0")
-  const seenPlaylistOrderKey = useRef(playlistOrderKey)
-  useEffect(() => {
-    if (seenPlaylistOrderKey.current === playlistOrderKey) return
-    seenPlaylistOrderKey.current = playlistOrderKey
-    const player = usePlayer.getState()
-    if (player.sourcePlaylistId !== playlist.id) return
-    const songsById = new Map(player.songs.map(song => [String(song.id), song]))
-    const nextSongs: Song[] = []
-    for (const item of orderedSongs) {
-      const song = songsById.get(String(item.song_id))
-      if (song) nextSongs.push(song)
-    }
-    const nextIds = nextSongs.map(song => String(song.id))
-    const sameOrder = nextIds.length === player.ids.length && nextIds.every((id, index) => id === player.ids[index])
-    if (!sameOrder) usePlayer.setState({ songs: nextSongs, ids: nextIds })
-  }, [orderedSongs, playlist.id, playlistOrderKey])
+  usePlaylistOrderSync(orderedSongs, playlist.id)
   if (playlist.songs !== sourceSongs) {
     setSourceSongs(playlist.songs)
     setOrderedSongs(playlist.songs)
@@ -229,49 +287,7 @@ export default function PlaylistDetailContent({
   const onPlay = useOnPlay(queue, handleLockedSong, playlist.id)
   const activeId = usePlayer(state => state.activeId)
   const sourcePlaylistId = usePlayer(state => state.sourcePlaylistId)
-  const playedQueryId = useRef("")
-  const queryPlaybackStarted = useRef(false)
-  useEffect(() => {
-    if (sourcePlaylistId !== playlist.id) return
-    const id = String(activeId ?? "")
-    if (!id || !queue.some(song => String(song.id) === id)) return
-    playedQueryId.current = id
-    const url = new URL(window.location.href)
-    if (url.searchParams.get("songId") === id) return
-    url.searchParams.set("songId", id)
-    const next = `${url.pathname}${url.search}${url.hash}`
-    // Next wraps history.replaceState and fetches the page again. The prototype call only updates the address bar.
-    History.prototype.replaceState.call(window.history, window.history.state, "", next)
-  }, [activeId, playlist.id, queue, sourcePlaylistId])
-  useEffect(() => {
-    const id = songId.trim()
-    if (!id || deletedIds.has(id)) return
-    const player = usePlayer.getState()
-    const currentId = String(player.activeId ?? "")
-    const queryIsActive = currentId === id && player.sourcePlaylistId === playlist.id
-    if (queryIsActive) {
-      playedQueryId.current = id
-      queryPlaybackStarted.current = true
-      return
-    }
-    if (player.activeId && player.sourcePlaylistId === playlist.id) {
-      playedQueryId.current = id
-      return
-    }
-    if (playedQueryId.current === id && !queryPlaybackStarted.current) return
-    if (queryPlaybackStarted.current && !player.activeId) {
-      queryPlaybackStarted.current = false
-      playedQueryId.current = ""
-    }
-    if (playedQueryId.current === id) return
-    playedQueryId.current = id
-    const inPlaylist = queue.some(song => String(song.id) === id)
-    if (!inPlaylist) {
-      toast.error(`Song ${id} is not in this playlist.`)
-      return
-    }
-    void onPlay(id)
-  }, [activeId, deletedIds, onPlay, playlist.id, queue, songId])
+  usePlaylistSongQuery(activeId, sourcePlaylistId, playlist.id, queue, songId, deletedIds, onPlay)
   const playable = queue.filter(song => song.can_play)
   const hasAccess = Boolean(commerce?.purchased || commerce?.can_manage)
   const commerceUnavailable = commerce?.ready === false

@@ -26,18 +26,7 @@ interface HeaderProps {
 
 const emptySubscribe = () => () => {}
 
-const Header: React.FC<HeaderProps> = ({ children, className }) => {
-  const player = usePlayer()
-  const router = useRouter()
-
-  const { user } = useUser()
-  const isIframe = useIsIframeAuth()
-  const authUrl = getProductionAuthUrl()
-  // window.top is a browser-only read - the server's false keeps the 1st render on <button>, same as the
-  // server html, then the iframe switches to the <a> link
-  const shouldOpenExternalAuth = useSyncExternalStore(emptySubscribe, () => shouldUseExternalAuth({ isIframe }), () => false)
-  const searchModal = useSearchModal()
-
+function useSearchShortcut(searchModal: { onOpen: () => void }) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase()
@@ -50,6 +39,21 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [searchModal])
+}
+
+const Header: React.FC<HeaderProps> = ({ children, className }) => {
+  const player = usePlayer()
+  const router = useRouter()
+
+  const { user } = useUser()
+  const isIframe = useIsIframeAuth()
+  const authUrl = getProductionAuthUrl()
+  // window.top is a browser-only read - the server's false keeps the 1st render on <button>, same as the
+  // server html, then the iframe switches to the <a> link
+  const shouldOpenExternalAuth = useSyncExternalStore(emptySubscribe, () => shouldUseExternalAuth({ isIframe }), () => false)
+  const searchModal = useSearchModal()
+
+  useSearchShortcut(searchModal)
 
   const handleLogout = async () => {
     const { error } = await supabaseClient.auth.signOut()

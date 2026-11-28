@@ -4,6 +4,7 @@ import { RuleTester } from "eslint"
 const require = createRequire(import.meta.url)
 const nested = require("../eslint-rules/no-complex-nested-conditions.js")["no-complex-nested-conditions"]
 const factory = require("../eslint-rules/no-component-factory.js")["no-component-factory"]
+const effect = require("../eslint-rules/no-effect-in-large-component.js")["no-effect-in-large-component"]
 const tester = new RuleTester({ languageOptions: { ecmaVersion: 2022, parserOptions: { ecmaFeatures: { jsx: true } } } })
 
 tester.run("no-complex-nested-conditions", nested, {
@@ -28,5 +29,18 @@ tester.run("no-component-factory", factory, {
   invalid: [
     { code: "function makeComponent() { return function Widget() { return <div /> } }", errors: [{ messageId: "noComponentFactory" }] },
     { code: "const makeComponent = () => { return () => <div /> }", errors: [{ messageId: "noComponentFactory" }] },
+  ],
+})
+
+const longEffect = "useEffect(() => {\n  step1()\n  step2()\n  step3()\n  step4()\n  step5()\n  step6()\n}, [])"
+const padding = "\n".repeat(100)
+tester.run("no-effect-in-large-component", effect, {
+  valid: [
+    { filename: "/repo/components/Example.tsx", code: `${padding}function Example() { useEffect(() => {}, []); return <div /> }` },
+    { filename: "/repo/components/Example.tsx", code: `${padding}function useSomething() { ${longEffect} }\nfunction Example() { return <div /> }` },
+    { filename: "/repo/components/PlayerContent.tsx", code: `${padding}function Example() { ${longEffect}; return <div /> }` },
+  ],
+  invalid: [
+    { filename: "/repo/components/Example.tsx", code: `${padding}function Example() { ${longEffect}; return <div /> }`, errors: [{ messageId: "noEffectInLargeComponent" }] },
   ],
 })

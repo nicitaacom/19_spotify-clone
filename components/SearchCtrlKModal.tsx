@@ -20,21 +20,11 @@ import Modal from "./Modal"
 import MediaItem from "./MediaItem"
 import DeleteSongButton from "./DeleteSongButton"
 
-const SearchCtrlKModal = () => {
-  const { isOpen, onClose } = useSearchModal()
-
-  const [searchValue, setSearchValue] = useState("")
-  const debouncedSearchValue = useDebounce(searchValue, 500)
+function useSearchResults(isOpen: boolean, debouncedSearchValue: string) {
   const [songs, setSongs] = useState<Song[]>([])
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [songPlaylists, setSongPlaylists] = useState<Record<string, Pick<PlaylistOption, "id" | "slug" | "title">[]>>({})
   const [errorMessage, setErrorMessage] = useState("")
-  const deletedIds = useDeletedSongs(state => state.ids)
-  const visibleSongs = songs.filter(song => !deletedIds.has(String(song.id)))
-  const onPlay = useOnPlay(visibleSongs)
-  const { isOwner } = useOwnerStore()
-  const editSongModal = useEditSongModal()
-
   const resetKey = `${isOpen}:${debouncedSearchValue}`
   const [prevResetKey, setPrevResetKey] = useState(resetKey)
   if (resetKey !== prevResetKey) {
@@ -82,6 +72,20 @@ const SearchCtrlKModal = () => {
       isCancelled = true
     }
   }, [isOpen, debouncedSearchValue])
+  return { songs, setSongs, playlists, songPlaylists, errorMessage }
+}
+
+const SearchCtrlKModal = () => {
+  const { isOpen, onClose } = useSearchModal()
+
+  const [searchValue, setSearchValue] = useState("")
+  const debouncedSearchValue = useDebounce(searchValue, 500)
+  const { songs, setSongs, playlists, songPlaylists, errorMessage } = useSearchResults(isOpen, debouncedSearchValue)
+  const deletedIds = useDeletedSongs(state => state.ids)
+  const visibleSongs = songs.filter(song => !deletedIds.has(String(song.id)))
+  const onPlay = useOnPlay(visibleSongs)
+  const { isOwner } = useOwnerStore()
+  const editSongModal = useEditSongModal()
 
   const onChange = (open: boolean) => {
     if (!open) onClose()

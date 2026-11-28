@@ -13,51 +13,21 @@ import { useExclusivePlaybackSource } from "@/app/providers/PlaybackSyncProvider
 import PlayerContent from "./PlayerContent"
 import PlayerProgressBar from "./PlayerProgressBar"
 
-const Player = () => {
-  const { user, isLoading: isUserLoading } = useUser()
-  const resetPlayer = usePlayer(state => state.reset)
+function useResetPlayerOnUserChange(isUserLoading: boolean, userId: string | undefined, resetPlayer: () => void) {
   const previousUser = useRef<string | null | undefined>(undefined)
   useEffect(() => {
     if (isUserLoading) return
-    const nextUserId = user?.id ?? null
+    const nextUserId = userId ?? null
     if (previousUser.current === undefined) {
       previousUser.current = nextUserId
       return
     }
     if (previousUser.current !== nextUserId) resetPlayer()
     previousUser.current = nextUserId
-  }, [isUserLoading, resetPlayer, user?.id])
-  const {
-    activeId,
-    activeSong: currentStoreSong,
-    isPlaying,
-    setActiveSong,
-    requestSeek,
-    requestPlaybackCommand,
-    togglePlayback,
-    stopPlayback,
-  } = usePlayer()
+  }, [isUserLoading, resetPlayer, userId])
+}
 
-  const pauseForExternalPlayback = useCallback(() => {
-    const isPlayingNow = usePlayer.getState().isPlaying
-    if (isPlayingNow) requestPlaybackCommand("pause")
-  }, [requestPlaybackCommand])
-
-  useExclusivePlaybackSource({
-    isPlaying,
-    onStop: pauseForExternalPlayback,
-  })
-
-  const activeSong = currentStoreSong?.id === activeId ? currentStoreSong : undefined
-  const { song: fetchedSong } = useGetSongById(activeSong ? undefined : activeId)
-  const song = activeSong ?? fetchedSong
-
-  useEffect(() => {
-    if (fetchedSong && fetchedSong.id === activeId) {
-      setActiveSong(fetchedSong)
-    }
-  }, [activeId, fetchedSong, setActiveSong])
-
+function usePlayerKeyboard(requestSeek: (value: number) => void, togglePlayback: () => void, stopPlayback: () => void) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
@@ -92,6 +62,44 @@ const Player = () => {
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [requestSeek, togglePlayback, stopPlayback])
+}
+
+const Player = () => {
+  const { user, isLoading: isUserLoading } = useUser()
+  const resetPlayer = usePlayer(state => state.reset)
+  useResetPlayerOnUserChange(isUserLoading, user?.id, resetPlayer)
+  const {
+    activeId,
+    activeSong: currentStoreSong,
+    isPlaying,
+    setActiveSong,
+    requestSeek,
+    requestPlaybackCommand,
+    togglePlayback,
+    stopPlayback,
+  } = usePlayer()
+
+  const pauseForExternalPlayback = useCallback(() => {
+    const isPlayingNow = usePlayer.getState().isPlaying
+    if (isPlayingNow) requestPlaybackCommand("pause")
+  }, [requestPlaybackCommand])
+
+  useExclusivePlaybackSource({
+    isPlaying,
+    onStop: pauseForExternalPlayback,
+  })
+
+  const activeSong = currentStoreSong?.id === activeId ? currentStoreSong : undefined
+  const { song: fetchedSong } = useGetSongById(activeSong ? undefined : activeId)
+  const song = activeSong ?? fetchedSong
+
+  useEffect(() => {
+    if (fetchedSong && fetchedSong.id === activeId) {
+      setActiveSong(fetchedSong)
+    }
+  }, [activeId, fetchedSong, setActiveSong])
+
+  usePlayerKeyboard(requestSeek, togglePlayback, stopPlayback)
 
   const { url: songUrl, error: audioError, unlockSlug, expiresAt, retry } = useSongPlayUrl(song)
 

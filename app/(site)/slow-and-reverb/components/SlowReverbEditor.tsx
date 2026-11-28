@@ -15,6 +15,7 @@ import FullScreenDropOverlay from "./FullScreenDropOverlay"
 import { useDocumentDrag } from "../hooks/useDocumentDrag"
 import { formatTime } from "../lib/format"
 import { useExclusivePlaybackSource } from "@/app/providers/PlaybackSyncProvider"
+import { useSpacebarPlayback } from "@/hooks/useSpacebarPlayback"
 
 interface Preset {
   label: string
@@ -36,6 +37,17 @@ const CUSTOM_PRESETS: Preset[] = [
   { label: "PRESET 2", speed: 0.8, reverb: 50, bass: 30, pitchSt: -6 },
   { label: "PRESET 3", speed: 0.75, reverb: 40, bass: 35, pitchSt: -7 },
 ]
+
+// The server page shell consumes this CSS variable as its background color.
+function usePitchBackground(pitchEnabled: boolean, pitchSemitones: number) {
+  useEffect(() => {
+    const dim = pitchEnabled ? pitchSemitones / 12 : 0
+    const channel = dim < 0 ? Math.round(17 * (1 + dim * 0.6)) : Math.round(17 + dim * 16)
+    const hex = channel.toString(16).padStart(2, "0")
+    document.documentElement.style.setProperty("--srv-bg", `#${hex}${hex}${hex}`)
+    return () => { document.documentElement.style.removeProperty("--srv-bg") }
+  }, [pitchEnabled, pitchSemitones])
+}
 
 const SlowReverbEditor = () => {
   const engine = useSlowReverbEngine()
@@ -74,40 +86,12 @@ const SlowReverbEditor = () => {
 
   const { isDragging } = useDocumentDrag()
 
-  // §12.10.C — whole-site dim driven by pitch. Sets a CSS var on <html> that the
-  // server page shell consumes as its background-color. Less pitch → darker.
-  useEffect(() => {
-    const dim = pitchEnabled ? pitchSemitones / 12 : 0
-    let channel: number
-    if (dim < 0) {
-      channel = Math.round(17 * (1 + dim * 0.6)) // → #070707 at −12 st
-    } else {
-      channel = Math.round(17 + dim * 16) // → #212121 at +12 st
-    }
-    const hex = channel.toString(16).padStart(2, "0")
-    document.documentElement.style.setProperty("--srv-bg", `#${hex}${hex}${hex}`)
-    return () => {
-      document.documentElement.style.removeProperty("--srv-bg")
-    }
-  }, [pitchEnabled, pitchSemitones])
+  usePitchBackground(pitchEnabled, pitchSemitones)
 
   // Spacebar toggles play/pause (unless typing in an input). Prevents the default page
   // scroll and works no matter which control has focus, so pressing the play button and
   // then Space doesn't get swallowed by the button's own click handling.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.code !== "Space" && e.key !== " ") return
-      const el = document.activeElement as HTMLElement | null
-      const tag = el?.tagName
-      if (tag === "INPUT" || tag === "TEXTAREA" || el?.isContentEditable) return
-      if (!buffer) return
-      e.preventDefault()
-      el?.blur() // drop focus from the play button so it can't double-handle the key
-      togglePlay()
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [buffer, togglePlay])
+  useSpacebarPlayback(Boolean(buffer), togglePlay)
 
   const presetBtn = (active: boolean) =>
     twMerge(
