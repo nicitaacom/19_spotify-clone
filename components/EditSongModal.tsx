@@ -1,15 +1,17 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { FieldValues, SubmitHandler, useForm } from "react-hook-form"
 import toast from "react-hot-toast"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { FiCornerDownLeft } from "react-icons/fi"
 
 import { getSongPlaylists } from "@/actions/songPlaylists"
 import useAddToPlaylistModal from "@/hooks/useAddToPlaylistModal"
 import useEditSongModal from "@/hooks/useEditSongModal"
 import useOwnerStore from "@/hooks/useOwnerStore"
+import { useHotkey } from "@/hooks/useHotkey"
 import { errorText, httpErrorMessage, readJsonBody } from "@/libs/errorText"
 import { fetchBilingualSongTags } from "@/libs/fetchBilingualSongTags"
 import { normalizeSongTags, songTagsWithDraft } from "@/libs/songTags"
@@ -19,11 +21,15 @@ import Input from "./Input"
 import Button from "./Button"
 import { SongTagsInput } from "./SongTagsInput"
 
+const SAVE_SONG_HOTKEY_MODIFIERS: Array<"ctrl"> = ["ctrl"]
+
 const EditSongModal = () => {
   const { isOpen, song, playlistId, onUpdate, onClose } = useEditSongModal()
 
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
+  const submitGuard = useRef(false)
   const [playlistNonce, setPlaylistNonce] = useState(0)
   const [songPlaylistRows, setSongPlaylistRows] = useState<{ songId: string; items: { id: string; slug: string; title: string }[] } | null>(null)
   const [tagDraft, setTagDraft] = useState<{ songId: string; tags: string[] } | null>(null)
@@ -40,6 +46,15 @@ const EditSongModal = () => {
   const knownPlaylists = songPlaylistRows && songPlaylistRows.songId === song?.id ? songPlaylistRows.items : []
   const playlistsReady = Boolean(song && songPlaylistRows?.songId === song.id)
   const needsPlaylist = isOwner && playlistsReady && knownPlaylists.length === 0
+  const isSaveDisabled = isLoading || (isOwner && (!playlistsReady || needsPlaylist))
+
+  useHotkey({
+    hotkey: "Enter",
+    modifiers: SAVE_SONG_HOTKEY_MODIFIERS,
+    ignoreRepeat: true,
+    isEnabled: isOpen && !isSaveDisabled && !addToPlaylistOpen,
+    onKeyPressFn: () => formRef.current?.requestSubmit(),
+  })
 
   const { register, handleSubmit, reset } = useForm<FieldValues>({
     defaultValues: { title: "", author: "", image: null, isPaid: false },
@@ -84,7 +99,7 @@ const EditSongModal = () => {
   }
 
   const onSubmit: SubmitHandler<FieldValues> = async (values, event) => {
-    if (!song) return
+    if (!song || submitGuard.current) return
     const title = values.title.trim()
     const author = values.author.trim()
     if (!title) { toast.error("Title is required."); return }
@@ -94,6 +109,7 @@ const EditSongModal = () => {
       return
     }
 
+    submitGuard.current = true
     setIsLoading(true)
     let imagePath = song.image_path
     let submittedTags = tags
@@ -129,7 +145,7 @@ const EditSongModal = () => {
     } catch (error) {
       toast.error(errorText(error))
       return
-    } finally { setIsLoading(false) }
+    } finally { submitGuard.current = false; setIsLoading(false) }
 
     toast.success("Song updated.")
     onUpdate?.({ ...song, title, author, image_path: imagePath, ...(canEditTags ? { tags: submittedTags } : {}), is_paid: playlistId ? Boolean(values.isPaid) : song.is_paid })
@@ -150,7 +166,11 @@ const EditSongModal = () => {
         setSongPlaylistRows(null)
       }}>
       <form
-        onSubmit={handleSubmit(onSubmit)}
+        ref={formRef}
+        onSubmit={event => {
+          const submit = handleSubmit(onSubmit)
+          return submit(event)
+        }}
         className="flex flex-col gap-y-4">
         <Input
           id="title"
@@ -197,8 +217,18 @@ const EditSongModal = () => {
             Paid in this playlist
           </label>
         )}
-        <Button disabled={isLoading || (isOwner && (!playlistsReady || needsPlaylist))} type="submit" className="rounded-md">
-          {isLoading ? "Saving..." : "Save"}
+        <Button disabled={isSaveDisabled} type="submit" className="rounded-md">
+          {isLoading ? "Saving..." : (
+            <span className="inline-flex items-center justify-center gap-2">
+              <span>Save</span>
+              {!isSaveDisabled && (
+                <span aria-hidden="true" title="Keyboard shortcut: Ctrl+Enter" className="inline-flex items-center gap-1 rounded border border-black/20 px-1.5 py-0.5 text-xs font-medium leading-none text-black/75">
+                  <kbd>Ctrl</kbd><span>+</span><FiCornerDownLeft size={13} />
+                </span>
+              )}
+              <span className="sr-only">Keyboard shortcut: Ctrl+Enter</span>
+            </span>
+          )}
         </Button>
       </form>
     </Modal>
