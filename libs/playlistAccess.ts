@@ -60,26 +60,28 @@ export async function getSongAccess(songIds: string[], viewer: { id: string | nu
     songIds.map(id => {
       const memberIds = (memberships.data ?? []).filter(m => String(m.song_id) === id).map(m => m.playlist_id)
       const paidMemberIds = memberIds.filter(playlistId =>
-        (settings.data ?? []).some(
-          setting => setting.playlist_id === playlistId && String(setting.song_id) === id && setting.is_paid,
-        ),
+        (settings.data ?? []).some(setting => {
+          const settingSongId = String(setting.song_id)
+          return setting.playlist_id === playlistId && settingSongId === id && setting.is_paid
+        }),
       )
-      const hasFreeMembership = memberIds.some(
-        playlistId =>
-          !paidMemberIds.includes(playlistId) &&
-          ((playlistVisibility.get(playlistId) === "public" || playlistVisibility.get(playlistId) === "unlisted") ||
-            ownedPlaylists.has(playlistId)),
-      )
+      const hasFreeMembership = memberIds.some(playlistId => {
+        const visibility = playlistVisibility.get(playlistId)
+        const visible = visibility === "public" || visibility === "unlisted"
+        return !paidMemberIds.includes(playlistId) && (visible || ownedPlaylists.has(playlistId))
+      })
       const source = (playlists.data ?? []).find(
         p => paidMemberIds.includes(p.id) && p.visibility !== "private" && isOwnerId(p.user_id)
       )
+      const songOwner = songOwnerById.get(id)
+      const ownsSong = viewer.id !== null && songOwner === viewer.id
       return [
         id,
         {
           is_paid: paidMemberIds.length > 0,
           can_play:
             viewer.isOwner ||
-            (viewer.id !== null && songOwnerById.get(id) === viewer.id) ||
+            ownsSong ||
             hasFreeMembership ||
             paidMemberIds.some(playlistId => purchases.has(playlistId) || ownedPlaylists.has(playlistId)),
           unlock_slug: source?.slug ?? null,
@@ -90,7 +92,8 @@ export async function getSongAccess(songIds: string[], viewer: { id: string | nu
 }
 
 function redactLockedPaidSong(song: Song): Song {
-  if (!song.is_paid || song.can_play !== false) return song
+  const playbackBlocked = song.can_play === false
+  if (!song.is_paid || !playbackBlocked) return song
   return {
     ...song,
     title: "Please pay instead of trying to hack",
@@ -147,11 +150,14 @@ export async function applyPlaylistSongAccess(
   const songOwnerById = new Map((songOwners.data ?? []).map(song => [String(song.id), song.user_id]))
   const purchased = viewer.isOwner || canManage || purchases.has(playlistId)
   return songs.map(song => {
-    const paid = rows.get(String(song.id)) ?? false
+    const songId = String(song.id)
+    const paid = rows.get(songId) ?? false
+    const songOwner = songOwnerById.get(songId)
+    const ownsSong = viewer.id !== null && songOwner === viewer.id
     return {
       ...song,
       is_paid: paid,
-      can_play: viewer.isOwner || canManage || (viewer.id !== null && songOwnerById.get(String(song.id)) === viewer.id) || !paid || purchased,
+      can_play: viewer.isOwner || canManage || ownsSong || !paid || purchased,
       unlock_slug: paid && !purchased ? null : song.unlock_slug,
     }
   })

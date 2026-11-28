@@ -40,7 +40,8 @@ const Header: React.FC<HeaderProps> = ({ children, className }) => {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      const key = event.key.toLowerCase()
+      if ((event.metaKey || event.ctrlKey) && key === "k") {
         event.preventDefault()
         searchModal.onOpen()
       }

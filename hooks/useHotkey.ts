@@ -54,7 +54,8 @@ function matchesHotkey(event: KeyboardEvent, hotkey: string): boolean {
 
   if (/^Key[A-Z]$/.test(event.code)) return event.code.slice(3).toLowerCase() === hotkey
 
-  if (!event.shiftKey && /^Digit[0-9]$/.test(event.code) && event.code.slice(5) === hotkey) return true
+  const digitKey = event.code.slice(5)
+  if (!event.shiftKey && /^Digit[0-9]$/.test(event.code) && digitKey === hotkey) return true
   if (!event.shiftKey && ENGLISH_KEY_BY_CODE[event.code] === hotkey) return true
 
   const typedKey = event.key.length === 1 && event.key >= "A" && event.key <= "Z" ? event.key.toLowerCase() : event.key

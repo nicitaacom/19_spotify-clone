@@ -171,7 +171,8 @@ export const getPlaylistSongsByPlaylistIds = async (playlistIds: string[]) => {
     const paid = paidMemberships.has(`${playlistId}:${songId}`)
     const playlist = playlistsById.get(playlistId)
     const ownsPlaylist = viewer.id !== null && playlist?.user_id === viewer.id
-    const ownsSong = viewer.id !== null && songOwnersById.get(songId) === viewer.id
+    const songOwner = songOwnersById.get(songId)
+    const ownsSong = viewer.id !== null && songOwner === viewer.id
     return viewer.isOwner || ownsPlaylist || ownsSong || purchases.has(playlistId) ||
       (!accessUnavailable && !paid && (playlist?.visibility === "public" || playlist?.visibility === "unlisted"))
   }
@@ -419,7 +420,8 @@ export const getPlaylistBySlug = async (slug: string): Promise<PlaylistDetail | 
         access_unavailable: true,
       }
     }
-    if (song.can_play !== true) {
+    const canPlay = song.can_play === true
+    if (!canPlay) {
       return {
         ...song,
         title: "Please pay instead of trying to hack",

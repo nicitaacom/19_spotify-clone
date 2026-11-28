@@ -43,7 +43,8 @@ const actionColumnClass = (canManage: boolean) =>
     : "col-span-2 col-start-1 row-start-2 flex flex-wrap items-center justify-start sm:col-auto sm:row-auto sm:w-[6.5rem] sm:flex-nowrap sm:justify-center sm:gap-1"
 
 function isAdminUnlocked(song: Song, canManage: boolean) {
-  return canManage && song.is_paid === true && song.can_play !== false && !song.access_unavailable
+  const playbackBlocked = song.can_play === false
+  return canManage && song.is_paid === true && !playbackBlocked && !song.access_unavailable
 }
 
 function AccessBadge({ song, canManage }: { song: Song; canManage: boolean }) {
@@ -254,7 +255,8 @@ export default function PlaylistDetailContent({
     const id = songId.trim()
     if (!id || deletedIds.has(id)) return
     const player = usePlayer.getState()
-    const queryIsActive = String(player.activeId ?? "") === id && player.sourcePlaylistId === playlist.id
+    const currentId = String(player.activeId ?? "")
+    const queryIsActive = currentId === id && player.sourcePlaylistId === playlist.id
     if (queryIsActive) {
       playedQueryId.current = id
       queryPlaybackStarted.current = true
@@ -280,8 +282,9 @@ export default function PlaylistDetailContent({
   }, [activeId, deletedIds, onPlay, playlist.id, queue, songId])
   const playable = queue.filter(song => song.can_play)
   const hasAccess = Boolean(commerce?.purchased || commerce?.can_manage)
+  const commerceUnavailable = commerce?.ready === false
   const showPurchase =
-    commerce?.ready !== false && Boolean(commerce?.purchased || (commerce?.sales_enabled && !commerce?.can_manage))
+    !commerceUnavailable && Boolean(commerce?.purchased || (commerce?.sales_enabled && !commerce?.can_manage))
   const filtered = orderedSongs.filter(item =>
     !deletedIds.has(String(item.song_id)) && `${item.song.title} ${item.song.author}`.toLowerCase().includes(query.toLowerCase().trim())
   )

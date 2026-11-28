@@ -20,12 +20,14 @@ const RankedPlaylistsContent: React.FC<RankedPlaylistsContentProps> = ({ playlis
   const filteredPlaylists = useMemo(
     () =>
       playlists.filter(
-        playlist =>
-          playlist.title.toLowerCase().includes(debouncedSearchValue.toLowerCase().trim()) &&
+        playlist => {
+          const commerceUnavailable = playlist.commerce?.ready === false
+          return playlist.title.toLowerCase().includes(debouncedSearchValue.toLowerCase().trim()) &&
           (filter === "All" ||
             (filter === "Free"
-              ? playlist.commerce?.ready !== false && !playlist.commerce?.paid_song_count
+              ? !commerceUnavailable && !playlist.commerce?.paid_song_count
               : playlist.commerce?.purchased))
+        }
       ),
     [playlists, debouncedSearchValue, filter]
   )

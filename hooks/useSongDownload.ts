@@ -9,7 +9,8 @@ export default function useSongDownload(song: Song, playlistTitle: string) {
   const [isDownloading, setIsDownloading] = useState(false)
   const [progress, setProgress] = useState(0)
   const downloadingRef = useRef(false)
-  const disabled = song.can_play !== true || Boolean(song.access_unavailable)
+  const canPlay = song.can_play === true
+  const disabled = !canPlay || Boolean(song.access_unavailable)
 
   const handleDownload = async () => {
     if (disabled || downloadingRef.current) return

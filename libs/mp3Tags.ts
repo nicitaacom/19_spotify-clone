@@ -20,7 +20,10 @@ export function getMp3AudioBytes(data: Uint8Array): Uint8Array {
 
 export function getSongDownloadFilename(artist: string, title: string): string {
   const name = Array.from(`${artist} - ${title}`)
-    .filter(character => character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127)
+    .filter(character => {
+      const code = character.charCodeAt(0)
+      return code >= 32 && code !== 127
+    })
     .join("")
     .replace(/[<>:"/\\|?*]/g, "_")
     .trim()

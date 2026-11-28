@@ -469,8 +469,9 @@ const AddASongModal = () => {
       return
     }
     setEditingPlaylistId(playlist.id)
+    const generatedSlug = getPlaylistSlug(playlist.title)
     setPlaylistSlugDraft(
-      getPlaylistSlug(playlist.title) === playlist.slug
+      generatedSlug === playlist.slug
         ? getPlaylistSlugPreservingCase(playlist.title)
         : playlist.slug,
     )

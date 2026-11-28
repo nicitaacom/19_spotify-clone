@@ -348,7 +348,9 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
   const playTrack = useCallback((id: string) => {
     const currentSound = soundRef.current
     const progressStore = usePlayerProgress.getState()
-    if (String(id) === String(activeId) && currentSound) {
+    const activeTrackId = String(activeId)
+    const requestedTrackId = String(id)
+    if (requestedTrackId === activeTrackId && currentSound) {
       seekCurrentSound(0)
       setSavedPosition(0)
       progressStore.setProgress(0)
@@ -512,7 +514,8 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       const queueIds = playerState.ids.map(id => String(id))
       const currentIndex = queueIds.indexOf(String(playerState.activeId ?? ""))
       const nextId = currentIndex >= 0 ? queueIds[currentIndex + 1] : undefined
-      if (nextId && nextId !== String(song.id)) onPlayNext()
+      const currentSongId = String(song.id)
+      if (nextId && nextId !== currentSongId) onPlayNext()
     }
   }, [onPlayNext, playTrack, setIsPlayingInStore, song.id])
 

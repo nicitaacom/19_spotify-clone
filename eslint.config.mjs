@@ -16,11 +16,14 @@ const eslintConfig = defineConfig([
   // .open-next/** is the Cloudflare build output (bundled vendor JS) - linting it produced 23057 of
   // the repo's 23123 problems and nothing actionable, since none of it is hand-written.
   // eslint-rules/** is tool code, not source, so it is not a lint target either.
-  globalIgnores([".next/**", ".open-next/**", "out/**", "build/**", "next-env.d.ts", "eslint-rules/**"]),
+  globalIgnores([".next/**", ".open-next/**", "out/**", "build/**", "next-env.d.ts", "eslint-rules/**", "**/.env.local", "**/.env.local.*"]),
   {
     files: ["**/*.{js,mjs,cjs,ts,tsx}"],
     plugins: { "local-rules": localPlugin },
-    rules: { "local-rules/no-call-result-call": "error" },
+    rules: {
+      "local-rules/no-call-result-call": "error",
+      "local-rules/no-fn-call-in-condition": "warn",
+    },
   },
   {
     files: ["**/*.ts", "**/*.tsx"],

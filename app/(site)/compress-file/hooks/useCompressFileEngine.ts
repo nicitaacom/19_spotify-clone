@@ -338,7 +338,8 @@ export function useCompressFileEngine(): CompressFileEngine {
     setKbpsIndexState(next)
     const identity = identityRef.current
     const kbps = choicesRef.current[next]
-    setEncodedReady(identity != null && kbps != null && encodedMp3Ref.current?.key === exportKey(identity, kbps))
+    const key = identity != null && kbps != null ? exportKey(identity, kbps) : null
+    setEncodedReady(key !== null && encodedMp3Ref.current?.key === key)
   }, [])
 
   const clear = useCallback(() => {
@@ -423,7 +424,8 @@ export function useCompressFileEngine(): CompressFileEngine {
       encodedMp3Ref.current = { key, mp3 }
       const currentKbps = choicesRef.current[kbpsIndexRef.current]
       const identityNow = identityRef.current
-      setEncodedReady(identityNow != null && currentKbps != null && exportKey(identityNow, currentKbps) === key)
+      const currentKey = identityNow != null && currentKbps != null ? exportKey(identityNow, currentKbps) : null
+      setEncodedReady(currentKey !== null && currentKey === key)
     } catch (error) {
       console.error(`Could not encode "${base}.mp3" at ${chosen} kbps`, error)
       toast.error(`Could not encode "${base}.mp3" at ${chosen} kbps. ${describeError(error)}`, { id: "compress-export" })

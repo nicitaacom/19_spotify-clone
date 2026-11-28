@@ -7,7 +7,7 @@
     "build": "next build",
     "dev": "next dev",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "test:backup": "node --experimental-strip-types --test app/features/backup/*.test.mjs libs/*.test.mjs",
     "test:commerce": "node --experimental-strip-types --test libs/commerceRules.test.mjs tests/playlistPayments.test.mjs",
     "test:playlist-tags": "vitest run tests/playlistTagFlow.test.tsx",

@@ -44,7 +44,11 @@ const useOnPlay = (songs: Song[], onLocked?: (id: string) => boolean | void, pla
       }
       if (request !== playbackRequest) return
       if (!access[id]?.can_play) {
-        if (onLocked && onLocked(id) !== false) return
+        if (onLocked) {
+          const handled = onLocked(id)
+          const notHandled = handled === false
+          if (!notHandled) return
+        }
         if (access[id]?.unlock_slug) router.push(`/playlists/${access[id].unlock_slug}#playlist-access`)
         else toast.error("This song is locked. Open its original playlist to check availability.")
         return

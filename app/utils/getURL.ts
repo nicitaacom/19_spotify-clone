@@ -15,8 +15,8 @@ export const getURL = (path = "") => {
 
   const normalizedOrigin = origin.includes("http") ? origin : `https://${origin}`
   const normalizedPath = path.startsWith("/") ? path.slice(1) : path
-  const baseUrl =
-    normalizedOrigin.charAt(normalizedOrigin.length - 1) === "/" ? normalizedOrigin : `${normalizedOrigin}/`
+  const lastCharacter = normalizedOrigin.charAt(normalizedOrigin.length - 1)
+  const baseUrl = lastCharacter === "/" ? normalizedOrigin : `${normalizedOrigin}/`
 
   return normalizedPath ? `${baseUrl}${normalizedPath}` : baseUrl
 }

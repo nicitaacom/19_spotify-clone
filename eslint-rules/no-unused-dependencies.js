@@ -121,6 +121,7 @@ function collectUsed(repoRoot) {
     }
 
     for (const entry of entries) {
+      if (entry.name === ".env.local" || entry.name.startsWith(".env.local.")) continue
       const fullPath = path.join(folder, entry.name)
       if (entry.isDirectory()) {
         if (!isSkippedFolder(entry.name)) pendingFolders.push(fullPath)

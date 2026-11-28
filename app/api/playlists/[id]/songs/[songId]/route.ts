@@ -29,7 +29,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const memberIds = new Set((members ?? []).map(item => String(item.song_id)))
     if (!memberIds.has(songId)) return NextResponse.json({ error: "Track not found in this playlist." }, { status: 404 })
     const paidMembers = (access ?? []).filter(item => item.is_paid && memberIds.has(String(item.song_id)))
-    if (orders?.length && paidMembers.length === 1 && String(paidMembers[0].song_id) === songId) {
+    const onlyPaidSongId = paidMembers.length === 1 ? String(paidMembers[0].song_id) : null
+    if (orders?.length && onlyPaidSongId === songId) {
       return NextResponse.json({ error: "Keep at least one paid track while this playlist has an active purchase." }, { status: 409 })
     }
 
