@@ -23,9 +23,10 @@ interface MediaItemProps {
   onEdit?: () => void
   showMetadataIcons?: boolean
   editIconSize?: number
+  compactOnMobile?: boolean
 }
 
-const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleClassName, playlists = [], onPlaylistClick, matchedTags = [], songHref = "", onEdit, showMetadataIcons = false, editIconSize = 22 }) => {
+const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleClassName, playlists = [], onPlaylistClick, matchedTags = [], songHref = "", onEdit, showMetadataIcons = false, editIconSize = 22, compactOnMobile = false }) => {
   const player = usePlayer()
   const imageUrl = useLoadImage(data)
   const lockedPaid = data.is_paid === true && data.can_play === false
@@ -62,7 +63,7 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleCl
       tabIndex={-1}
       aria-label={`${data.access_unavailable ? "Unavailable" : data.can_play === false ? "Unlock" : "Play"} ${lockedPaid ? "paid track" : data.title}`}
       onClick={handleClick}
-      className="
+      className={twMerge(`
         relative
         flex 
         items-center 
@@ -74,8 +75,8 @@ const MediaItem: React.FC<MediaItemProps> = ({ data, onClick, size = 48, titleCl
         rounded-md
         overflow-hidden
         outline-none
-      ">
-      <div style={{ width: size, height: size }} className="relative shrink-0 overflow-hidden rounded-md">
+      `, compactOnMobile && "max-md:gap-x-2 max-md:p-1")}>
+      <div style={{ width: size, height: size }} className={twMerge("relative shrink-0 overflow-hidden rounded-md", compactOnMobile && "max-md:!h-9 max-md:!w-9")}>
         {lockedPaid ? (
           <LockedArtwork className="absolute inset-0 text-xl" />
         ) : (

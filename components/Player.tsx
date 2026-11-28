@@ -114,7 +114,7 @@ const Player = () => {
       {/* Full-width Progress Bar */}
       <PlayerProgressBar />
 
-      <div className="flex h-full items-center px-4 py-2">
+      <div className="flex h-full items-center px-2 py-2 sm:px-4">
         {song && songUrl ? (
           <PlayerContent key={`${song.id}-${songUrl}`} song={song} songUrl={songUrl} expiresAt={expiresAt} onRefreshUrl={retry} />
         ) : audioError ? (

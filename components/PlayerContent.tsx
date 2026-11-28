@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { BsPauseFill, BsPlayFill, BsSkipStartFill } from "react-icons/bs"
 import { HiSpeakerWave, HiSpeakerXMark } from "react-icons/hi2"
 import { AiFillStepBackward, AiFillStepForward, AiOutlineLoading3Quarters } from "react-icons/ai"
+import { FiRepeat } from "react-icons/fi"
 
 import { Song } from "@/types"
 import { useHotkey } from "@/hooks/useHotkey"
@@ -527,12 +528,13 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       activeSoundIdRef.current = id
       const position = seekCurrentSound()
       const replayingThisSong = sameSongReplayRef.current
+      const repeatMode = usePlayer.getState().repeatMode
       sameSongReplayRef.current = false
       if (
         !replayingThisSong &&
         !suppressRestartRef.current &&
         !isRecoveringRef.current &&
-        usePlayer.getState().repeatMode !== "one" &&
+        repeatMode !== "one" &&
         typeof position === "number" &&
         position < 1 &&
         (endHandledRef.current || lastNativePositionRef.current >= 2)
@@ -775,25 +777,33 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
           playlist and like icons. Below md it takes the space left of the play button (flex-1) - a fixed 30% column
           let the author run under the play button and the play button cover the like icon on a phone. */}
       <div className="flex min-w-0 flex-1 justify-start overflow-hidden md:w-[30%] md:flex-none">
-        <div className="flex w-full min-w-0 items-center gap-x-4">
+        <div className="flex w-full min-w-0 items-center gap-x-1 md:gap-x-4">
           <div className="min-w-0 flex-1 overflow-hidden">
-            <MediaItem data={song} />
+            <MediaItem data={song} compactOnMobile />
           </div>
-          <div className="flex shrink-0 items-center gap-x-4">
+          <div className="flex shrink-0 items-center gap-x-1 md:gap-x-4">
             <AddToPlaylistButton song={song} />
-            <LikeButton songId={song.id} />
+            <LikeButton songId={song.id} size={22} />
           </div>
         </div>
       </div>
 
       {/* Mobile play button. No volume slider in this row: at 24rem (outreach-tool's music panel) it collided with the
           like / playlist icons - the phone's music volume lives in the music panel itself (his review 2026-11-02) */}
-      <div className="flex shrink-0 items-center pl-3 md:hidden">
-        <div
+      <div className="flex shrink-0 items-center gap-1 pl-1 md:hidden">
+        <button type="button" onClick={toggleAdvanceMode} aria-label="Repeat current song" aria-pressed={repeatsThisSong}
+          title={repeatLabel}
+          className={`relative grid h-10 w-10 place-items-center rounded-full transition ${repeatsThisSong ? "text-neon" : "text-neutral-400"}`}>
+          <FiRepeat size={22} aria-hidden="true" />
+          {repeatsThisSong && <span aria-hidden="true" className="absolute bottom-0 right-0 text-[10px] font-bold text-neon">1</span>}
+        </button>
+        <button
+          type="button"
+          aria-label={isPlaying ? "Pause" : "Play"}
           onClick={handlePlay}
           className="h-10 w-10 flex items-center justify-center rounded-full bg-neon p-1 cursor-pointer shadow-neon-sm hover:bg-neon-strong hover:shadow-neon transition">
           <Icon size={38} className={isLoading || isBuffering ? "animate-spin text-black" : "text-black"} />
-        </div>
+        </button>
       </div>
 
       {/* Center: Controls */}
@@ -824,6 +834,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
           onClick={toggleAdvanceMode}
           title={repeatLabel}
           aria-label={repeatLabel}
+          aria-pressed={repeatsThisSong}
           className={`grid h-8 w-12 cursor-pointer place-items-center border-0 bg-transparent p-0 transition ${repeatsThisSong ? "text-neon drop-shadow-[0_0_4px_rgba(74,222,128,0.3)]" : "text-neutral-400 hover:text-neon"}`}>
           {repeatsThisSong ? <RepeatSongIcon /> : <NextSongIcon />}
         </button>

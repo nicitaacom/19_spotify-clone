@@ -211,3 +211,5 @@ Shift+Arrow follows the on-screen playlist order. Reordering or removing a row i
 
 Shortcuts are ignored when focus is on an `INPUT`, `TEXTAREA`, or `contentEditable` element.
 Song rows (`MediaItem`, `SongItem`) are not focusable on purpose, so Space pauses the current song instead of starting the clicked row.
+
+On mobile, the repeat button beside Play toggles the same `repeatMode` as the desktop advance control. Its pressed state indicates that the current song will repeat.

@@ -50,7 +50,7 @@ During a call nothing changes on this site's side - it keeps posting "now playin
 
 Framing: `middleware.ts` answers every path with `Content-Security-Policy: frame-ancestors 'self' https://outreach-tool.com https://www.outreach-tool.com http://localhost:3000` (`/embed` keeps its own wider list).
 
-Layout inside the iframe: `is_iframe=true` -> `components/Sidebar.tsx` renders `main` without `py-2 pr-2 rounded-lg`. The mobile player row (below md) stays cover + title + play: at 24rem a volume slider in it collided with the like / playlist icons, so the phone's music volume is a row in outreach-tool's music panel instead (his review 2026-11-02).
+Layout inside the iframe: `is_iframe=true` -> `components/Sidebar.tsx` renders `main` without `py-2 pr-2 rounded-lg`. The mobile player row (below md) shows compact song details, add, like, repeat and play controls. At 24rem the volume slider is omitted to avoid collisions; the phone's music volume remains in outreach-tool's music panel.
 
 The page's side is written up in outreach-tool: `app/(routes)/dialer/dev_readme-dialer.md` ("Music panel") and `app/widgets/MusicPanel/dev_readme-music-panel.md`.
 
