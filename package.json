@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test:backup": "node --experimental-strip-types --test app/features/backup/*.test.mjs libs/*.test.mjs",
     "test:commerce": "node --experimental-strip-types --test libs/commerceRules.test.mjs tests/playlistPayments.test.mjs",
+    "test:playlist-tags": "vitest run tests/playlistTagFlow.test.tsx",
     "type-check": "tsc --noEmit",
     "update-types": "pnpm exec supabase gen types typescript --project-id eqhntdpwtnhqzcnpxegh > app/interfaces/types_db.ts",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
@@ -34,6 +35,7 @@
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.7",
     "framer-motion": "^12.38.0",
+    "mp4box": "^2.6.0",
     "mpg123-decoder": "^1.0.3",
     "music-metadata": "^11.16.1",
     "next": "16.2.9",
@@ -57,7 +59,13 @@
   },
   "devDependencies": {
     "@opennextjs/cloudflare": "1.20.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.13",
+    "@types/dom-webcodecs": "^0.1.19",
+    "esbuild": "^0.28.1",
+    "jsdom": "^31.0.1",
     "supabase": "^1.106.1",
+    "vitest": "^5.1.2",
     "wrangler": "4.107.1"
   }
 }
