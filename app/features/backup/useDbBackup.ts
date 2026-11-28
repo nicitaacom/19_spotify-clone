@@ -238,12 +238,11 @@ export function useDbBackup() {
 
   // The label of whichever operation is currently running — used by the stall notice so it can say
   // what is still in flight.
-  const activeLabel =
-    tablesExportPhase === "exporting" ? "exporting tables" :
-    filesExportPhase === "exporting" ? "exporting files" :
-    tablesImportPhase === "importing" ? (tablesImportLabel || "importing tables") :
-    filesImportPhase === "importing" ? (filesImportLabel || "importing files") :
-    ""
+  let activeLabel = ""
+  if (tablesExportPhase === "exporting") activeLabel = "exporting tables"
+  else if (filesExportPhase === "exporting") activeLabel = "exporting files"
+  else if (tablesImportPhase === "importing") activeLabel = tablesImportLabel || "importing tables"
+  else if (filesImportPhase === "importing") activeLabel = filesImportLabel || "importing files"
 
   return {
     isBusy, isStalled, activeLabel,

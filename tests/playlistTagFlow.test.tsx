@@ -15,9 +15,20 @@ vi.mock('@/libs/supabaseClient', () => ({ default: { from(table: string) {
   fixture.queries.push(table)
   const rows = table === '19_playlists' ? [{ id: 'p1', slug: 'test', title: 'Test', updated_at: '', visibility: 'private' }]
     : table === '19_playlist_songs' ? Array.from({ length: 11 }, (_, i) => ({ song_id: i + 1, created_at: `2026-01-${String(20-i).padStart(2, '0')}` }))
-    : Array.from({ length: 11 }, (_, i) => ({ id: i + 1, tags: fixture.localized
-      ? (i < 3 ? ['focus', 'концентрация', 'work'] : i === 3 ? ['focus', 'концентрация'] : [])
-      : i < 8 ? ['new' + i] : [fixture.uploads.length >= (fixture.replace ? 2 : 1) ? 'rare' : 'older', 'common'] }))
+    : Array.from({ length: 11 }, (_, i) => {
+      let tags: string[]
+      if (fixture.localized) {
+        if (i < 3) tags = ['focus', 'концентрация', 'work']
+        else if (i === 3) tags = ['focus', 'концентрация']
+        else tags = []
+      } else if (i < 8) tags = ['new' + i]
+      else {
+        const uploadThreshold = fixture.replace ? 2 : 1
+        const firstTag = fixture.uploads.length >= uploadThreshold ? 'rare' : 'older'
+        tags = [firstTag, 'common']
+      }
+      return { id: i + 1, tags }
+    })
   const builder = { select: () => builder, eq: () => builder, order: () => builder, range: () => Promise.resolve({ data: rows, error: null }), in: () => Promise.resolve({ data: rows, error: null }), then: (resolve: (value: unknown) => void) => Promise.resolve({ data: rows, error: null }).then(resolve) }
   return builder
 } } }))

@@ -11,10 +11,10 @@ export default function DownloadSongButton({ song, playlistTitle, className, ico
   iconSize?: number
 }) {
   const { handleDownload, isDownloading, progress, disabled } = useSongDownload(song, playlistTitle)
-  const label = isDownloading ? `Preparing ${song.title}: ${progress}%`
-    : song.access_unavailable ? `Download unavailable for ${song.title}`
-    : disabled ? `Unlock ${song.title} to download`
-    : `Download ${song.title} as MP3`
+  let label = `Download ${song.title} as MP3`
+  if (isDownloading) label = `Preparing ${song.title}: ${progress}%`
+  else if (song.access_unavailable) label = `Download unavailable for ${song.title}`
+  else if (disabled) label = `Unlock ${song.title} to download`
 
   return (
     <button type="button" onClick={handleDownload} disabled={disabled || isDownloading}

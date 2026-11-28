@@ -23,6 +23,7 @@ const eslintConfig = defineConfig([
     rules: {
       "local-rules/no-call-result-call": "error",
       "local-rules/no-fn-call-in-condition": "warn",
+      "local-rules/no-complex-nested-conditions": "warn",
     },
   },
   {

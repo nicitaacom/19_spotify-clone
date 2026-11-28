@@ -50,26 +50,18 @@ function isAdminUnlocked(song: Song, canManage: boolean) {
 function AccessBadge({ song, canManage }: { song: Song; canManage: boolean }) {
   const locked = song.can_play === false
   const adminUnlock = isAdminUnlocked(song, canManage)
-  const label = song.access_unavailable
-    ? "Unavailable"
-    : locked && song.is_paid
-      ? "Paid"
-      : locked
-        ? "Unavailable"
-        : adminUnlock
-          ? "UNLOCKED - ADMIN"
-          : song.is_paid
-            ? "Unlocked"
-            : "Free"
+  let label = "Free"
+  if (song.access_unavailable) label = "Unavailable"
+  else if (locked && song.is_paid) label = "Paid"
+  else if (locked) label = "Unavailable"
+  else if (adminUnlock) label = "UNLOCKED - ADMIN"
+  else if (song.is_paid) label = "Unlocked"
   const open = label === "Free" || label === "Unlocked" || adminUnlock
   const Icon = open ? FiUnlock : FiLock
-  const tone = adminUnlock
-    ? "border-sky-400/40 bg-sky-500/15 text-sky-100"
-    : open
-      ? "border-neon/30 bg-neon/10 text-neon"
-      : label === "Paid"
-        ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
-        : "border-white/10 bg-white/5 text-neutral-400"
+  let tone = "border-white/10 bg-white/5 text-neutral-400"
+  if (adminUnlock) tone = "border-sky-400/40 bg-sky-500/15 text-sky-100"
+  else if (open) tone = "border-neon/30 bg-neon/10 text-neon"
+  else if (label === "Paid") tone = "border-amber-400/30 bg-amber-500/10 text-amber-200"
 
   return (
     // the word shows from sm up - on a phone the lock icon and the colour show it, and the song title gets the room
