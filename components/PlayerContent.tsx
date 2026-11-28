@@ -714,17 +714,16 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl, expiresAt,
       return
     }
     lastPlaybackCommandId.current = playbackCommandId
-    if (playbackCommand === "play") {
-      if (savedPosition > 0) {
-        const restorePosition = () => {
-          seekCurrentSound(savedPosition)
-          setSavedPosition(0)
-        }
-        if (sound.playing()) restorePosition()
-        else sound.once("play", restorePosition)
+    if (playbackCommand !== "play") return
+    if (savedPosition > 0) {
+      const restorePosition = () => {
+        seekCurrentSound(savedPosition)
+        setSavedPosition(0)
       }
-      playSound()
+      if (sound.playing()) restorePosition()
+      else sound.once("play", restorePosition)
     }
+    playSound()
   }, [
     activeId,
     cancelStalledPlayback,

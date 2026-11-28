@@ -618,14 +618,13 @@ const AddASongModal = () => {
       assignInputFile(imageInputEl, split.image)
       handleImageChange(fileChangeEvent(imageInputEl))
     }
-    if (!split.song && !split.image) {
-      const name = split.skipped[0]?.name
-      setUploadError(
-        name
-          ? `"${name}" is not a song or a cover image. Drop an audio file, or a JPG, JPEG, PNG, WebP, or AVIF image.`
-          : "Drop an audio file, or a JPG, JPEG, PNG, WebP, or AVIF image.",
-      )
-    }
+    if (split.song || split.image) return
+    const name = split.skipped[0]?.name
+    setUploadError(
+      name
+        ? `"${name}" is not a song or a cover image. Drop an audio file, or a JPG, JPEG, PNG, WebP, or AVIF image.`
+        : "Drop an audio file, or a JPG, JPEG, PNG, WebP, or AVIF image.",
+    )
   }
 
   const getSongDuration = (file: File): Promise<number> => {

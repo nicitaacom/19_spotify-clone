@@ -14,6 +14,7 @@ module.exports = {
   ...require("./no-complex-nested-conditions"),
   ...require("./no-component-factory"),
   ...require("./no-effect-in-large-component"),
+  ...require("./obvious/prefer-early-return"),
   ...require("./no-inline-on-click"),
   ...require("./no-zustand-get-state-in-condition"),
   // copied from outreach-tool, plus toast.error("...") - see the header of no-vague-error-msg.js

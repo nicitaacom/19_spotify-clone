@@ -26,6 +26,7 @@ const eslintConfig = defineConfig([
       "local-rules/no-complex-nested-conditions": "warn",
       "local-rules/no-component-factory": "warn",
       "local-rules/no-effect-in-large-component": "warn",
+      "local-rules/prefer-early-return": "warn",
     },
   },
   {

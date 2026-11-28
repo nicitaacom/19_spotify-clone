@@ -5,6 +5,7 @@ const require = createRequire(import.meta.url)
 const nested = require("../eslint-rules/no-complex-nested-conditions.js")["no-complex-nested-conditions"]
 const factory = require("../eslint-rules/no-component-factory.js")["no-component-factory"]
 const effect = require("../eslint-rules/no-effect-in-large-component.js")["no-effect-in-large-component"]
+const earlyReturn = require("../eslint-rules/obvious/prefer-early-return.js")["prefer-early-return"]
 const tester = new RuleTester({ languageOptions: { ecmaVersion: 2022, parserOptions: { ecmaFeatures: { jsx: true } } } })
 
 tester.run("no-complex-nested-conditions", nested, {
@@ -42,5 +43,17 @@ tester.run("no-effect-in-large-component", effect, {
   ],
   invalid: [
     { filename: "/repo/components/Example.tsx", code: `${padding}function Example() { ${longEffect}; return <div /> }`, errors: [{ messageId: "noEffectInLargeComponent" }] },
+  ],
+})
+
+tester.run("prefer-early-return", earlyReturn, {
+  valid: [
+    "function run() { if (!ready) return; work() }",
+    "function run() { if (ready) { work() } }",
+    "function run() { if (typeof window === 'undefined') { a();\nb();\nc();\nd();\ne();\nf() } }",
+  ],
+  invalid: [
+    { code: "function run() {\n  if (ready) {\n    a()\n    b()\n    c()\n    d()\n    e()\n    f()\n  }\n}", output: "function run() {\n  if (!ready) return\n\n  a()\n  b()\n  c()\n  d()\n  e()\n  f()\n}", errors: [{ messageId: "preferEarlyReturn" }] },
+    { code: "function run() {\n  if (a && b) {\n    one()\n    two()\n    three()\n    four()\n    five()\n    six()\n  }\n}", output: null, errors: [{ messageId: "preferEarlyReturnLogical" }] },
   ],
 })
