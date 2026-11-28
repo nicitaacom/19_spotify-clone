@@ -12,7 +12,8 @@ interface ExclusivePlaybackPreferenceStore {
   setHasHydrated: (hasHydrated: boolean) => void
 }
 
-const useExclusivePlaybackPreference = create<ExclusivePlaybackPreferenceStore>()(
+const createPreferenceStore = create<ExclusivePlaybackPreferenceStore>()
+const useExclusivePlaybackPreference = createPreferenceStore(
   persist(
     set => ({
       enabledByUserId: {},

@@ -29,7 +29,8 @@ function mount(t, onFiles) {
     useRef: value => ({ current: value }),
     useEffect: setup => effects.push(setup),
   }
-  new Function("require", "module", "exports", compiled)(name => {
+  const executeModule = new Function("require", "module", "exports", compiled)
+  executeModule(name => {
     assert.equal(name, "react")
     return react
   }, compiledModule, compiledModule.exports)

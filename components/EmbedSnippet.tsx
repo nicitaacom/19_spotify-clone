@@ -69,7 +69,7 @@ export default function EmbedSnippet({ songId }: { songId: string }) {
           <div className="mb-2 flex justify-end">
             <button
               type="button"
-              onClick={() => void copy()}
+              onClick={() => copy()}
               disabled={!code}
               className="shrink-0 rounded-full border border-white/10 px-3 py-1 text-xs text-neon disabled:opacity-40">
               {copied ? "Copied" : "Copy"}

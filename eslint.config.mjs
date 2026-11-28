@@ -18,6 +18,11 @@ const eslintConfig = defineConfig([
   // eslint-rules/** is tool code, not source, so it is not a lint target either.
   globalIgnores([".next/**", ".open-next/**", "out/**", "build/**", "next-env.d.ts", "eslint-rules/**"]),
   {
+    files: ["**/*.{js,mjs,cjs,ts,tsx}"],
+    plugins: { "local-rules": localPlugin },
+    rules: { "local-rules/no-call-result-call": "error" },
+  },
+  {
     files: ["**/*.ts", "**/*.tsx"],
     plugins: {
       "local-rules": localPlugin,

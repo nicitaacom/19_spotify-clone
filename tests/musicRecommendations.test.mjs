@@ -9,7 +9,8 @@ async function compile(path, dependencies = {}, environment = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
   const compiledModule = { exports: {} }
-  new Function("require", "module", "exports", "process", compiled)(name => {
+  const executeModule = new Function("require", "module", "exports", "process", compiled)
+  executeModule(name => {
     assert.ok(name in dependencies, name)
     return dependencies[name]
   }, compiledModule, compiledModule.exports, { env: environment })

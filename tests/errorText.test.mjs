@@ -8,7 +8,8 @@ async function compile(path) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
   const compiledModule = { exports: {} }
-  new Function("require", "module", "exports", compiled)(() => {
+  const executeModule = new Function("require", "module", "exports", compiled)
+  executeModule(() => {
     throw new Error("unexpected import")
   }, compiledModule, compiledModule.exports)
   return compiledModule.exports

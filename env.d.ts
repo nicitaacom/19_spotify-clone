@@ -24,6 +24,7 @@ declare global {
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: string
       TURNSTILE_SECRET_KEY: string
 
+      // eslint-disable-next-line local-rules/no-defined-unused-envs -- used by libs/requestTagTranslations.mjs
       OPENAI_API_KEY: string
 
       OWNER_IDS_ARR: string

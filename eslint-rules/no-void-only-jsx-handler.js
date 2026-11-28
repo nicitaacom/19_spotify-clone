@@ -2,8 +2,13 @@
 
 // Bad:
 //   <button onClick={() => { void handleDelete(id) }}>
+//   <button onClick={() => { toast.closeToast(); void handleDelete(id) }}>
+//   <button onClick={() => void handleDelete(id)}>
 // Good:
 //   <button onClick={() => handleDelete(id)}>
+//   <button onClick={() => { toast.closeToast(); handleDelete(id) }}>
+const FUNCTION_TYPES = new Set(["ArrowFunctionExpression", "FunctionExpression", "FunctionDeclaration"])
+
 function isJsxEventHandler(node) {
   const parent = node.parent
   if (!parent || parent.type !== "JSXExpressionContainer") return false
@@ -15,33 +20,34 @@ function isJsxEventHandler(node) {
   return /^on[A-Z]/.test(attribute.name.name)
 }
 
+// the function the void sits in - a callback nested inside the handler is its own function, not the handler
+function closestFunction(node) {
+  let current = node.parent
+  while (current && !FUNCTION_TYPES.has(current.type)) current = current.parent
+  return current
+}
+
 module.exports = {
   "no-void-only-jsx-handler": {
     meta: {
       type: "suggestion",
       docs: {
-        description: "disallow JSX event handlers whose whole body is `void someCall(...)`; use an implicit-return wrapper",
+        description: "disallow `void someCall(...)` anywhere in a JSX event handler; call it directly",
       },
       schema: [],
       messages: {
         noVoidOnlyHandler:
-          "Avoid a JSX handler block whose only statement is `void someCall(...)` - use an implicit-return wrapper like `event => fn(event)`.",
+          "Avoid `void someCall(...)` in a JSX handler - call it directly: `() => fn()` or `() => { a(); fn() }`.",
       },
     },
     create(context) {
       return {
-        ArrowFunctionExpression(node) {
-          if (!isJsxEventHandler(node)) return
-          if (node.body.type !== "BlockStatement") return
-          if (node.body.body.length !== 1) return
+        UnaryExpression(node) {
+          if (node.operator !== "void" || node.argument.type !== "CallExpression") return
+          const handler = closestFunction(node)
+          if (!handler || !isJsxEventHandler(handler)) return
 
-          const statement = node.body.body[0]
-          if (statement.type !== "ExpressionStatement") return
-          if (statement.expression.type !== "UnaryExpression") return
-          if (statement.expression.operator !== "void") return
-          if (statement.expression.argument.type !== "CallExpression") return
-
-          context.report({ node: statement.expression, messageId: "noVoidOnlyHandler" })
+          context.report({ node, messageId: "noVoidOnlyHandler" })
         },
       }
     },

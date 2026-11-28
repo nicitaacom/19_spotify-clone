@@ -16,6 +16,7 @@ const deviceIdStore = (set: SetState): DeviceIdStore => ({
   setStoredDeviceId: storedDeviceId => set(() => ({ storedDeviceId })),
 })
 
-export const useDeviceIdStore = create<DeviceIdStore>()(
+const createDeviceIdStore = create<DeviceIdStore>()
+export const useDeviceIdStore = createDeviceIdStore(
   devtools(persist(set => deviceIdStore(set), { name: "deviceIdStore" })),
 )

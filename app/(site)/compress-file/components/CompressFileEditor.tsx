@@ -85,6 +85,7 @@ const CompressFileEditor = () => {
     fileName,
     encodeChunk: encodePreview,
   })
+  const togglePreview = preview.toggle
 
   useExclusivePlaybackSource({
     isPlaying: preview.playing,
@@ -103,11 +104,11 @@ const CompressFileEditor = () => {
       if (isEmpty) return
       event.preventDefault()
       el?.blur()
-      preview.toggle()
+      togglePreview()
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [isEmpty, preview.toggle])
+  }, [isEmpty, togglePreview])
 
   if (isEmpty) {
     return (
@@ -283,7 +284,7 @@ const CompressFileEditor = () => {
             ) : (
               <button
                 type="button"
-                onClick={() => { void compress() }}
+                onClick={() => compress()}
                 disabled={isRendering || chosenKbps == null}
                 className="px-5 py-2.5 text-sm font-bold bg-neon text-black hover:bg-neon-strong rounded-full transition flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed">
                 Compress

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { toast } from "react-hot-toast"
 
 import { describeError } from "../lib/describeError"
@@ -54,9 +54,11 @@ export function useCompressedPreview(args: {
   const chunksRef = useRef<Map<number, KeptChunk>>(new Map())
   const pendingRef = useRef<Map<number, Promise<KeptChunk | null>>>(new Map())
 
-  durationRef.current = durationSec
-  kbpsRef.current = kbps
-  encodeRef.current = encodeChunk
+  useLayoutEffect(() => {
+    durationRef.current = durationSec
+    kbpsRef.current = kbps
+    encodeRef.current = encodeChunk
+  }, [durationSec, kbps, encodeChunk])
 
   const stopWatch = useCallback(() => {
     window.clearInterval(watchRef.current)
@@ -227,11 +229,13 @@ export function useCompressedPreview(args: {
     startWatch()
   }, [audioContext, startWatch, stopNode, stopWatch, takeChunk])
 
-  playFromRef.current = playFrom
-  takeChunkRef.current = takeChunk
-  getPositionRef.current = getPosition
-  stopNodeRef.current = stopNode
-  stopWatchRef.current = stopWatch
+  useLayoutEffect(() => {
+    playFromRef.current = playFrom
+    takeChunkRef.current = takeChunk
+    getPositionRef.current = getPosition
+    stopNodeRef.current = stopNode
+    stopWatchRef.current = stopWatch
+  }, [playFrom, takeChunk, getPosition, stopNode, stopWatch])
 
   const pause = useCallback(() => {
     holdRef.current += 1

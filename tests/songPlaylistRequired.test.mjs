@@ -11,7 +11,8 @@ async function readModule(modulePath, dependencies = {}) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
   const compiledModule = { exports: {} }
-  new Function("require", "module", "exports", compiled)(name => {
+  const executeModule = new Function("require", "module", "exports", compiled)
+  executeModule(name => {
     assert.ok(name in dependencies, name)
     return dependencies[name]
   }, compiledModule, compiledModule.exports)

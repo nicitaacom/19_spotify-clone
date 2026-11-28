@@ -17,7 +17,8 @@ interface AreYouSureModals {
   handleCancel: () => void
 }
 
-export const useAreYouSureModals = create<AreYouSureModals>()(set => ({
+const createAreYouSureStore = create<AreYouSureModals>()
+export const useAreYouSureModals = createAreYouSureStore(set => ({
   isOpen: {
     areYouSureDeletePlaylist: false,
     areYouSureDeleteSong: false,

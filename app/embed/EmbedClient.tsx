@@ -226,7 +226,7 @@ export default function EmbedClient() {
           track={track}
           trackHref={trackHref}
           isPlaying={isPlaying}
-          onTogglePlay={() => void togglePlay()}
+          onTogglePlay={() => togglePlay()}
           onClose={handleClose}
           onNeverShowAgainChange={isChecked => {
             if (!isChecked) return
