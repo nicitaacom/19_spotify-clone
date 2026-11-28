@@ -177,7 +177,7 @@ const AddASongModal = () => {
   const uploadModal = useUploadModal()
   const createPlaylistModal = useCreatePlaylistModal()
 
-  const { user, subscription } = useUser()
+  const { user } = useUser()
   const router = useRouter()
   const pathname = usePathname()
   const playlistSlug = pathname?.match(/^\/playlists\/([^/]+)\/?$/)?.[1]
@@ -871,10 +871,9 @@ const AddASongModal = () => {
       let duration: number
       try {
         duration = await getSongDuration(songFile)
-        const isPro = subscription?.status === "active"
-        const limit = isPro ? 12 : 3
+        const limit = 10
         if (duration / 3600 > limit) {
-          setUploadError(`Song is too long. ${isPro ? "Pro" : "Free"} limit is ${limit} hours.`)
+          setUploadError(`Song is too long. The limit is ${limit} hours.`)
           setIsLoading(false)
           return
         }
