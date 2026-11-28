@@ -984,9 +984,10 @@ const AddASongModal = () => {
   const onSubmit: SubmitHandler<FieldValues> = values => uploadSong(values)
 
   const handleSongTagsChange = (nextTags: string[]) => {
-    const removedSuggestions = removedPlaylistTags(visibleTags, nextTags, playlistSuggestionTags)
-    if (removedSuggestions.length) {
-      const dismissed = Array.from(new Set([...dismissedPlaylistTags, ...removedSuggestions]))
+    const removed = removedPlaylistTags(visibleTags, nextTags)
+    const added = nextTags.filter(tag => !visibleTags.includes(tag))
+    if (tagDismissalKey && (removed.length || added.length)) {
+      const dismissed = Array.from(new Set([...dismissedPlaylistTags.filter(tag => !added.includes(tag)), ...removed]))
       setDismissedPlaylistTagsState({ key: tagDismissalKey, tags: dismissed })
       try {
         if (tagDismissalKey && typeof window !== "undefined") writeDismissedPlaylistTags(window.localStorage, tagDismissalKey, dismissed)
@@ -999,14 +1000,16 @@ const AddASongModal = () => {
   const uploadWithNewName = (title: string) => {
     setValue("title", title, { shouldDirty: true })
     setDuplicateSong(null)
-    void handleSubmit(onSubmit)()
+    const submit = handleSubmit(onSubmit)
+    void submit()
   }
 
   const replaceExistingSong = () => {
     if (!duplicateSong) return
     const songId = duplicateSong.id
     setDuplicateSong(null)
-    void handleSubmit(values => uploadSong(values, songId))()
+    const submit = handleSubmit(values => uploadSong(values, songId))
+    void submit()
   }
 
   const cancelDuplicateUpload = () => {
@@ -1132,9 +1135,9 @@ const AddASongModal = () => {
             disabled={isLoading}
             playlistTags={playlistSuggestionTags}
             excludedTags={dismissedPlaylistTags}
+            showGeneralSuggestions={!selectedPlaylistId}
             playlistLabel={playlistLabel}
             playlistNote={playlistNote}
-            onUsePlaylistTags={tagsToApply.length > 0 && !tagsMatchApplied ? () => { setTagsCustomized(true); setTags(tagsToApply) } : undefined}
           />
 
           <section className="mt-auto min-w-0 rounded-lg border border-white/10 bg-elevated/50 p-4">
@@ -1211,7 +1214,7 @@ const AddASongModal = () => {
                           <button
                             type="button"
                             disabled={isSavingPlaylistSlug}
-                            onClick={event => void savePlaylistSlug(event, playlist)}
+                            onClick={event => savePlaylistSlug(event, playlist)}
                             className="rounded p-2 text-neon transition hover:bg-neon/10 disabled:opacity-50"
                             aria-label="Save playlist URL slug"
                             title="Save slug">

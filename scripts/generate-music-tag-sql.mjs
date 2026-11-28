@@ -82,7 +82,7 @@ DROP TRIGGER IF EXISTS normalize_music_song_tags ON public."19_songs";
 CREATE TRIGGER normalize_music_song_tags BEFORE INSERT OR UPDATE OF tags ON public."19_songs"
 FOR EACH ROW EXECUTE FUNCTION public.normalize_music_song_tags();
 
--- 3. Genres in playlist titles/slugs become song tags automatically.
+-- 3. Genre lookup remains available, but playlist names do not change song tags.
 -- Whole phrases only; "hip-hop", "hiphop" and "hip hop" are one genre.
 CREATE OR REPLACE FUNCTION public.infer_music_genres(name TEXT)
 RETURNS TEXT[] LANGUAGE SQL IMMUTABLE SET search_path = pg_catalog, public
@@ -94,42 +94,9 @@ ${genres}
     )
     SELECT ARRAY(SELECT DISTINCT tag FROM genres, input WHERE strpos(input.title, ' ' || phrase || ' ') > 0 ORDER BY tag);
 $function$;
-CREATE OR REPLACE FUNCTION public.add_playlist_genre_tags()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public
-AS $function$
-BEGIN
-    -- Other listeners' playlists cannot alter a publisher's tags.
-    UPDATE public."19_songs" song SET tags = public.canonical_music_tags(song.tags || public.infer_music_genres(playlist.title || ' ' || playlist.slug))
-    FROM public."19_playlists" playlist
-    WHERE playlist.id = NEW.playlist_id AND song.id = NEW.song_id AND song.user_id = playlist.user_id;
-    RETURN NEW;
-END;
-$function$;
-REVOKE ALL ON FUNCTION public.add_playlist_genre_tags() FROM PUBLIC, anon, authenticated;
+-- Playlist names must not add tags to songs. Keep existing tags unchanged.
 DROP TRIGGER IF EXISTS add_playlist_genre_tags ON public."19_playlist_songs";
-CREATE TRIGGER add_playlist_genre_tags AFTER INSERT OR UPDATE OF playlist_id, song_id ON public."19_playlist_songs"
-FOR EACH ROW EXECUTE FUNCTION public.add_playlist_genre_tags();
-CREATE OR REPLACE FUNCTION public.add_renamed_playlist_genre_tags()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public
-AS $function$
-BEGIN
-    UPDATE public."19_songs" song SET tags = public.canonical_music_tags(song.tags || public.infer_music_genres(NEW.title || ' ' || NEW.slug))
-    FROM public."19_playlist_songs" membership
-    WHERE membership.playlist_id = NEW.id AND membership.song_id = song.id AND song.user_id = NEW.user_id;
-    RETURN NEW;
-END;
-$function$;
-REVOKE ALL ON FUNCTION public.add_renamed_playlist_genre_tags() FROM PUBLIC, anon, authenticated;
 DROP TRIGGER IF EXISTS add_renamed_playlist_genre_tags ON public."19_playlists";
-CREATE TRIGGER add_renamed_playlist_genre_tags AFTER UPDATE OF title, slug ON public."19_playlists"
-FOR EACH ROW EXECUTE FUNCTION public.add_renamed_playlist_genre_tags();
--- Existing playlist music receives its genres too. Manual labels are retained.
-UPDATE public."19_songs" song SET tags = public.canonical_music_tags(song.tags || COALESCE((
-    SELECT array_agg(DISTINCT genre)
-    FROM public."19_playlist_songs" membership JOIN public."19_playlists" playlist ON playlist.id = membership.playlist_id
-    CROSS JOIN LATERAL unnest(public.infer_music_genres(playlist.title || ' ' || playlist.slug)) AS entry(genre)
-    WHERE membership.song_id = song.id AND playlist.user_id = song.user_id
-), ARRAY[]::TEXT[]));
 
 -- 4. Ctrl+K/title/artist/tag search keeps the caller's existing row permissions.
 CREATE OR REPLACE FUNCTION public.search_music_songs(p_query TEXT)

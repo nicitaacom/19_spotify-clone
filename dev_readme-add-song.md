@@ -42,7 +42,7 @@ A successful upload leaves the modal open. Title, author, song file, cover, paid
 
 ## Tag autofill
 
-`recentPlaylistTags` looks at the last 8 songs on the selected playlist. `top` is the first 2 tags by how often they appear. `autofill` is the tags in `top` that appear on 2 or more of those songs. A tag used once is not filled in. When nothing qualifies, the playlist name's genre tags are the fallback. The badge row uses `top`, so it shows at most 2 tags from the playlist. The note reads `Filled from your most used tags on <playlist>.` and the button is `Use top tags`.
+The modal ranks tags across all songs in the selected playlist, suggests up to eight English-style labels, and auto-fills at most two that occur on at least two songs. Removed tags are suppressed for that user and playlist. See [dev_readme-tags.md](dev_readme-tags.md) for the language filter and storage details.
 
 ## Tags box scroll
 

@@ -21,7 +21,7 @@ test("playlist tags fill the labels shared by its songs", () => {
     { addedAt: "2026-10-01T00:00:00.000Z", tags: ["motivation", "sad"] },
   ])
   assert.deepEqual(result.autofill, ["motivation", "film"])
-  assert.deepEqual(result.top, ["motivation", "film"])
+  assert.deepEqual(result.top, ["motivation", "film", "epic", "one-off", "sad"])
 })
 
 test("playlist popularity includes songs older than the latest eight", () => {
@@ -38,12 +38,41 @@ test("playlist popularity includes songs older than the latest eight", () => {
     { addedAt: "2026-10-01T00:00:00.000Z", tags: ["chill"] },
     { addedAt: "2026-09-30T00:00:00.000Z", tags: ["chill"] },
   ])
-  assert.deepEqual(result.top, ["chill", "newest"])
+  assert.deepEqual(result.top, ["chill", "newest", "second", "third", "fourth", "fifth", "sixth", "seventh"])
   assert.deepEqual(result.autofill, ["chill"])
 })
 
+test("playlist suggestions include frequently used tags beyond the two autofilled tags", () => {
+  const counts = [["chill", 15], ["focus", 11], ["deep focus", 8], ["концентрация", 6], ["работа", 6], ["глубокая концентрация", 6], ["work", 5], ["фокус", 4]]
+  const songs = Array.from({ length: 15 }, (_, index) => ({
+    addedAt: `2026-10-${String(20 - index).padStart(2, "0")}`,
+    tags: counts.filter(([, count]) => index < count).map(([tag]) => tag),
+  }))
+  const result = recentPlaylistTags(songs)
+  assert.deepEqual(result.autofill, ["chill", "focus"])
+  assert.deepEqual(result.top, ["chill", "focus", "deep focus", "work"])
+})
+
+test("playlist autofill chooses at most two English-style tags, excluding translations before ranking", () => {
+  const result = recentPlaylistTags([
+    { addedAt: "2026-10-03", tags: ["focus", "концентрация", "work", "работа"] },
+    { addedAt: "2026-10-02", tags: ["focus", "концентрация", "work", "работа"] },
+    { addedAt: "2026-10-01", tags: ["концентрация", "работа", "focus"] },
+  ])
+  assert.deepEqual(result.autofill, ["focus", "work"])
+  assert.deepEqual(result.top, ["focus", "work"])
+})
+
+test("a playlist with only translated labels does not fill or suggest tags", () => {
+  const result = recentPlaylistTags([
+    { addedAt: "2026-10-02", tags: ["концентрация"] },
+    { addedAt: "2026-10-01", tags: ["концентрация"] },
+  ])
+  assert.deepEqual(result, { autofill: [], top: [] })
+})
+
 test("a removed playlist tag stays out of both suggestions and autofill after upload", () => {
-  const removed = removedPlaylistTags(["chill", "focus"], ["focus"], ["chill", "focus"])
+  const removed = removedPlaylistTags(["chill", "focus"], ["focus"])
   assert.deepEqual(removed, ["chill"])
 
   // Upload success clears the form and recalculates suggestions from the playlist.
@@ -52,20 +81,24 @@ test("a removed playlist tag stays out of both suggestions and autofill after up
   assert.deepEqual(filterDismissedPlaylistTags(["chill"], removed), [])
 })
 
+test("removals are remembered even if the tag is not currently in the top suggestions", () => {
+  assert.deepEqual(removedPlaylistTags(["chill", "focus", "rare"], ["chill", "focus"]), ["rare"])
+})
+
 test("a playlist with one tagged song does not autofill tags used once", () => {
   const result = recentPlaylistTags([{ addedAt: "2026-10-01T00:00:00.000Z", tags: ["film", "film", "epic"] }])
   assert.deepEqual(result.autofill, [])
   assert.deepEqual(result.top, ["film", "epic"])
 })
 
-test("tags used once among several songs stay out of autofill and the row shows two", () => {
+test("tags used once among several songs stay out of autofill but remain ranked suggestions", () => {
   const result = recentPlaylistTags([
     { addedAt: "2026-10-03T00:00:00.000Z", tags: ["epic"] },
     { addedAt: "2026-10-02T00:00:00.000Z", tags: ["film"] },
     { addedAt: "2026-10-01T00:00:00.000Z", tags: ["sad"] },
   ])
   assert.deepEqual(result.autofill, [])
-  assert.deepEqual(result.top, ["epic", "film"])
+  assert.deepEqual(result.top, ["epic", "film", "sad"])
 })
 
 test("search highlights the tag that matched, including an alias", () => {

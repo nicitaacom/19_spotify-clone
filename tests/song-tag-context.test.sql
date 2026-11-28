@@ -16,8 +16,8 @@ INSERT INTO public."19_playlist_songs"
     OR playlist.slug='genre-fixture' AND song.id=601;
 DO $checks$
 BEGIN
- IF NOT (SELECT tags @> ARRAY['hip-hop','pop','rock','metal','drum-and-bass','lofi'] AND cardinality(tags)=6 FROM public."19_songs" WHERE id=601)
- THEN RAISE EXCEPTION 'Genre inference/alias deduplication failed'; END IF;
+ IF NOT (SELECT tags @> ARRAY['hip-hop','metal','drum-and-bass','lofi'] AND cardinality(tags)=4 FROM public."19_songs" WHERE id=601)
+ THEN RAISE EXCEPTION 'Playlist membership added tags or alias deduplication failed'; END IF;
  IF public.infer_music_genres('popular metalworker') <> ARRAY[]::TEXT[] THEN RAISE EXCEPTION 'Genre substring false positive'; END IF;
 END;
 $checks$;
@@ -28,7 +28,8 @@ UPDATE public."19_playlists" SET title='Soul and Jazz' WHERE slug='genre-fixture
 DO $checks$
 BEGIN
  IF (SELECT tags @> ARRAY['techno'] FROM public."19_songs" WHERE id=601) THEN RAISE EXCEPTION 'Foreign listener altered publisher genres'; END IF;
- IF NOT (SELECT tags @> ARRAY['soul','jazz','pop','lofi'] FROM public."19_songs" WHERE id=601) THEN RAISE EXCEPTION 'Playlist rename lost manual/existing genres'; END IF;
+ IF (SELECT tags && ARRAY['soul','jazz','pop','rock'] FROM public."19_songs" WHERE id=601) THEN RAISE EXCEPTION 'Playlist title or rename added unwanted tags'; END IF;
+ IF NOT (SELECT tags @> ARRAY['lofi','hip-hop','metal','drum-and-bass'] FROM public."19_songs" WHERE id=601) THEN RAISE EXCEPTION 'Existing tags lost'; END IF;
 END;
 $checks$;
 SET LOCAL ROLE anon;
@@ -51,9 +52,8 @@ BEGIN
  IF (SELECT id FROM public.recommend_public_music(ARRAY['happy','day','evening','sunset','autumn','cold','cloudy'],1))<>503
  THEN RAISE EXCEPTION 'Exact context did not outrank generic mood'; END IF;
  IF has_function_privilege('anon','public.public_music_catalog()','EXECUTE')
- OR has_function_privilege('authenticated','public.add_playlist_genre_tags()','EXECUTE')
  THEN RAISE EXCEPTION 'Internal helper exposed'; END IF;
- RAISE NOTICE 'PASS genre aliases, membership/rename inference, publisher ownership, public search and mixed environment matching';
+ RAISE NOTICE 'PASS genre aliases, membership/rename tag preservation, public search and mixed environment matching';
 END;
 $checks$;
 ROLLBACK;

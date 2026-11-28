@@ -10,7 +10,8 @@ async function load(modulePath, dependencies) {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText
   const compiledModule = { exports: {} }
-  new Function("require", "module", "exports", compiled)(name => {
+  const executeModule = new Function("require", "module", "exports", compiled)
+  executeModule(name => {
     assert.ok(name in dependencies, `Unexpected dependency: ${name}`)
     return dependencies[name]
   }, compiledModule, compiledModule.exports)
@@ -27,7 +28,7 @@ const originalSong = {
   song_path: "old.mp3", image_path: "old.png", created_at: "2020-01-01T00:00:00Z", tags: ["ambient"],
 }
 
-async function setup({ fail = () => null, membership = true, owner = "admin", concurrent = false } = {}) {
+async function setup({ fail = () => null, membership = true, owner = "admin", concurrent = false, simulateGenreTrigger = false } = {}) {
   const tables = {
     "19_playlists": [{ id: "playlist-1", user_id: "admin", title: "Mix", slug: "mix" }],
     "19_songs": [{ ...originalSong, user_id: owner }],
@@ -77,6 +78,10 @@ async function setup({ fail = () => null, membership = true, owner = "admin", co
         } else {
           const row = { ...(table === "19_songs" ? { id: 8, created_at: new Date().toISOString() } : {}), ...values }
           tables[table].push(row)
+          if (table === "19_playlist_songs" && simulateGenreTrigger) {
+            const song = tables["19_songs"].find(item => item.id === row.song_id)
+            if (song) song.tags = [...new Set([...song.tags, "chill", "hip-hop"])]
+          }
           rows = [row]
         }
       } else if (operation === "update") {
@@ -118,7 +123,7 @@ async function setup({ fail = () => null, membership = true, owner = "admin", co
     "@/libs/errorText": { errorText: error => error.message ?? String(error) },
     "@/libs/songCreateGuard": guard,
     "@/libs/imageFiles": { imageFileError: () => "" },
-    "@/libs/songTags": { parseSongTags: () => ["ambient"], normalizeSongTags: tags => tags, inferPlaylistGenreTags: () => [] },
+    "@/libs/songTags": { parseSongTags: () => ["ambient"], normalizeSongTags: tags => tags, inferPlaylistGenreTags: () => simulateGenreTrigger ? ["chill", "hip-hop"] : [] },
     "@/libs/songUploadRow": row,
     "../backup/requireUser": { requireUser: async () => ({ userId: "admin", email: "admin@example.invalid" }) },
     "../../backup/requireUser": { requireUser: async () => ({ userId: "admin", email: "admin@example.invalid" }) },
@@ -160,6 +165,28 @@ test("uploading with a new name creates a separate song and leaves the original 
   assert.equal(state.tables["19_songs"][1].title, "Server room (copy)")
   assert.equal(state.tables["19_playlist_songs"].length, 3)
   assert.equal(state.files.songs.has("old.mp3"), true)
+})
+
+test("new uploads retain submitted tags even when an old playlist trigger adds genres", async () => {
+  const state = await setup({ simulateGenreTrigger: true })
+  const response = await state.post({ title: "New song" })
+  assert.equal(response.status, 200)
+  assert.deepEqual(state.tables["19_songs"].find(song => song.id === 8).tags, ["ambient"])
+})
+
+test("replacement preserves submitted tags after an old playlist trigger runs", async () => {
+  const state = await setup({ membership: false, simulateGenreTrigger: true })
+  const response = await state.post({ replaceSongId: 7 })
+  assert.equal(response.status, 200)
+  assert.deepEqual(state.tables["19_songs"][0].tags, ["ambient"])
+})
+
+test("an upload is rolled back if submitted tags cannot be restored after linking", async () => {
+  const state = await setup({ simulateGenreTrigger: true, fail: event => event.table === "19_songs" && event.operation === "update" ? "Unable to save tags" : null })
+  const response = await state.post({ title: "New song" })
+  assert.equal(response.status, 400)
+  assert.equal(state.tables["19_songs"].some(song => song.id === 8), false)
+  assert.equal(state.tables["19_playlist_songs"].some(song => song.song_id === 8), false)
 })
 
 test("replacement keeps the song ID, all playlist positions and likes, then removes old files", async () => {

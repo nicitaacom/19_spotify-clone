@@ -20,11 +20,16 @@ export function songTagsWithDraft(tags: string[], draft: string): string[] {
   return normalizeSongTags([...tags, ...draft.split(",").filter(tag => tag.trim())])
 }
 
-const TOP_PLAYLIST_TAGS = 2
+const PLAYLIST_SUGGESTION_LIMIT = 8
+const PLAYLIST_AUTOFILL_LIMIT = 2
 
 export type RecentPlaylistSong = { addedAt: string; tags: string[] }
 
-/** The two most used tags across a playlist, and which appear on at least two songs. */
+// Playlist suggestions use English-style labels. Stored tags do not record their language,
+// so this filters by script rather than trying to guess the language of arbitrary words.
+const isEnglishStylePlaylistTag = (tag: string) => /^(?=.*[a-z])[a-z0-9 _-]+$/i.test(tag)
+
+/** Rank eligible playlist tags by the number of songs using them. */
 export function popularPlaylistTags(entries: RecentPlaylistSong[]): { autofill: string[]; top: string[] } {
   const songs = entries
     .filter(entry => entry.addedAt)
@@ -50,10 +55,10 @@ export function popularPlaylistTags(entries: RecentPlaylistSong[]): { autofill: 
     if (first[1].newestIndex !== second[1].newestIndex) return first[1].newestIndex - second[1].newestIndex
     return first[1].order - second[1].order
   })
-  const topRanked = ranked.slice(0, TOP_PLAYLIST_TAGS)
+  const topRanked = ranked.filter(([tag]) => isEnglishStylePlaylistTag(tag)).slice(0, PLAYLIST_SUGGESTION_LIMIT)
   return {
     top: topRanked.map(([tag]) => tag),
-    autofill: topRanked.filter(([, stat]) => stat.count >= 2).map(([tag]) => tag),
+    autofill: topRanked.filter(([, stat]) => stat.count >= 2).slice(0, PLAYLIST_AUTOFILL_LIMIT).map(([tag]) => tag),
   }
 }
 
@@ -65,10 +70,9 @@ export function filterDismissedPlaylistTags(tags: string[], dismissedTags: strin
   return tags.filter(tag => !dismissed.has(tag))
 }
 
-export function removedPlaylistTags(previousTags: string[], nextTags: string[], suggestedTags: string[]): string[] {
+export function removedPlaylistTags(previousTags: string[], nextTags: string[]): string[] {
   const next = new Set(nextTags)
-  const suggested = new Set(suggestedTags)
-  return previousTags.filter(tag => !next.has(tag) && suggested.has(tag))
+  return previousTags.filter(tag => !next.has(tag))
 }
 
 const MAX_MATCHED_SONG_TAGS = 3

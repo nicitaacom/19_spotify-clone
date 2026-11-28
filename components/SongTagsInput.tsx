@@ -4,7 +4,7 @@ import { FiChevronRight, FiPlus, FiX } from "react-icons/fi"
 import { errorText } from "@/libs/errorText"
 import { normalizeSongTags, MAX_SONG_TAGS, MAX_SONG_TAG_LENGTH, SONG_TAG_SUGGESTIONS } from "@/libs/songTags"
 
-export function SongTagsInput({ value, onChange, disabled = false, id = "song-tags", playlistTags = [], excludedTags = [], playlistLabel = "", onUsePlaylistTags, playlistNote = "" }: {
+export function SongTagsInput({ value, onChange, disabled = false, id = "song-tags", playlistTags = [], excludedTags = [], playlistLabel = "", playlistNote = "", showGeneralSuggestions = true }: {
   value: string[]
   onChange: (tags: string[]) => void
   disabled?: boolean
@@ -12,15 +12,15 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
   playlistTags?: string[]
   excludedTags?: string[]
   playlistLabel?: string
-  onUsePlaylistTags?: () => void
   playlistNote?: string
+  showGeneralSuggestions?: boolean
 }) {
   const [draft, setDraft] = useState(""), [error, setError] = useState("")
   const suggestionsRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ pointerId: number; startX: number; startScrollLeft: number; moved: boolean } | null>(null)
   const suppressClickRef = useRef(false)
   const playlistSuggestions = playlistTags.filter(tag => !value.includes(tag))
-  const suggestions = SONG_TAG_SUGGESTIONS.filter(tag => !value.includes(tag) && !playlistTags.includes(tag) && !excludedTags.includes(tag))
+  const suggestions = showGeneralSuggestions ? SONG_TAG_SUGGESTIONS.filter(tag => !value.includes(tag) && !playlistTags.includes(tag) && !excludedTags.includes(tag)) : []
 
   const showMoreSuggestions = () => {
     const suggestionsElement = suggestionsRef.current
@@ -107,11 +107,6 @@ export function SongTagsInput({ value, onChange, disabled = false, id = "song-ta
         <p className="min-w-0 truncate text-xs text-neutral-400">
           {value.length}/{MAX_SONG_TAGS}{(playlistNote || playlistLabel) ? ` · ${playlistNote || playlistLabel}` : ""}
         </p>
-        {onUsePlaylistTags && (
-          <button type="button" disabled={disabled} onClick={onUsePlaylistTags} className="shrink-0 text-xs text-neon hover:underline disabled:opacity-40">
-            Use top tags
-          </button>
-        )}
       </div>
       {error && <p id={`${id}-error`} role="alert" className="text-xs text-red-300">{error}</p>}
       <div role="group" aria-label={playlistLabel ? `Suggested tags, ${playlistLabel}` : "Suggested tags"} className="min-w-0">

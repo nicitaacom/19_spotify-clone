@@ -7,7 +7,7 @@ import { getSafeStoragePath } from "@/libs/helpers"
 import { errorText } from "@/libs/errorText"
 import { isStoredObjectPresent, isUploadId, lockIsStale, sameSongExistsMessage, uploadSlotPath } from "@/libs/songCreateGuard"
 import { imageFileError } from "@/libs/imageFiles"
-import { parseSongTags, normalizeSongTags, inferPlaylistGenreTags } from "@/libs/songTags"
+import { parseSongTags } from "@/libs/songTags"
 import { selectDBLatestSongUpload } from "@/libs/songUploadRow"
 
 import { requireUser } from "../backup/requireUser"
@@ -111,15 +111,13 @@ export async function POST(request: Request) {
   if (playlistId) {
     const { data: playlist, error } = await supabaseAdmin
       .from("19_playlists")
-      .select("user_id,title,slug")
+      .select("user_id")
       .eq("id", playlistId)
       .maybeSingle()
     if (error) return NextResponse.json({ error: errorText(error) }, { status: 500 })
     if (!playlist || playlist.user_id !== auth.userId) {
       return NextResponse.json({ error: "Playlist not found." }, { status: 404 })
     }
-    try { tags = normalizeSongTags([...tags, ...inferPlaylistGenreTags(playlist.title, playlist.slug)]) }
-    catch (error) { return NextResponse.json({ error: errorText(error) }, { status: 400 }) }
   }
 
   const songTitle = title.trim()
@@ -312,6 +310,14 @@ export async function POST(request: Request) {
     if (linkError) {
       await discardSong()
       return NextResponse.json({ error: errorText(linkError) }, { status: 400 })
+    }
+    // Older databases can still have a playlist-membership trigger that adds genre tags.
+    // Restore the submitted tags after linking until that trigger is removed by the migration.
+    const { data: retagged, error: tagError } = await supabaseAdmin.from("19_songs")
+      .update({ tags }).eq("id", songRecord.id).eq("user_id", auth.userId).select("id").maybeSingle()
+    if (tagError || !retagged) {
+      await discardSong()
+      return NextResponse.json({ error: tagError ? errorText(tagError) : "Could not save the selected song tags." }, { status: 400 })
     }
     const { error: accessError } = await supabaseAdmin.from("19_song_access").upsert({
       playlist_id: playlistId,
