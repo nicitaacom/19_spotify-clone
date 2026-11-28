@@ -71,6 +71,18 @@ export async function prepareSongUpload(
     return new File([audio], `${baseName}.mp3`, { type: "audio/mpeg" })
   }
 
+  if (extension === "m4a" && tooLargeToDecode) {
+    const { transcodeM4a } = await import("@/libs/transcodeM4a")
+    const audio = await transcodeM4a(file, kbps, onProgress)
+    if (audio.size > MAX_SONG_UPLOAD_BYTES) {
+      throw new Error(`"${file.name}" encoded at ${kbps} kbps is ${audio.size} bytes, over the ${MAX_SONG_UPLOAD_BYTES} byte storage cap.`)
+    }
+    return new File([audio], `${baseName}.mp3`, { type: "audio/mpeg" })
+  }
+  if (tooLargeToDecode) {
+    throw new Error(`"${file.name}" is too long to convert safely in this browser. Export it as MP3 or M4A and try again.`)
+  }
+
   let buffer: AudioBuffer
   try {
     const context = new OfflineAudioContext(2, 1, 44100)

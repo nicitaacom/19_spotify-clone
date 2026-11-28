@@ -211,3 +211,10 @@ test("keeps existing exports at 320 kbps and retains their metadata", async () =
   assert.equal(metadata.common.title, "Original title")
   assert.equal(metadata.common.artist, "Artist")
 })
+
+test("refuses to fully decode long non-streamable formats", async t => {
+  const decode = mockDecoder(t)
+  const source = new File([m4aBytes], "long.wav", { type: "audio/wav" })
+  await assert.rejects(prepareSongUpload(source, 3600), /too long to convert safely.*MP3 or M4A/)
+  assert.equal(decode.mock.callCount(), 0)
+})
